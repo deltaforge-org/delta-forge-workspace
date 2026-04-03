@@ -1,0 +1,13 @@
+[project]
+name = "supply-chain-analytics"
+version = "1.0.0"
+description = "End-to-end supply chain visibility: procurement, warehousing, transport, and demand analytics"
+entry_point = "pipeline.sql"
+
+[variables]
+zone_prefix = "sc"
+data_path = "/data/supply-chain"
+
+[settings]
+medallion = true
+fail_fast = true

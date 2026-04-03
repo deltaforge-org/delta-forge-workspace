@@ -1,141 +1,243 @@
 -- =============================================================================
 -- Manufacturing IoT Pipeline: Full Load (Bronze -> Silver -> Gold)
 -- =============================================================================
+-- Statistical anomaly detection: 5-reading moving avg + 2-sigma deviation.
+-- OEE = Availability x Performance x Quality (non-trivial composite).
+-- Equipment status derived from downtime gap analysis.
+-- VACUUM RETAIN 2160 HOURS (90-day retention governance).
+-- Pipeline DAG: 11 steps with parallel branches.
+-- =============================================================================
 
-SCHEDULE manufacturing_2hr_schedule
-    CRON '0 */2 * * *'
-    TIMEZONE 'UTC'
-    RETRIES 2
-    TIMEOUT 3600
-    MAX_CONCURRENT 1
-    ACTIVE;
+-- ===================== SCHEDULE & PIPELINE =====================
 
-PIPELINE manufacturing_iot_pipeline
-    DESCRIPTION 'IoT sensor pipeline with anomaly detection, moving averages, and OEE calculation'
-    SCHEDULE 'manufacturing_2hr_schedule'
-    TAGS 'manufacturing,iot,oee,anomaly-detection'
-    SLA 30
-    FAIL_FAST true
-    LIFECYCLE production;
+SCHEDULE manufacturing_2hr_schedule CRON '0 */2 * * *' TIMEZONE 'UTC' RETRIES 2 TIMEOUT 3600 MAX_CONCURRENT 1 ACTIVE;
 
--- ===================== STEP: validate_readings =====================
+PIPELINE manufacturing_iot_pipeline DESCRIPTION 'IoT sensor pipeline with 2-sigma anomaly detection, OEE calculation, equipment status, and 90-day VACUUM retention' SCHEDULE 'manufacturing_2hr_schedule' TAGS 'manufacturing,iot,oee,anomaly-detection,vacuum' SLA 30 FAIL_FAST true LIFECYCLE production;
+
+-- =============================================================================
+-- STEP 1: Validate bronze tables
+-- =============================================================================
+
+STEP validate_bronze
+  TIMEOUT '2m'
+AS
+  SELECT COUNT(*) AS reading_count FROM {{zone_prefix}}.bronze.raw_readings;
+  ASSERT VALUE reading_count = 90
+
+  SELECT COUNT(*) AS sensor_count FROM {{zone_prefix}}.bronze.raw_sensors;
+  ASSERT VALUE sensor_count = 16
+
+  SELECT COUNT(*) AS line_count FROM {{zone_prefix}}.bronze.raw_production_lines;
+  ASSERT VALUE line_count = 12
+
+  SELECT COUNT(*) AS shift_count FROM {{zone_prefix}}.bronze.raw_shifts;
+  ASSERT VALUE shift_count = 3
+
+  SELECT COUNT(*) AS target_count FROM {{zone_prefix}}.bronze.raw_production_targets;
+  ASSERT VALUE target_count = 12;
+
+-- =============================================================================
+-- STEP 2a: Validate readings — CHECK constraints, out-of-range flagging
+-- =============================================================================
+-- CHECK constraints: temperature_c BETWEEN -50 AND 500, pressure_bar BETWEEN 0 AND 200,
+-- vibration_hz BETWEEN 0 AND 50000, rpm BETWEEN 0 AND 20000.
+-- Quality score = 100 - (defect_units / units_produced * 100).
 
 STEP validate_readings
+  DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  -- Validate readings, compute moving averages, detect anomalies
-  -- 5-reading moving average for smoothing.
-  -- Anomaly = reading outside sensor threshold (from raw_sensors lookup).
-  -- Quality score = 100 - (defect_units / units_produced * 100).
   MERGE INTO {{zone_prefix}}.silver.readings_validated AS tgt
   USING (
-      WITH readings_with_ma AS (
+      SELECT
+          r.reading_id,
+          r.sensor_id,
+          s.sensor_type,
+          r.plant_id,
+          r.line_name,
+          r.reading_time,
+          CASE
+              WHEN EXTRACT(HOUR FROM r.reading_time) >= 6  AND EXTRACT(HOUR FROM r.reading_time) < 14 THEN 'SHIFT-AM'
+              WHEN EXTRACT(HOUR FROM r.reading_time) >= 14 AND EXTRACT(HOUR FROM r.reading_time) < 22 THEN 'SHIFT-PM'
+              ELSE 'SHIFT-NIGHT'
+          END AS shift_id,
+          r.value,
+          s.threshold_min,
+          s.threshold_max,
+          CASE
+              WHEN s.sensor_type = 'temperature' AND r.value BETWEEN -50 AND 500    THEN true
+              WHEN s.sensor_type = 'pressure'    AND r.value BETWEEN 0 AND 200      THEN true
+              WHEN s.sensor_type = 'vibration'   AND r.value BETWEEN 0 AND 50000    THEN true
+              WHEN s.sensor_type = 'rpm'         AND r.value BETWEEN 0 AND 20000    THEN true
+              ELSE false
+          END AS in_range_flag,
+          CASE
+              WHEN r.units_produced > 0
+              THEN CAST((1.0 - (r.defect_units * 1.0 / r.units_produced)) * 100 AS DECIMAL(5,2))
+              ELSE 100.00
+          END AS quality_score,
+          r.units_produced,
+          r.defect_units,
+          r.downtime_min,
+          r.ingested_at
+      FROM {{zone_prefix}}.bronze.raw_readings r
+      LEFT JOIN {{zone_prefix}}.bronze.raw_sensors s ON r.sensor_id = s.sensor_id
+  ) AS src
+  ON tgt.reading_id = src.reading_id
+  WHEN MATCHED THEN UPDATE SET
+      tgt.in_range_flag  = src.in_range_flag,
+      tgt.quality_score  = src.quality_score,
+      tgt.validated_at   = src.ingested_at
+  WHEN NOT MATCHED THEN INSERT (
+      reading_id, sensor_id, sensor_type, plant_id, line_name, reading_time, shift_id,
+      value, threshold_min, threshold_max, in_range_flag, quality_score,
+      units_produced, defect_units, downtime_min, validated_at
+  ) VALUES (
+      src.reading_id, src.sensor_id, src.sensor_type, src.plant_id, src.line_name,
+      src.reading_time, src.shift_id, src.value, src.threshold_min, src.threshold_max,
+      src.in_range_flag, src.quality_score, src.units_produced, src.defect_units,
+      src.downtime_min, src.ingested_at
+  );
+
+-- =============================================================================
+-- STEP 2b: Build equipment status from downtime gap analysis
+-- =============================================================================
+
+STEP build_equipment_status
+  DEPENDS ON (validate_bronze)
+  TIMEOUT '3m'
+AS
+  MERGE INTO {{zone_prefix}}.silver.equipment_status AS tgt
+  USING (
+      WITH shift_downtime AS (
           SELECT
-              r.reading_id,
-              r.sensor_id,
-              s.sensor_type,
               r.plant_id,
               r.line_name,
-              r.reading_time,
+              CAST(r.reading_time AS DATE) AS shift_date,
               CASE
                   WHEN EXTRACT(HOUR FROM r.reading_time) >= 6  AND EXTRACT(HOUR FROM r.reading_time) < 14 THEN 'SHIFT-AM'
                   WHEN EXTRACT(HOUR FROM r.reading_time) >= 14 AND EXTRACT(HOUR FROM r.reading_time) < 22 THEN 'SHIFT-PM'
                   ELSE 'SHIFT-NIGHT'
               END AS shift_id,
-              r.temperature_c,
-              r.pressure_bar,
-              r.vibration_hz,
-              r.rpm,
-              -- 5-reading moving averages per sensor
-              CAST(AVG(r.temperature_c) OVER (
-                  PARTITION BY r.sensor_id ORDER BY r.reading_time
-                  ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-              ) AS DECIMAL(8,2)) AS temp_moving_avg,
-              CAST(AVG(r.pressure_bar) OVER (
-                  PARTITION BY r.sensor_id ORDER BY r.reading_time
-                  ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-              ) AS DECIMAL(8,2)) AS press_moving_avg,
-              CAST(AVG(r.vibration_hz) OVER (
-                  PARTITION BY r.sensor_id ORDER BY r.reading_time
-                  ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-              ) AS DECIMAL(8,2)) AS vib_moving_avg,
-              CAST(AVG(r.rpm) OVER (
-                  PARTITION BY r.sensor_id ORDER BY r.reading_time
-                  ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-              ) AS DECIMAL(8,2)) AS rpm_moving_avg,
-              -- Quality score
+              480 AS planned_minutes,
+              COALESCE(SUM(r.downtime_min), 0) AS downtime_minutes,
+              480 - COALESCE(SUM(r.downtime_min), 0) AS uptime_minutes,
+              COUNT(CASE WHEN r.downtime_min > 0 THEN 1 END) AS unplanned_stops,
               CASE
-                  WHEN r.units_produced > 0
-                  THEN CAST((1.0 - (r.defect_units * 1.0 / r.units_produced)) * 100 AS DECIMAL(5,2))
-                  ELSE 100.00
-              END AS quality_score,
-              -- Anomaly detection: reading outside sensor thresholds
-              CASE
-                  WHEN s.sensor_type = 'temperature' AND (r.temperature_c < s.threshold_min OR r.temperature_c > s.threshold_max) THEN true
-                  WHEN s.sensor_type = 'pressure'    AND (r.pressure_bar  < s.threshold_min OR r.pressure_bar  > s.threshold_max) THEN true
-                  WHEN s.sensor_type = 'vibration'   AND (r.vibration_hz  < s.threshold_min OR r.vibration_hz  > s.threshold_max) THEN true
-                  WHEN s.sensor_type = 'rpm'          AND (r.rpm           < s.threshold_min OR r.rpm           > s.threshold_max) THEN true
-                  ELSE false
-              END AS anomaly_flag,
-              CASE
-                  WHEN s.sensor_type = 'temperature' AND r.temperature_c > s.threshold_max THEN 'Temperature above threshold: ' || CAST(r.temperature_c AS STRING) || 'C > ' || CAST(s.threshold_max AS STRING) || 'C'
-                  WHEN s.sensor_type = 'temperature' AND r.temperature_c < s.threshold_min THEN 'Temperature below threshold'
-                  WHEN s.sensor_type = 'pressure'    AND r.pressure_bar  > s.threshold_max THEN 'Pressure above threshold: ' || CAST(r.pressure_bar AS STRING) || ' bar > ' || CAST(s.threshold_max AS STRING) || ' bar'
-                  WHEN s.sensor_type = 'vibration'   AND r.vibration_hz  > s.threshold_max THEN 'Vibration above threshold: ' || CAST(r.vibration_hz AS STRING) || ' Hz > ' || CAST(s.threshold_max AS STRING) || ' Hz'
-                  WHEN s.sensor_type = 'rpm'          AND r.rpm           > s.threshold_max THEN 'RPM above threshold: ' || CAST(r.rpm AS STRING) || ' > ' || CAST(s.threshold_max AS STRING)
-                  ELSE NULL
-              END AS anomaly_reason,
-              r.units_produced,
-              r.defect_units,
-              r.downtime_min,
-              r.ingested_at
-          FROM {{zone_prefix}}.bronze.raw_sensor_readings r
-          LEFT JOIN {{zone_prefix}}.bronze.raw_sensors s
-              ON r.sensor_id = s.sensor_id
+                  WHEN COALESCE(SUM(r.downtime_min), 0) = 0 THEN 'RUNNING'
+                  WHEN COALESCE(SUM(r.downtime_min), 0) < 30 THEN 'DEGRADED'
+                  ELSE 'IMPAIRED'
+              END AS status
+          FROM {{zone_prefix}}.bronze.raw_readings r
+          GROUP BY r.plant_id, r.line_name, CAST(r.reading_time AS DATE),
+                   CASE
+                       WHEN EXTRACT(HOUR FROM r.reading_time) >= 6  AND EXTRACT(HOUR FROM r.reading_time) < 14 THEN 'SHIFT-AM'
+                       WHEN EXTRACT(HOUR FROM r.reading_time) >= 14 AND EXTRACT(HOUR FROM r.reading_time) < 22 THEN 'SHIFT-PM'
+                       ELSE 'SHIFT-NIGHT'
+                   END
       )
-      SELECT * FROM readings_with_ma
+      SELECT
+          sd.plant_id || '-' || sd.line_name || '-' || CAST(sd.shift_date AS STRING) || '-' || sd.shift_id AS status_id,
+          sd.*
+      FROM shift_downtime sd
+  ) AS src
+  ON tgt.status_id = src.status_id
+  WHEN MATCHED THEN UPDATE SET
+      tgt.downtime_minutes = src.downtime_minutes,
+      tgt.uptime_minutes   = src.uptime_minutes,
+      tgt.unplanned_stops  = src.unplanned_stops,
+      tgt.status           = src.status,
+      tgt.computed_at      = CURRENT_TIMESTAMP
+  WHEN NOT MATCHED THEN INSERT (
+      status_id, plant_id, line_name, shift_date, shift_id, planned_minutes,
+      downtime_minutes, uptime_minutes, unplanned_stops, status, computed_at
+  ) VALUES (
+      src.status_id, src.plant_id, src.line_name, src.shift_date, src.shift_id,
+      src.planned_minutes, src.downtime_minutes, src.uptime_minutes,
+      src.unplanned_stops, src.status, CURRENT_TIMESTAMP
+  );
+
+-- =============================================================================
+-- STEP 3: Smooth and detect anomalies — 5-reading moving avg + 2-sigma
+-- =============================================================================
+-- Statistical anomaly detection:
+--   moving_avg = AVG(value) OVER (PARTITION BY sensor_id ORDER BY reading_time ROWS BETWEEN 4 PRECEDING AND CURRENT ROW)
+--   moving_stddev = STDDEV(value) OVER (same window)
+--   anomaly_flag = ABS(value - moving_avg) > 2 * moving_stddev
+
+STEP smooth_and_detect_anomalies
+  DEPENDS ON (validate_readings)
+  TIMEOUT '5m'
+AS
+  MERGE INTO {{zone_prefix}}.silver.readings_smoothed AS tgt
+  USING (
+      WITH smoothed AS (
+          SELECT
+              v.reading_id,
+              v.sensor_id,
+              v.sensor_type,
+              v.plant_id,
+              v.line_name,
+              v.reading_time,
+              v.shift_id,
+              v.value,
+              -- 5-reading moving average
+              CAST(AVG(v.value) OVER (
+                  PARTITION BY v.sensor_id ORDER BY v.reading_time
+                  ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+              ) AS DECIMAL(10,2)) AS moving_avg,
+              -- Standard deviation over same window
+              CAST(STDDEV(v.value) OVER (
+                  PARTITION BY v.sensor_id ORDER BY v.reading_time
+                  ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+              ) AS DECIMAL(10,4)) AS moving_stddev,
+              v.validated_at
+          FROM {{zone_prefix}}.silver.readings_validated v
+      )
+      SELECT
+          s.*,
+          -- Flag if current reading deviates > 2 stddev from moving average
+          CASE
+              WHEN s.moving_stddev IS NOT NULL
+                   AND s.moving_stddev > 0
+                   AND ABS(s.value - s.moving_avg) > 2 * s.moving_stddev
+              THEN true
+              ELSE false
+          END AS anomaly_flag,
+          CASE
+              WHEN s.moving_stddev IS NOT NULL
+                   AND s.moving_stddev > 0
+                   AND ABS(s.value - s.moving_avg) > 2 * s.moving_stddev
+              THEN s.sensor_type || ' anomaly: value=' || CAST(s.value AS STRING)
+                   || ' deviates ' || CAST(CAST(ABS(s.value - s.moving_avg) / NULLIF(s.moving_stddev, 0) AS DECIMAL(5,1)) AS STRING)
+                   || ' sigma from moving_avg=' || CAST(s.moving_avg AS STRING)
+              ELSE NULL
+          END AS anomaly_reason
+      FROM smoothed s
   ) AS src
   ON tgt.reading_id = src.reading_id
   WHEN MATCHED THEN UPDATE SET
-      tgt.temp_moving_avg  = src.temp_moving_avg,
-      tgt.press_moving_avg = src.press_moving_avg,
-      tgt.vib_moving_avg   = src.vib_moving_avg,
-      tgt.rpm_moving_avg   = src.rpm_moving_avg,
-      tgt.quality_score    = src.quality_score,
-      tgt.anomaly_flag     = src.anomaly_flag,
-      tgt.anomaly_reason   = src.anomaly_reason,
-      tgt.validated_at     = src.ingested_at
+      tgt.moving_avg     = src.moving_avg,
+      tgt.moving_stddev  = src.moving_stddev,
+      tgt.anomaly_flag   = src.anomaly_flag,
+      tgt.anomaly_reason = src.anomaly_reason,
+      tgt.smoothed_at    = src.validated_at
   WHEN NOT MATCHED THEN INSERT (
       reading_id, sensor_id, sensor_type, plant_id, line_name, reading_time, shift_id,
-      temperature_c, pressure_bar, vibration_hz, rpm,
-      temp_moving_avg, press_moving_avg, vib_moving_avg, rpm_moving_avg,
-      quality_score, anomaly_flag, anomaly_reason,
-      units_produced, defect_units, downtime_min, validated_at
+      value, moving_avg, moving_stddev, anomaly_flag, anomaly_reason, smoothed_at
   ) VALUES (
       src.reading_id, src.sensor_id, src.sensor_type, src.plant_id, src.line_name,
-      src.reading_time, src.shift_id, src.temperature_c, src.pressure_bar,
-      src.vibration_hz, src.rpm, src.temp_moving_avg, src.press_moving_avg,
-      src.vib_moving_avg, src.rpm_moving_avg, src.quality_score, src.anomaly_flag,
-      src.anomaly_reason, src.units_produced, src.defect_units, src.downtime_min,
-      src.ingested_at
+      src.reading_time, src.shift_id, src.value, src.moving_avg, src.moving_stddev,
+      src.anomaly_flag, src.anomaly_reason, src.validated_at
   );
 
--- ===================== STEP: detect_anomalies =====================
-
-STEP detect_anomalies
-  DEPENDS ON (validate_readings)
-AS
-  -- Anomaly detection is already performed inline during validate_readings.
-  -- This step serves as a DAG checkpoint confirming anomaly flags are populated
-  -- before downstream consumers reference them in the fact table.
-  SELECT COUNT(*) AS anomaly_count
-  FROM {{zone_prefix}}.silver.readings_validated
-  WHERE anomaly_flag = true;
-
--- ===================== STEP: build_dim_sensor =====================
+-- =============================================================================
+-- STEP 4a: Build dim_sensor
+-- =============================================================================
 
 STEP build_dim_sensor
-  DEPENDS ON (validate_readings)
+  DEPENDS ON (smooth_and_detect_anomalies, build_equipment_status)
+  TIMEOUT '2m'
 AS
   MERGE INTO {{zone_prefix}}.gold.dim_sensor AS tgt
   USING (
@@ -147,7 +249,9 @@ AS
           install_date,
           calibration_date,
           threshold_min,
-          threshold_max
+          threshold_max,
+          plant_id,
+          line_name
       FROM {{zone_prefix}}.bronze.raw_sensors
   ) AS src
   ON tgt.sensor_key = src.sensor_key
@@ -155,15 +259,24 @@ AS
       tgt.calibration_date = src.calibration_date,
       tgt.threshold_min    = src.threshold_min,
       tgt.threshold_max    = src.threshold_max
-  WHEN NOT MATCHED THEN INSERT (sensor_key, sensor_id, sensor_type, manufacturer, install_date, calibration_date, threshold_min, threshold_max)
-  VALUES (src.sensor_key, src.sensor_id, src.sensor_type, src.manufacturer, src.install_date, src.calibration_date, src.threshold_min, src.threshold_max);
+  WHEN NOT MATCHED THEN INSERT (
+      sensor_key, sensor_id, sensor_type, manufacturer, install_date,
+      calibration_date, threshold_min, threshold_max, plant_id, line_name
+  ) VALUES (
+      src.sensor_key, src.sensor_id, src.sensor_type, src.manufacturer,
+      src.install_date, src.calibration_date, src.threshold_min, src.threshold_max,
+      src.plant_id, src.line_name
+  );
 
--- ===================== STEP: build_dim_line =====================
+-- =============================================================================
+-- STEP 4b: Build dim_line
+-- =============================================================================
 
 STEP build_dim_line
-  DEPENDS ON (validate_readings)
+  DEPENDS ON (smooth_and_detect_anomalies, build_equipment_status)
+  TIMEOUT '2m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_production_line AS tgt
+  MERGE INTO {{zone_prefix}}.gold.dim_line AS tgt
   USING (
       SELECT
           line_id                 AS line_key,
@@ -177,10 +290,13 @@ AS
   WHEN NOT MATCHED THEN INSERT (line_key, plant_id, line_name, product_type, capacity_units_per_hour)
   VALUES (src.line_key, src.plant_id, src.line_name, src.product_type, src.capacity_units_per_hour);
 
--- ===================== STEP: build_dim_shift =====================
+-- =============================================================================
+-- STEP 4c: Build dim_shift
+-- =============================================================================
 
 STEP build_dim_shift
-  DEPENDS ON (validate_readings)
+  DEPENDS ON (smooth_and_detect_anomalies, build_equipment_status)
+  TIMEOUT '2m'
 AS
   MERGE INTO {{zone_prefix}}.gold.dim_shift AS tgt
   USING (
@@ -196,50 +312,54 @@ AS
   WHEN NOT MATCHED THEN INSERT (shift_key, shift_name, start_hour, end_hour, supervisor)
   VALUES (src.shift_key, src.shift_name, src.start_hour, src.end_hour, src.supervisor);
 
--- ===================== STEP: build_fact_readings =====================
+-- =============================================================================
+-- STEP 5: Build fact_readings (star schema with smoothed value + anomaly flag)
+-- =============================================================================
 
 STEP build_fact_readings
-  DEPENDS ON (detect_anomalies, build_dim_sensor, build_dim_line, build_dim_shift)
+  DEPENDS ON (build_dim_sensor, build_dim_line, build_dim_shift)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_sensor_readings AS tgt
+  MERGE INTO {{zone_prefix}}.gold.fact_readings AS tgt
   USING (
       SELECT
-          reading_id     AS reading_key,
-          sensor_id      AS sensor_key,
-          plant_id || '-' || line_name AS line_key,
-          shift_id       AS shift_key,
-          reading_time,
-          temperature_c,
-          pressure_bar,
-          vibration_hz,
-          rpm,
-          quality_score,
-          anomaly_flag
-      FROM {{zone_prefix}}.silver.readings_validated
+          sm.reading_id     AS reading_key,
+          sm.sensor_id      AS sensor_key,
+          sm.plant_id || '-' || sm.line_name AS line_key,
+          sm.shift_id       AS shift_key,
+          sm.reading_time,
+          sm.value,
+          sm.moving_avg     AS smoothed_value,
+          sm.anomaly_flag,
+          v.quality_score
+      FROM {{zone_prefix}}.silver.readings_smoothed sm
+      JOIN {{zone_prefix}}.silver.readings_validated v ON sm.reading_id = v.reading_id
   ) AS src
   ON tgt.reading_key = src.reading_key
   WHEN MATCHED THEN UPDATE SET
-      tgt.quality_score = src.quality_score,
-      tgt.anomaly_flag  = src.anomaly_flag
+      tgt.smoothed_value = src.smoothed_value,
+      tgt.anomaly_flag   = src.anomaly_flag,
+      tgt.quality_score  = src.quality_score
   WHEN NOT MATCHED THEN INSERT (
       reading_key, sensor_key, line_key, shift_key, reading_time,
-      temperature_c, pressure_bar, vibration_hz, rpm, quality_score, anomaly_flag
+      value, smoothed_value, anomaly_flag, quality_score
   ) VALUES (
       src.reading_key, src.sensor_key, src.line_key, src.shift_key, src.reading_time,
-      src.temperature_c, src.pressure_bar, src.vibration_hz, src.rpm,
-      src.quality_score, src.anomaly_flag
+      src.value, src.smoothed_value, src.anomaly_flag, src.quality_score
   );
 
--- ===================== STEP: compute_oee =====================
+-- =============================================================================
+-- STEP 6a: Compute OEE = Availability x Performance x Quality
+-- =============================================================================
+-- Availability = (Planned Production Time - Downtime) / Planned Production Time
+-- Performance  = Actual Units / Target Units (from production_targets)
+-- Quality      = Good Units / Total Units
+-- OEE          = Availability x Performance x Quality / 10000.0
 
 STEP compute_oee
   DEPENDS ON (build_fact_readings)
+  TIMEOUT '5m'
 AS
-  -- OEE = Availability x Performance x Quality
-  -- Availability = (Planned - Downtime) / Planned  (planned = shift hours in minutes)
-  -- Performance = Actual Output / (Capacity * Available Hours)
-  -- Quality = Good Units / Total Units
   MERGE INTO {{zone_prefix}}.gold.kpi_oee AS tgt
   USING (
       WITH shift_metrics AS (
@@ -248,15 +368,15 @@ AS
               v.line_name,
               CAST(v.reading_time AS DATE) AS shift_date,
               sh.shift_name,
-              -- Planned time per shift = 8 hours = 480 minutes
+              v.shift_id,
               480 AS planned_minutes,
               COALESCE(SUM(v.downtime_min), 0) AS downtime_minutes,
-              SUM(v.units_produced) AS total_units,
+              SUM(v.units_produced) AS actual_units,
               SUM(v.defect_units)   AS defect_units,
-              COUNT(*) AS reading_count
+              SUM(v.units_produced) - SUM(v.defect_units) AS good_units
           FROM {{zone_prefix}}.silver.readings_validated v
           JOIN {{zone_prefix}}.bronze.raw_shifts sh ON v.shift_id = sh.shift_id
-          GROUP BY v.plant_id, v.line_name, CAST(v.reading_time AS DATE), sh.shift_name
+          GROUP BY v.plant_id, v.line_name, CAST(v.reading_time AS DATE), sh.shift_name, v.shift_id
       ),
       oee_calc AS (
           SELECT
@@ -264,63 +384,126 @@ AS
               sm.line_name,
               sm.shift_date,
               sm.shift_name,
+              sm.planned_minutes,
+              sm.downtime_minutes,
               -- Availability
               CAST((sm.planned_minutes - sm.downtime_minutes) * 100.0 / sm.planned_minutes AS DECIMAL(5,2)) AS availability_pct,
-              -- Performance: compare actual vs capacity (using production line capacity)
+              sm.actual_units,
+              -- Target from production_targets (if exists)
+              COALESCE(pt.target_units_per_shift, sm.actual_units) AS target_units,
+              -- Performance
               CAST(
                   CASE
-                      WHEN pl.capacity_units_per_hour > 0
-                      THEN sm.total_units * 100.0 / (pl.capacity_units_per_hour * (sm.planned_minutes - sm.downtime_minutes) / 60.0)
-                      ELSE 0
+                      WHEN COALESCE(pt.target_units_per_shift, 0) > 0
+                      THEN sm.actual_units * 100.0 / pt.target_units_per_shift
+                      ELSE 100.0
                   END
               AS DECIMAL(5,2)) AS performance_pct,
+              sm.good_units,
+              sm.actual_units AS total_units,
               -- Quality
               CAST(
                   CASE
-                      WHEN sm.total_units > 0
-                      THEN (sm.total_units - sm.defect_units) * 100.0 / sm.total_units
+                      WHEN sm.actual_units > 0
+                      THEN sm.good_units * 100.0 / sm.actual_units
                       ELSE 100
                   END
               AS DECIMAL(5,2)) AS quality_pct,
-              sm.total_units,
-              sm.defect_units,
-              sm.downtime_minutes
+              sm.defect_units
           FROM shift_metrics sm
-          LEFT JOIN {{zone_prefix}}.bronze.raw_production_lines pl
-              ON sm.plant_id = pl.plant_id AND sm.line_name = pl.line_name
+          LEFT JOIN {{zone_prefix}}.bronze.raw_production_targets pt
+              ON sm.plant_id = pt.plant_id AND sm.line_name = pt.line_name AND sm.shift_id = pt.shift_id
       )
       SELECT
-          *,
-          CAST(availability_pct * performance_pct * quality_pct / 10000.0 AS DECIMAL(5,2)) AS oee_pct
-      FROM oee_calc
+          o.*,
+          CAST(o.availability_pct * o.performance_pct * o.quality_pct / 10000.0 AS DECIMAL(5,2)) AS oee_pct
+      FROM oee_calc o
   ) AS src
   ON tgt.plant_id = src.plant_id AND tgt.line_name = src.line_name
      AND tgt.shift_date = src.shift_date AND tgt.shift_name = src.shift_name
   WHEN MATCHED THEN UPDATE SET
+      tgt.planned_minutes  = src.planned_minutes,
+      tgt.downtime_minutes = src.downtime_minutes,
       tgt.availability_pct = src.availability_pct,
+      tgt.actual_units     = src.actual_units,
+      tgt.target_units     = src.target_units,
       tgt.performance_pct  = src.performance_pct,
-      tgt.quality_pct      = src.quality_pct,
-      tgt.oee_pct          = src.oee_pct,
+      tgt.good_units       = src.good_units,
       tgt.total_units      = src.total_units,
-      tgt.defect_units     = src.defect_units,
-      tgt.downtime_minutes = src.downtime_minutes
+      tgt.quality_pct      = src.quality_pct,
+      tgt.oee_pct          = src.oee_pct
   WHEN NOT MATCHED THEN INSERT (
-      plant_id, line_name, shift_date, shift_name,
-      availability_pct, performance_pct, quality_pct, oee_pct,
-      total_units, defect_units, downtime_minutes
+      plant_id, line_name, shift_date, shift_name, planned_minutes, downtime_minutes,
+      availability_pct, actual_units, target_units, performance_pct,
+      good_units, total_units, quality_pct, oee_pct
   ) VALUES (
       src.plant_id, src.line_name, src.shift_date, src.shift_name,
-      src.availability_pct, src.performance_pct, src.quality_pct, src.oee_pct,
-      src.total_units, src.defect_units, src.downtime_minutes
+      src.planned_minutes, src.downtime_minutes, src.availability_pct,
+      src.actual_units, src.target_units, src.performance_pct,
+      src.good_units, src.total_units, src.quality_pct, src.oee_pct
   );
 
--- ===================== STEP: optimize_partitions =====================
+-- =============================================================================
+-- STEP 6b: Compute anomaly trends by sensor type over time
+-- =============================================================================
 
-STEP optimize_partitions
-  DEPENDS ON (compute_oee)
+STEP compute_anomaly_trends
+  DEPENDS ON (build_fact_readings)
+  TIMEOUT '3m'
+AS
+  MERGE INTO {{zone_prefix}}.gold.kpi_anomaly_trends AS tgt
+  USING (
+      SELECT
+          sm.sensor_type,
+          sm.plant_id,
+          DATE_TRUNC('month', sm.reading_time) AS trend_month,
+          COUNT(*) AS total_readings,
+          COUNT(CASE WHEN sm.anomaly_flag = true THEN 1 END) AS anomaly_count,
+          CAST(
+              COUNT(CASE WHEN sm.anomaly_flag = true THEN 1 END) * 100.0 / COUNT(*)
+          AS DECIMAL(5,2)) AS anomaly_rate_pct,
+          CAST(AVG(
+              CASE WHEN sm.anomaly_flag = true
+              THEN ABS(sm.value - sm.moving_avg) / NULLIF(sm.moving_stddev, 0)
+              END
+          ) AS DECIMAL(10,4)) AS avg_deviation,
+          CAST(MAX(
+              CASE WHEN sm.anomaly_flag = true
+              THEN ABS(sm.value - sm.moving_avg) / NULLIF(sm.moving_stddev, 0)
+              END
+          ) AS DECIMAL(10,4)) AS max_deviation
+      FROM {{zone_prefix}}.silver.readings_smoothed sm
+      GROUP BY sm.sensor_type, sm.plant_id, DATE_TRUNC('month', sm.reading_time)
+  ) AS src
+  ON tgt.sensor_type = src.sensor_type AND tgt.plant_id = src.plant_id
+     AND tgt.trend_month = src.trend_month
+  WHEN MATCHED THEN UPDATE SET
+      tgt.total_readings   = src.total_readings,
+      tgt.anomaly_count    = src.anomaly_count,
+      tgt.anomaly_rate_pct = src.anomaly_rate_pct,
+      tgt.avg_deviation    = src.avg_deviation,
+      tgt.max_deviation    = src.max_deviation
+  WHEN NOT MATCHED THEN INSERT (
+      sensor_type, plant_id, trend_month, total_readings, anomaly_count,
+      anomaly_rate_pct, avg_deviation, max_deviation
+  ) VALUES (
+      src.sensor_type, src.plant_id, src.trend_month, src.total_readings,
+      src.anomaly_count, src.anomaly_rate_pct, src.avg_deviation, src.max_deviation
+  );
+
+-- =============================================================================
+-- STEP 7: VACUUM and OPTIMIZE — 90-day retention governance
+-- =============================================================================
+
+STEP vacuum_and_optimize
+  DEPENDS ON (compute_oee, compute_anomaly_trends)
   CONTINUE ON FAILURE
   TIMEOUT '10m'
 AS
   OPTIMIZE {{zone_prefix}}.silver.readings_validated;
-  OPTIMIZE {{zone_prefix}}.gold.fact_sensor_readings;
+  OPTIMIZE {{zone_prefix}}.silver.readings_smoothed;
+  OPTIMIZE {{zone_prefix}}.gold.fact_readings;
   OPTIMIZE {{zone_prefix}}.gold.kpi_oee;
+  VACUUM {{zone_prefix}}.bronze.raw_readings RETAIN 2160 HOURS;
+  VACUUM {{zone_prefix}}.silver.readings_validated RETAIN 2160 HOURS;
+  VACUUM {{zone_prefix}}.silver.readings_smoothed RETAIN 2160 HOURS;

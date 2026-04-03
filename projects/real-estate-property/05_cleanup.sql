@@ -14,24 +14,24 @@ PIPELINE real_estate_property_cleanup
   LIFECYCLE production
 ;
 
-
 -- ===================== GOLD TABLES =====================
+DROP TABLE IF EXISTS {{zone_prefix}}.gold.kpi_assessment_accuracy;
 DROP TABLE IF EXISTS {{zone_prefix}}.gold.kpi_market_trends;
 DROP TABLE IF EXISTS {{zone_prefix}}.gold.fact_transactions;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_neighborhood;
+DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_property_type;
 DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_agent;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_buyer;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_property;
+DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_neighborhood;
 
 -- ===================== SILVER TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.transaction_enriched;
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.property_scd2;
+DROP TABLE IF EXISTS {{zone_prefix}}.silver.correction_log;
+DROP TABLE IF EXISTS {{zone_prefix}}.silver.transactions_enriched;
+DROP TABLE IF EXISTS {{zone_prefix}}.silver.property_dim;
 
 -- ===================== BRONZE TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_neighborhoods;
 DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_agents;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_buyers;
+DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_neighborhoods;
 DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_transactions;
+DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_assessments;
 DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_properties;
 
 -- ===================== SCHEMAS =====================

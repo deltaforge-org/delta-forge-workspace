@@ -2,43 +2,58 @@
 
 ## Scenario
 
-A law firm tracks attorneys, cases, clients, and billing through a medallion architecture with graph-based relationship modeling. The pipeline computes attorney utilization rates, case profitability, complexity scores, and uses Cypher queries to discover co-counsel networks, attorney-client relationship depth, and practice group communities.
+A litigation analytics firm tracks cases, parties, attorneys, and billing through a medallion architecture with a property graph for relationship analysis. Cypher queries reveal hidden connections between parties, conflict-of-interest chains, and attorney influence networks. PageRank identifies the most-influential attorneys, community detection (Louvain) discovers practice groups from co-counsel edges, and multi-hop traversals perform conflict-of-interest checks. PII of clients and witnesses is pseudonymised.
 
 ## Table Schemas
 
 ### Bronze Layer
-- **raw_attorneys** (8 rows): attorney_id, name, bar_number, practice_area (corporate/litigation/IP/employment/real_estate), partner_flag, hourly_rate
-- **raw_cases** (12 rows): case_id, case_number, case_type, court, filing_date, status (active/settled/closed)
-- **raw_clients** (10 rows): client_name, client_type (corporate/individual), industry, jurisdiction
-- **raw_billings** (65 rows): billing entries with hours, rates, amounts, billable flags
-- **raw_case_attorneys** (20 rows): case-attorney relationships with roles (lead/co_counsel)
-- **raw_case_clients** (14 rows): case-client relationships with party roles
+- **raw_cases** (15 rows): 5 civil, 3 criminal, 3 corporate, 2 IP, 2 employment
+- **raw_parties** (25 rows): plaintiffs, defendants, witnesses, experts with SSN/email/phone
+- **raw_attorneys** (10 rows): across 3 practice groups (litigation, corporate, ip)
+- **raw_billings** (70 rows): hours, rates, amounts, billable flags, billing types (billable, admin, pro_bono)
+- **raw_relationships** (40 rows): typed/weighted edges: represents, opposes, witnesses_for, co_counsel, referral
 
 ### Silver Layer
-- **billings_enriched** - Billings with case type, practice area, partner flag, complexity score
+- **cases_enriched** - Duration, attorney count, billing totals, complexity score
+- **billings_validated** - CHECK constraints (hours > 0, rate > 0), joined with case/attorney metadata
+- **party_profiles** - Aggregated involvement counts per party
 
 ### Gold Layer (Star Schema + Graph)
-- **fact_billings** - Billing facts with case/attorney/client keys, hours, rates, amounts
-- **dim_case** - Case dimension with complexity scores
-- **dim_attorney** - Attorney dimension (8 attorneys, 5 practice areas)
-- **dim_client** - Client dimension (10 clients, 7 industries)
-- **legal_network** (graph) - Attorneys, cases, clients connected via REPRESENTS and PARTY_TO edges
+- **dim_case** (15 cases with complexity scores)
+- **dim_attorney** (10 attorneys, 3 practice groups)
+- **dim_party** (25 parties)
+- **fact_billings** (70+ billing facts with case/attorney keys)
+- **kpi_firm_performance** (utilization rates, revenue per attorney, case profitability)
+- **legal_network** (graph: parties as vertices, relationships as typed/weighted edges)
 
-## Medallion Flow
+## Pipeline DAG (13 Steps)
 
 ```
-Bronze                          Silver                          Gold
-+-------------------+    +------------------------+    +-------------------+
-| raw_billings      |--->| billings_enriched      |--->| fact_billings     |
-| (65 entries)      |    | (complexity, enriched) |    +-------------------+
-+-------------------+    +------------------------+    | dim_case          |
-| raw_cases         |-----------------------------------| dim_attorney      |
-| raw_attorneys     |-----------------------------------| dim_client        |
-| raw_clients       |-----------------------------------+-------------------+
-+-------------------+                                  | legal_network     |
-| raw_case_attorneys|----------------------------------| (graph)           |
-| raw_case_clients  |----------------------------------+-------------------+
-+-------------------+
+validate_bronze
+       |
+  +----+-------------------+
+enrich_cases    validate_billings      <-- parallel
+  |                  |
+  +------------------+
+           |
+  build_party_profiles
+           |
+  +--------+----------+
+dim_case  dim_attorney  dim_party      <-- parallel
+  |          |            |
+  +----------+------------+
+             |
+  build_fact_billings
+             |
+  compute_firm_kpi
+             |
+  build_legal_graph (CREATE GRAPH with typed edges)
+             |
+  run_graph_analytics (PageRank, Louvain, conflict check, adversarial pairs)
+             |
+  restore_demo
+             |
+  optimize (CONTINUE ON FAILURE)
 ```
 
 ## Star Schema
@@ -47,50 +62,65 @@ Bronze                          Silver                          Gold
 +-------------------+    +-------------------+    +-------------------+
 | dim_case          |    | fact_billings     |    | dim_attorney      |
 |-------------------|    |-------------------|    |-------------------|
-| case_key       PK |----| billing_key    PK |----| attorney_key   PK |
-| case_number       |    | case_key       FK |    | name              |
-| case_type         |    | attorney_key   FK |    | practice_area     |
-| court             |    | client_key     FK |    | partner_flag      |
-| complexity_score  |    | billing_date      |    | hourly_rate       |
-+-------------------+    | hours             |    +-------------------+
-                         | hourly_rate       |
-+-------------------+    | amount            |
-| dim_client        |    | billable_flag     |
+| case_key       PK |--->| billing_key    PK |<---| attorney_key   PK |
+| case_number       |    | case_key       FK |    | attorney_name     |
+| case_type         |    | attorney_key   FK |    | practice_group    |
+| court             |    | billing_date      |    | partner_flag      |
+| complexity_score  |    | hours             |    | hourly_rate       |
++-------------------+    | hourly_rate       |    +-------------------+
+                         | amount            |
++-------------------+    | billable_flag     |
+| dim_party         |    | case_complexity   |
 |-------------------|    +-------------------+
-| client_key     PK |----+
-| client_name       |
-| client_type       |    +-------------------+
-| industry          |    | legal_network     |
-+-------------------+    | (graph)           |
-                         |-------------------|
-                         | REPRESENTS edges  |
-                         | PARTY_TO edges    |
-                         +-------------------+
+| party_key      PK |
+| party_name        |    +-------------------------+
+| party_type        |    | kpi_firm_performance    |
+| organization      |    |-------------------------|
++-------------------+    | utilization_pct         |
+                         | total_revenue           |
+                         | revenue_per_hour        |
+                         +-------------------------+
 ```
 
 ## Graph Queries
 
-- **Co-counsel network**: Find pairs of attorneys working on the same case
-- **Degree centrality**: Most connected attorneys by case count
-- **Attorney-client depth**: Number of shared cases between each attorney-client pair
-- **Practice group communities**: Group attorneys by practice area with case counts
+- **PageRank**: Most influential nodes across the legal network
+- **Community Detection (Louvain)**: Practice groups from co_counsel edges
+- **Multi-hop (3 hops)**: Conflict-of-interest check from any party
+- **Betweenness Centrality**: Attorneys bridging practice groups
+- **Adversarial Pairs**: (attorney)-[:represents]->(party)-[:opposes]->(opponent)<-[:represents]-(attorney)
 
-## Key Features
+## Pseudonymisation
 
-- **Graph modeling** with Cypher queries for relationship analysis
-- **Complexity scoring**: LN(total_hours) * attorney_count * party_count / 5 (normalized 1-10)
-- **Attorney utilization**: billable_hours / total_hours percentage
-- **Case profitability**: total billed per case with complexity weighting
-- **Partner vs Associate analysis**: revenue split and rate comparison
-- **Pseudonymisation**: REDACT client_name, keyed_hash case_number
+| Field | Transform | Details |
+|---|---|---|
+| SSN | REDACT | Masked as `***-**-****` |
+| party_name | keyed_hash | SCOPE person, salted SHA256 |
+| contact_email | MASK | Show first 3 characters |
+| contact_phone | MASK | Show last 4 digits |
+
+## Seed Data Profile
+
+- 15 cases across 5 types with varying priority and status
+- 25 parties: plaintiffs, defendants, witnesses, experts
+- 10 attorneys across 3 practice groups (3 partners)
+- 70 billing entries including non-billable (admin, pro-bono)
+- 40 relationship edges with 5 types and weights
+- 2 frequent co-counsel pairs (A001-A002, A005-A007)
+- 1 conflict-of-interest chain (A009 connected to opposing parties via referral)
+- 3 high-complexity cases (C001, C006, C009)
 
 ## Verification Checklist
 
+- [ ] 15 cases, 10 attorneys, 25 parties in dimensions
 - [ ] Victoria Sterling is top revenue attorney
-- [ ] Securities fraud case total billed >= $20,000
-- [ ] Corporate client total billing >= $100,000
 - [ ] Partner average hourly rate >= $550
-- [ ] 12 cases, 8 attorneys, 10 clients in dimensions
+- [ ] Criminal case C006 total billed >= $25,000
 - [ ] No orphan keys in fact table
-- [ ] Graph co-counsel pairs discoverable via Cypher
-- [ ] Practice group communities identifiable
+- [ ] 3 practice groups in KPI table
+- [ ] 10 attorneys with utilization metrics
+- [ ] Graph co-counsel pairs via Cypher
+- [ ] PageRank identifies influential nodes
+- [ ] Community detection finds practice groups
+- [ ] Multi-hop conflict check traverses 3 hops
+- [ ] Adversarial pairs pattern matching works

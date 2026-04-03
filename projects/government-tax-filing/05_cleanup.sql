@@ -14,19 +14,23 @@ PIPELINE government_tax_filing_cleanup
   LIFECYCLE production
 ;
 
-
 -- ===================== GOLD TABLES =====================
+DROP TABLE IF EXISTS {{zone_prefix}}.gold.kpi_preparer_quality;
 DROP TABLE IF EXISTS {{zone_prefix}}.gold.kpi_revenue_analysis;
 DROP TABLE IF EXISTS {{zone_prefix}}.gold.fact_filings;
+DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_fiscal_year;
 DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_preparer;
 DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_jurisdiction;
 DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_taxpayer;
 
 -- ===================== SILVER TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.taxpayer_enriched;
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.filings;
+DROP TABLE IF EXISTS {{zone_prefix}}.silver.audit_trail;
+DROP TABLE IF EXISTS {{zone_prefix}}.silver.taxpayer_profiles;
+DROP TABLE IF EXISTS {{zone_prefix}}.silver.amendments_applied;
+DROP TABLE IF EXISTS {{zone_prefix}}.silver.filings_immutable;
 
 -- ===================== BRONZE TABLES =====================
+DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_amendments;
 DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_filings;
 DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_preparers;
 DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_jurisdictions;

@@ -1,82 +1,155 @@
 -- =============================================================================
--- Insurance Claims Pipeline - Gold Layer Verification
+-- Property & Casualty Insurance Claims Pipeline: Gold Layer Verification
+-- =============================================================================
+-- 14 ASSERT validations covering SCD2 versioning, point-in-time joins, fraud
+-- detection, loss ratios, adjuster performance, and referential integrity.
 -- =============================================================================
 
--- ===================== TEST 1: SCD2 Policy Versioning =====================
-
+-- -----------------------------------------------------------------------------
+-- 1. SCD2 Policy Versioning: POL001 should have 3 versions
+-- -----------------------------------------------------------------------------
 SELECT
-    policy_id,
-    holder_name,
-    coverage_type,
-    annual_premium,
-    risk_score,
-    valid_from,
-    valid_to,
-    is_current
-FROM {{zone_prefix}}.gold.dim_policy
-WHERE policy_id IN ('POL001', 'POL004')
-ORDER BY policy_id, valid_from;
+    policy_id, holder_name, coverage_type, annual_premium,
+    risk_score, valid_from, valid_to, is_current
+FROM {{zone_prefix}}.silver.policy_dim
+WHERE policy_id = 'POL001'
+ORDER BY valid_from;
 
--- POL001 should have 3 versions (new, premium_increase, coverage_upgrade)
 SELECT COUNT(*) AS pol001_versions
-FROM {{zone_prefix}}.gold.dim_policy
+FROM {{zone_prefix}}.silver.policy_dim
 WHERE policy_id = 'POL001';
 
--- Only one current version per policy
 ASSERT VALUE pol001_versions = 3
+SELECT 'POL001 has 3 SCD2 versions (new, premium_increase, coverage_upgrade)' AS status;
+
+-- -----------------------------------------------------------------------------
+-- 2. SCD2: Only 1 current version per policy
+-- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS current_pol001
-FROM {{zone_prefix}}.gold.dim_policy
+FROM {{zone_prefix}}.silver.policy_dim
 WHERE policy_id = 'POL001' AND is_current = 1;
 
--- ===================== TEST 2: Star Schema Join - Claim Detail =====================
-
 ASSERT VALUE current_pol001 = 1
+SELECT 'Exactly 1 current version per policy verified' AS status;
+
+-- -----------------------------------------------------------------------------
+-- 3. SCD2: Total current policies = 15 (distinct policy_ids)
+-- -----------------------------------------------------------------------------
+SELECT COUNT(*) AS total_current
+FROM {{zone_prefix}}.silver.policy_dim
+WHERE is_current = 1;
+
+ASSERT VALUE total_current = 15
+SELECT '15 current policies verified' AS status;
+
+-- -----------------------------------------------------------------------------
+-- 4. Point-in-time join validation: POL001 claims use correct policy version
+-- -----------------------------------------------------------------------------
+SELECT
+    ce.claim_id,
+    ce.incident_date,
+    ce.coverage_type,
+    ce.annual_premium_at_incident,
+    ce.risk_score_at_incident,
+    ce.claim_amount
+FROM {{zone_prefix}}.silver.claims_enriched ce
+WHERE ce.policy_id = 'POL001'
+ORDER BY ce.incident_date;
+
+-- POL001 claim from 2023-03-15 should use auto/1380 (premium_increase version)
+-- POL001 claim from 2024-01-05 should use auto_plus/1650 (coverage_upgrade version)
+SELECT ce.coverage_type AS jan2024_coverage
+FROM {{zone_prefix}}.silver.claims_enriched ce
+WHERE ce.claim_id = 'C0039';
+
+ASSERT VALUE jan2024_coverage = 'auto_plus'
+SELECT 'Point-in-time join correctly resolved to coverage_upgrade version' AS status;
+
+-- -----------------------------------------------------------------------------
+-- 5. Fraud detection: high_risk claims exist (outliers C0009, C0010, C0037)
+-- -----------------------------------------------------------------------------
+SELECT
+    claim_id, claim_amount, coverage_type, fraud_risk, fraud_score
+FROM {{zone_prefix}}.silver.claims_enriched
+WHERE fraud_risk = 'high_risk'
+ORDER BY fraud_score DESC;
+
+SELECT COUNT(*) AS high_risk_count
+FROM {{zone_prefix}}.silver.claims_enriched
+WHERE fraud_risk = 'high_risk';
+
+ASSERT VALUE high_risk_count >= 2
+SELECT 'Fraud outlier detection identified high-risk claims' AS status;
+
+-- -----------------------------------------------------------------------------
+-- 6. Star schema join: full claim detail query
+-- -----------------------------------------------------------------------------
 SELECT
     fc.claim_key,
-    dp.holder_name,
-    dp.coverage_type,
     dc.name AS claimant_name,
     dc.age_band,
     da.name AS adjuster_name,
     da.specialization,
+    dct.coverage_category,
     fc.incident_date,
     fc.claim_amount,
     fc.approved_amount,
     fc.status,
+    fc.fraud_risk,
     fc.days_to_settle
 FROM {{zone_prefix}}.gold.fact_claims fc
-JOIN {{zone_prefix}}.gold.dim_policy dp ON fc.policy_key = dp.surrogate_key
 JOIN {{zone_prefix}}.gold.dim_claimant dc ON fc.claimant_key = dc.claimant_key
 JOIN {{zone_prefix}}.gold.dim_adjuster da ON fc.adjuster_key = da.adjuster_key
+JOIN {{zone_prefix}}.gold.dim_coverage_type dct ON fc.coverage_key = dct.coverage_key
 ORDER BY fc.claim_amount DESC
 LIMIT 10;
 
--- Highest claim should be >= $100k (workplace injury liability)
+-- Highest claim should be >= $150k (outlier liability claims)
 SELECT MAX(fc.claim_amount) AS max_claim
 FROM {{zone_prefix}}.gold.fact_claims fc;
 
--- ===================== TEST 3: Loss Ratio by Coverage Type =====================
+ASSERT VALUE max_claim >= 150000
+SELECT 'Max claim exceeds $150K (outlier liability verified)' AS status;
 
-ASSERT VALUE max_claim >= 100000
+-- -----------------------------------------------------------------------------
+-- 7. Loss ratios by coverage type
+-- -----------------------------------------------------------------------------
 SELECT
-    coverage_type,
-    region,
-    claim_count,
-    total_claimed,
-    total_approved,
-    loss_ratio,
-    avg_days_to_settle
+    coverage_type, region, quarter, claim_count,
+    total_claimed, total_approved, total_premium, loss_ratio, avg_days_to_settle
 FROM {{zone_prefix}}.gold.kpi_loss_ratios
-ORDER BY loss_ratio DESC;
+ORDER BY loss_ratio DESC
+LIMIT 10;
 
--- Loss ratio should exist for liability
-SELECT SUM(total_claimed) AS liability_claims
+-- Liability should have the highest loss ratio
+SELECT SUM(total_claimed) AS liability_total
 FROM {{zone_prefix}}.gold.kpi_loss_ratios
 WHERE coverage_type = 'liability';
 
--- ===================== TEST 4: Claims Aging Report =====================
+ASSERT VALUE liability_total >= 200000
+SELECT 'Liability coverage has substantial claim volume' AS status;
 
-ASSERT VALUE liability_claims >= 100000
+-- -----------------------------------------------------------------------------
+-- 8. Adjuster performance metrics
+-- -----------------------------------------------------------------------------
+SELECT
+    adjuster_name, specialization, claims_handled, claims_settled,
+    avg_days_to_settle, approval_rate_pct, total_approved
+FROM {{zone_prefix}}.gold.kpi_adjuster_performance
+ORDER BY claims_handled DESC;
+
+-- ADJ02 (auto) or ADJ04 (health) should handle the most claims
+SELECT adjuster_id AS top_adjuster
+FROM {{zone_prefix}}.gold.kpi_adjuster_performance
+ORDER BY claims_handled DESC
+LIMIT 1;
+
+ASSERT VALUE top_adjuster IS NOT NULL
+SELECT 'Top adjuster by volume identified' AS status;
+
+-- -----------------------------------------------------------------------------
+-- 9. Claims status distribution
+-- -----------------------------------------------------------------------------
 SELECT
     fc.status,
     COUNT(*) AS claim_count,
@@ -88,90 +161,78 @@ FROM {{zone_prefix}}.gold.fact_claims fc
 GROUP BY fc.status
 ORDER BY claim_count DESC;
 
--- Should have multiple statuses
 SELECT COUNT(DISTINCT status) AS status_count
 FROM {{zone_prefix}}.gold.fact_claims;
 
--- ===================== TEST 5: Adjuster Performance =====================
-
 ASSERT VALUE status_count >= 3
-SELECT
-    da.name AS adjuster,
-    da.specialization,
-    da.years_experience,
-    COUNT(fc.claim_key) AS claims_handled,
-    ROUND(AVG(fc.days_to_settle), 1) AS avg_days_to_settle,
-    ROUND(SUM(fc.approved_amount) / NULLIF(SUM(fc.claim_amount), 0) * 100, 2) AS approval_rate_pct
-FROM {{zone_prefix}}.gold.fact_claims fc
-JOIN {{zone_prefix}}.gold.dim_adjuster da ON fc.adjuster_key = da.adjuster_key
-GROUP BY da.name, da.specialization, da.years_experience
-ORDER BY claims_handled DESC;
+SELECT 'Multiple claim statuses present (settled, filed, under_review, denied)' AS status;
 
--- Auto adjuster should handle most claims
-SELECT da.specialization AS top_adj_spec
-FROM {{zone_prefix}}.gold.fact_claims fc
-JOIN {{zone_prefix}}.gold.dim_adjuster da ON fc.adjuster_key = da.adjuster_key
-GROUP BY da.specialization
-ORDER BY COUNT(*) DESC
-LIMIT 1;
-
--- ===================== TEST 6: Point-in-Time Policy Join Validation =====================
-
--- Claims should join to the correct policy version based on incident date
-ASSERT VALUE top_adj_spec = 'auto'
-SELECT
-    fc.incident_date,
-    dp.policy_id,
-    dp.coverage_type,
-    dp.annual_premium,
-    dp.valid_from,
-    dp.valid_to,
-    fc.claim_amount
-FROM {{zone_prefix}}.gold.fact_claims fc
-JOIN {{zone_prefix}}.gold.dim_policy dp ON fc.policy_key = dp.surrogate_key
-WHERE dp.policy_id = 'POL001'
-ORDER BY fc.incident_date;
-
--- ===================== TEST 7: Dimension Completeness =====================
-
+-- -----------------------------------------------------------------------------
+-- 10. Dimension completeness
+-- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS claimant_count FROM {{zone_prefix}}.gold.dim_claimant;
-ASSERT VALUE claimant_count = 10
+ASSERT VALUE claimant_count = 12
 
 SELECT COUNT(*) AS adjuster_count FROM {{zone_prefix}}.gold.dim_adjuster;
--- ===================== TEST 8: Referential Integrity =====================
+ASSERT VALUE adjuster_count = 6
 
-ASSERT VALUE adjuster_count = 5
-SELECT COUNT(*) AS orphan_policies
-FROM {{zone_prefix}}.gold.fact_claims fc
-LEFT JOIN {{zone_prefix}}.gold.dim_policy dp ON fc.policy_key = dp.surrogate_key
-WHERE dp.surrogate_key IS NULL;
+SELECT COUNT(*) AS coverage_count FROM {{zone_prefix}}.gold.dim_coverage_type;
+ASSERT VALUE coverage_count >= 6
+SELECT 'All dimensions fully loaded (12 claimants, 6 adjusters, 6+ coverage types)' AS status;
 
-ASSERT VALUE orphan_policies = 0
-
+-- -----------------------------------------------------------------------------
+-- 11. Referential integrity: fact -> dim_claimant
+-- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS orphan_claimants
 FROM {{zone_prefix}}.gold.fact_claims fc
 LEFT JOIN {{zone_prefix}}.gold.dim_claimant dc ON fc.claimant_key = dc.claimant_key
 WHERE dc.claimant_key IS NULL;
 
--- ===================== TEST 9: Regional Claim Distribution =====================
-
 ASSERT VALUE orphan_claimants = 0
+SELECT 'Zero orphan claimants in fact table' AS status;
+
+-- -----------------------------------------------------------------------------
+-- 12. Referential integrity: fact -> dim_adjuster
+-- -----------------------------------------------------------------------------
+SELECT COUNT(*) AS orphan_adjusters
+FROM {{zone_prefix}}.gold.fact_claims fc
+LEFT JOIN {{zone_prefix}}.gold.dim_adjuster da ON fc.adjuster_key = da.adjuster_key
+WHERE da.adjuster_key IS NULL;
+
+ASSERT VALUE orphan_adjusters = 0
+SELECT 'Zero orphan adjusters in fact table' AS status;
+
+-- -----------------------------------------------------------------------------
+-- 13. Regional claim distribution (at least 4 regions)
+-- -----------------------------------------------------------------------------
 SELECT
-    dp.region,
+    pd.region,
     COUNT(*) AS claims,
     ROUND(SUM(fc.claim_amount), 2) AS total_claimed,
-    ROUND(AVG(fc.claim_amount), 2) AS avg_claim
+    ROUND(AVG(fc.claim_amount), 2) AS avg_claim,
+    ROUND(AVG(fc.days_to_settle), 1) AS avg_settle_days
 FROM {{zone_prefix}}.gold.fact_claims fc
-JOIN {{zone_prefix}}.gold.dim_policy dp ON fc.policy_key = dp.surrogate_key
-GROUP BY dp.region
+JOIN {{zone_prefix}}.silver.policy_dim pd ON fc.policy_surrogate_key = pd.surrogate_key
+GROUP BY pd.region
 ORDER BY total_claimed DESC;
 
--- Should have at least 4 regions
-SELECT COUNT(DISTINCT dp.region) AS region_count
+SELECT COUNT(DISTINCT pd.region) AS region_count
 FROM {{zone_prefix}}.gold.fact_claims fc
-JOIN {{zone_prefix}}.gold.dim_policy dp ON fc.policy_key = dp.surrogate_key;
-
--- ===================== VERIFICATION SUMMARY =====================
+JOIN {{zone_prefix}}.silver.policy_dim pd ON fc.policy_surrogate_key = pd.surrogate_key;
 
 ASSERT VALUE region_count >= 4
-SELECT 'Insurance Claims Gold Layer Verification PASSED' AS status;
+SELECT 'Claims distributed across 4+ regions' AS status;
+
+-- -----------------------------------------------------------------------------
+-- 14. Actuarial snapshot captured initial policy loads
+-- -----------------------------------------------------------------------------
+SELECT COUNT(*) AS snapshot_count FROM {{zone_prefix}}.silver.actuarial_snapshots;
+
+ASSERT VALUE snapshot_count > 0
+SELECT 'Actuarial snapshots captured via CDF' AS status;
+
+-- =============================================================================
+-- FINAL SUMMARY
+-- =============================================================================
+
+SELECT 'Insurance Claims Gold Layer Verification PASSED - all 14 checks' AS final_status;

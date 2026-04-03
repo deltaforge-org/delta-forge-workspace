@@ -1,21 +1,23 @@
 [project]
 id = "government-tax-filing"
 name = "Government Tax Filing Pipeline"
-version = "1.0.0"
+version = "2.0.0"
 author = "Delta Forge Team"
 description = """
-Advanced government tax filing pipeline implementing medallion architecture with
-pseudonymisation (REDACT SSN, MASK taxpayer_name), partitioning by fiscal_year,
-Change Data Feed (CDF) for tracking filing status changes, and both full and
-incremental load patterns. Features a gold-layer star schema with fact_filings,
-taxpayer/jurisdiction/preparer dimensions, and revenue analysis KPIs including
-compliance rates, audit flagging, and effective tax rate analysis.
+Enterprise government tax filing pipeline implementing append-only immutable filings with separate amendment
+tracking, CDF-driven audit trail capturing every change, partitioning by fiscal_year, pseudonymisation
+(REDACT SSN, MASK taxpayer_name), bloom filter on taxpayer_id for fast lookup, point-in-time "filings as of
+processing deadline" via time travel, and a star schema with fact_filings joining originals + amendments.
+Features dim_taxpayer, dim_jurisdiction, dim_preparer, dim_fiscal_year, KPI revenue analysis by
+jurisdiction x year with compliance rate and audit yield, and KPI preparer quality with error rates
+and amendment rates per preparer. 50 filings across FY2022-2024, 12 amendments, 20 taxpayers, 6
+jurisdictions, 5 preparers, 4 audit-flagged filings, and 2 high-amendment-rate preparers.
 """
 industry = "government"
 categories = ["pipeline", "medallion", "government", "tax"]
-tags = ["pseudonymisation", "partitioning", "CDF", "MERGE", "star-schema", "incremental", "audit-detection"]
+tags = ["pseudonymisation", "partitioning", "CDF", "MERGE", "star-schema", "incremental", "audit-detection", "append-only", "amendments", "bloom-filter", "RESTORE"]
 difficulty = "advanced"
-estimated_time_minutes = 18
+estimated_time_minutes = 25
 load_type = "both"
 
 [project.variables]
@@ -34,6 +36,10 @@ name = "{{zone_prefix}}.bronze.raw_filings"
 
 [[project.target_objects]]
 type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_amendments"
+
+[[project.target_objects]]
+type = "delta_table"
 name = "{{zone_prefix}}.bronze.raw_taxpayers"
 
 [[project.target_objects]]
@@ -46,15 +52,19 @@ name = "{{zone_prefix}}.bronze.raw_preparers"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.silver.filings"
+name = "{{zone_prefix}}.silver.filings_immutable"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.silver.taxpayer_enriched"
+name = "{{zone_prefix}}.silver.amendments_applied"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.gold.fact_filings"
+name = "{{zone_prefix}}.silver.taxpayer_profiles"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.audit_trail"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -70,4 +80,16 @@ name = "{{zone_prefix}}.gold.dim_preparer"
 
 [[project.target_objects]]
 type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_fiscal_year"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_filings"
+
+[[project.target_objects]]
+type = "delta_table"
 name = "{{zone_prefix}}.gold.kpi_revenue_analysis"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_preparer_quality"

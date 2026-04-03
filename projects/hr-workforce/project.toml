@@ -1,21 +1,21 @@
 [project]
 id = "hr-workforce"
 name = "HR Workforce Analytics Pipeline"
-version = "1.0.0"
+version = "2.0.0"
 author = "Delta Forge Team"
 description = """
-Advanced HR workforce analytics pipeline implementing medallion architecture with
-SCD Type 2 (two-pass MERGE for compensation history tracking), pseudonymisation
-(REDACT salary, MASK SSN, keyed_hash employee_name), and deletion vectors for
-terminated employee data erasure. Features a gold-layer star schema with
-fact_compensation_events, SCD2 employee dimension, department/position dimensions,
-and workforce analytics KPIs including turnover, gender pay gap, and compa-ratio.
+Full employee lifecycle pipeline: hire -> promotions -> transfers -> compensation changes ->
+termination. SCD2 captures every change (32 dimension rows from 20 employees). All five
+pseudonymisation transforms (REDACT, MASK, keyed_hash, generalize) protect sensitive fields.
+CDF feeds an org change log for compliance. GDPR erasure demonstrates DELETE + VACUUM + VERSION
+AS OF + RESTORE proving physical data removal. Gold star schema drives compa-ratio analysis,
+gender pay gap detection per department, and retention risk scoring.
 """
 industry = "human_resources"
 categories = ["pipeline", "medallion", "hr", "workforce"]
-tags = ["SCD2", "MERGE", "pseudonymisation", "deletion-vectors", "star-schema", "compensation", "turnover-analysis"]
+tags = ["SCD2", "MERGE", "pseudonymisation", "CDF", "deletion-vectors", "GDPR", "star-schema", "compa-ratio", "gender-pay-gap", "retention-risk"]
 difficulty = "advanced"
-estimated_time_minutes = 20
+estimated_time_minutes = 25
 load_type = "both"
 
 [project.variables]
@@ -34,6 +34,10 @@ name = "{{zone_prefix}}.bronze.raw_employees"
 
 [[project.target_objects]]
 type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_comp_events"
+
+[[project.target_objects]]
+type = "delta_table"
 name = "{{zone_prefix}}.bronze.raw_departments"
 
 [[project.target_objects]]
@@ -42,11 +46,7 @@ name = "{{zone_prefix}}.bronze.raw_positions"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_comp_events"
-
-[[project.target_objects]]
-type = "delta_table"
-name = "{{zone_prefix}}.silver.dim_employee_scd2"
+name = "{{zone_prefix}}.silver.employee_dim"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -54,11 +54,7 @@ name = "{{zone_prefix}}.silver.comp_events_enriched"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.gold.fact_compensation_events"
-
-[[project.target_objects]]
-type = "delta_table"
-name = "{{zone_prefix}}.gold.dim_employee"
+name = "{{zone_prefix}}.silver.org_change_log"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -70,4 +66,12 @@ name = "{{zone_prefix}}.gold.dim_position"
 
 [[project.target_objects]]
 type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_compensation"
+
+[[project.target_objects]]
+type = "delta_table"
 name = "{{zone_prefix}}.gold.kpi_workforce_analytics"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_retention_risk"

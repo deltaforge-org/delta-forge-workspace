@@ -1,6 +1,10 @@
 -- =============================================================================
 -- Telecom CDR Pipeline: Incremental Load with Schema Evolution
 -- =============================================================================
+-- Demonstrates incremental processing of new v3 CDR records (5G era) into
+-- the unified silver layer. Uses INCREMENTAL_FILTER macro for watermark-based
+-- filtering and RESTORE for point-in-time recovery.
+-- =============================================================================
 
 -- ============================================================================
 -- DYNAMIC INCREMENTAL FILTER (Delta Forge Macro)
@@ -10,122 +14,151 @@
 -- manually track watermarks.
 --
 -- Usage: {{INCREMENTAL_FILTER(target_table, key_col, date_col, overlap_days)}}
--- Output: expands to e.g. "cdr_id > 'CDR-00065' AND start_time > '2024-06-02T23:00:00'"
+-- Output: expands to e.g. "call_id > 'V3-020' AND start_time > '2024-09-19'"
 --         or "1=1" if the target table is empty (first run = full load)
 -- ============================================================================
 
 -- Preview the generated filter condition:
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.cdr_enriched, cdr_id, start_time, 1)}};
-
--- Use in a MERGE or INSERT ... SELECT:
--- INSERT INTO {{zone_prefix}}.silver.cdr_enriched
--- SELECT * FROM {{zone_prefix}}.bronze.raw_cdr
--- WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.cdr_enriched, cdr_id, start_time, 1)}};
+PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.cdr_unified, call_id, start_time, 1)}};
 
 -- Show current watermark
-SELECT MAX(enriched_at) AS current_watermark
-FROM {{zone_prefix}}.silver.cdr_enriched;
+SELECT MAX(unified_at) AS current_watermark
+FROM {{zone_prefix}}.silver.cdr_unified;
 
-SELECT 'silver.cdr_enriched' AS table_name, COUNT(*) AS row_count
-FROM {{zone_prefix}}.silver.cdr_enriched
+SELECT
+    'silver.cdr_unified' AS table_name, COUNT(*) AS row_count
+FROM {{zone_prefix}}.silver.cdr_unified
 UNION ALL
 SELECT 'gold.fact_calls', COUNT(*)
-FROM {{zone_prefix}}.gold.fact_calls;
+FROM {{zone_prefix}}.gold.fact_calls
+UNION ALL
+SELECT 'gold.kpi_churn_risk', COUNT(*)
+FROM {{zone_prefix}}.gold.kpi_churn_risk;
 
 -- =============================================================================
--- Schema Evolution: Add roaming_flag to bronze raw_cdr table
+-- Insert 8 new v3 CDR records (October 2024 — latest 5G batch)
 -- =============================================================================
--- In production, new CDR feeds include a roaming indicator. The bronze schema
--- evolves to accept this new column. Existing rows default to NULL/false.
+-- Includes 1 roaming event, 1 dropped call, 1 5G handover, long data session.
 
-ALTER TABLE {{zone_prefix}}.bronze.raw_cdr ADD COLUMN roaming_flag BOOLEAN DEFAULT false;
-
--- =============================================================================
--- Insert 8 new CDR records (Day 4 - June 4, includes roaming calls)
--- =============================================================================
-
-INSERT INTO {{zone_prefix}}.bronze.raw_cdr (cdr_id, caller_number, callee_number, tower_id, start_time, end_time, call_type, data_usage_mb, revenue, ingested_at, roaming_flag) VALUES
-('CDR-00066', '+1-212-555-1001', '+1-415-555-2002', 'TWR-NE-01', '2024-06-04T08:00:00', '2024-06-04T08:18:30', 'voice',    0.00, 1.85, '2024-06-04T12:00:00', false),
-('CDR-00067', '+1-415-555-2002', '+1-305-555-9009', 'TWR-W-01',  '2024-06-04T09:00:00', NULL,                  'data',   520.00, 5.20, '2024-06-04T12:00:00', true),
-('CDR-00068', '+1-305-555-9009', '+1-212-555-1001', 'TWR-S-01',  '2024-06-04T09:30:00', '2024-06-04T09:30:06', 'voice',    0.00, 0.01, '2024-06-04T12:00:00', false),
-('CDR-00069', '+1-312-555-3003', '+1-404-555-1011', 'TWR-C-01',  '2024-06-04T10:00:00', '2024-06-04T10:22:15', 'voice',    0.00, 2.22, '2024-06-04T12:00:00', false),
-('CDR-00070', '+1-206-555-4004', '+1-617-555-5005', 'TWR-W-02',  '2024-06-04T10:30:00', '2024-06-04T10:45:50', 'voice',    0.00, 1.58, '2024-06-04T12:00:00', true),
-('CDR-00071', '+1-404-555-1011', '+1-503-555-8008', 'TWR-S-02',  '2024-06-04T11:00:00', NULL,                  'data',   340.00, 3.40, '2024-06-04T12:00:00', false),
-('CDR-00072', '+1-512-555-6006', '+1-303-555-7007', 'TWR-C-02',  '2024-06-04T12:00:00', '2024-06-04T12:12:40', 'voice',    0.00, 1.27, '2024-06-04T12:00:00', false),
-('CDR-00073', '+1-602-555-0010', '+1-214-555-2012', 'TWR-W-02',  '2024-06-04T13:00:00', '2024-06-04T13:00:04', 'voice',    0.00, 0.01, '2024-06-04T18:00:00', true);
+INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v3 (
+    call_id, caller, callee, start_time, end_time, tower_id, duration_sec,
+    call_type, data_usage_mb, sms_count, roaming_flag, network_type, handover_count, ingested_at
+) VALUES
+('V3-021', '+1-212-555-1001', '+1-415-555-2002', '2024-10-01T08:00:00', '2024-10-01T08:22:45', 'TWR-NE-01', 1365, 'voice', 0.00,   0, false, '5G',  0, '2024-10-01T12:00:00'),
+('V3-022', '+1-415-555-2002', '+1-305-555-9009', '2024-10-01T09:00:00', NULL,                  'TWR-W-01',  NULL, 'data',  680.00, 0, true,  '5G',  0, '2024-10-01T12:00:00'),
+('V3-023', '+1-312-555-3003', '+1-512-555-6006', '2024-10-05T10:00:00', '2024-10-05T10:18:30', 'TWR-C-01',  1110, 'voice', 0.00,   0, false, '5G',  2, '2024-10-05T12:00:00'),
+('V3-024', '+1-206-555-4004', '+1-303-555-7007', '2024-10-05T11:30:00', '2024-10-05T11:30:05', 'TWR-W-02',  5,    'voice', 0.00,   0, false, '4G',  0, '2024-10-05T12:00:00'),
+('V3-025', '+1-720-555-3013', '+1-813-555-4014', '2024-10-10T14:00:00', '2024-10-10T14:08:15', 'TWR-C-01',  495,  'voice', 0.00,   0, false, '5G',  0, '2024-10-10T18:00:00'),
+('V3-026', '+1-404-555-1011', '+1-602-555-0010', '2024-10-10T15:00:00', NULL,                  'TWR-S-02',  NULL, 'data',  245.00, 0, false, '4G',  0, '2024-10-10T18:00:00'),
+('V3-027', '+1-813-555-4014', '+1-901-555-5015', '2024-10-15T09:00:00', NULL,                  'TWR-S-03',  0,    'sms',   0.00,   6, false, '5G',  0, '2024-10-15T12:00:00'),
+('V3-028', '+1-617-555-5005', '+1-214-555-2012', '2024-10-15T10:30:00', '2024-10-15T10:42:10', 'TWR-NE-02', 730,  'voice', 0.00,   0, false, '4G',  0, '2024-10-15T12:00:00');
 
 ASSERT ROW_COUNT = 8
-SELECT 'row count check' AS status;
+SELECT COUNT(*) AS new_v3_count
+FROM {{zone_prefix}}.bronze.raw_cdr_v3
+WHERE ingested_at >= '2024-10-01T00:00:00';
 
 
 -- =============================================================================
--- Incremental MERGE: only new CDRs
+-- Incremental MERGE: only new v3 CDRs into unified silver
+-- Uses INCREMENTAL_FILTER for watermark-based selection
 -- =============================================================================
 
-MERGE INTO {{zone_prefix}}.silver.cdr_enriched AS tgt
+MERGE INTO {{zone_prefix}}.silver.cdr_unified AS tgt
 USING (
     WITH subscriber_lookup AS (
         SELECT subscriber_id, phone_number
         FROM {{zone_prefix}}.bronze.raw_subscribers
     )
     SELECT
-        c.cdr_id,
+        v.call_id,
+        v.caller,
+        v.callee,
         caller_sub.subscriber_id AS caller_id,
         callee_sub.subscriber_id AS callee_id,
-        c.caller_number,
-        c.callee_number,
-        c.tower_id,
-        t.city         AS tower_city,
-        t.region       AS tower_region,
-        c.start_time,
-        c.end_time,
+        v.tower_id,
+        t.city          AS tower_city,
+        t.region        AS tower_region,
+        v.start_time,
+        v.end_time,
+        v.duration_sec,
+        v.call_type,
+        COALESCE(v.data_usage_mb, 0.00) AS data_usage_mb,
+        COALESCE(v.sms_count, 0)        AS sms_count,
+        COALESCE(v.roaming_flag, false)  AS roaming_flag,
+        v.network_type,
+        COALESCE(v.handover_count, 0)    AS handover_count,
         CASE
-            WHEN c.call_type = 'voice' AND c.end_time IS NOT NULL
-            THEN CAST(EXTRACT(EPOCH FROM (c.end_time - c.start_time)) AS INT)
-            WHEN c.call_type = 'sms' THEN 0
-            ELSE NULL
-        END AS duration_sec,
-        c.call_type,
-        c.data_usage_mb,
-        COALESCE(c.roaming_flag, false) AS roaming_flag,
-        CASE
-            WHEN c.call_type = 'voice' AND c.end_time IS NOT NULL
-                AND CAST(EXTRACT(EPOCH FROM (c.end_time - c.start_time)) AS INT) < 10
+            WHEN v.call_type = 'voice' AND v.duration_sec IS NOT NULL AND v.duration_sec < 10
             THEN true ELSE false
         END AS drop_flag,
-        c.revenue,
-        c.ingested_at
-    FROM {{zone_prefix}}.bronze.raw_cdr c
-    LEFT JOIN subscriber_lookup caller_sub ON c.caller_number = caller_sub.phone_number
-    LEFT JOIN subscriber_lookup callee_sub ON c.callee_number = callee_sub.phone_number
-    LEFT JOIN {{zone_prefix}}.bronze.raw_cell_towers t ON c.tower_id = t.tower_id
-    WHERE c.ingested_at > (SELECT COALESCE(MAX(enriched_at), '1970-01-01T00:00:00') FROM {{zone_prefix}}.silver.cdr_enriched)
+        CASE
+            WHEN v.call_type = 'voice' THEN CAST(COALESCE(v.duration_sec, 0) * 0.01 AS DECIMAL(8,2))
+            WHEN v.call_type = 'data'  THEN CAST(COALESCE(v.data_usage_mb, 0) * 0.01 AS DECIMAL(8,2))
+            WHEN v.call_type = 'sms'   THEN CAST(COALESCE(v.sms_count, 0) * 0.05 AS DECIMAL(8,2))
+            ELSE 0.00
+        END AS revenue,
+        3               AS schema_version,
+        v.ingested_at   AS unified_at
+    FROM {{zone_prefix}}.bronze.raw_cdr_v3 v
+    LEFT JOIN subscriber_lookup caller_sub ON v.caller = caller_sub.phone_number
+    LEFT JOIN subscriber_lookup callee_sub ON v.callee = callee_sub.phone_number
+    LEFT JOIN {{zone_prefix}}.bronze.raw_cell_towers t ON v.tower_id = t.tower_id
+    WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.cdr_unified, call_id, start_time, 1)}}
 ) AS src
-ON tgt.cdr_id = src.cdr_id
+ON tgt.call_id = src.call_id
 WHEN NOT MATCHED THEN INSERT (
-    cdr_id, caller_id, callee_id, caller_number, callee_number, tower_id,
-    tower_city, tower_region, start_time, end_time, duration_sec, call_type,
-    data_usage_mb, roaming_flag, drop_flag, revenue, enriched_at
+    call_id, caller, callee, caller_id, callee_id, tower_id, tower_city, tower_region,
+    start_time, end_time, duration_sec, call_type, data_usage_mb, sms_count,
+    roaming_flag, network_type, handover_count, drop_flag, revenue, schema_version, unified_at
 ) VALUES (
-    src.cdr_id, src.caller_id, src.callee_id, src.caller_number, src.callee_number,
-    src.tower_id, src.tower_city, src.tower_region, src.start_time, src.end_time,
-    src.duration_sec, src.call_type, src.data_usage_mb, src.roaming_flag,
-    src.drop_flag, src.revenue, src.ingested_at
+    src.call_id, src.caller, src.callee, src.caller_id, src.callee_id, src.tower_id,
+    src.tower_city, src.tower_region, src.start_time, src.end_time, src.duration_sec,
+    src.call_type, src.data_usage_mb, src.sms_count, src.roaming_flag, src.network_type,
+    src.handover_count, src.drop_flag, src.revenue, src.schema_version, src.unified_at
 );
 
 -- =============================================================================
 -- Verify incremental results
 -- =============================================================================
 
--- Silver should now have 65 + 8 = 73 enriched CDRs
-SELECT COUNT(*) AS silver_total FROM {{zone_prefix}}.silver.cdr_enriched;
--- Verify roaming records captured via schema evolution
-ASSERT ROW_COUNT = 73
+-- Unified should now have 70 + 8 = 78 records
+SELECT COUNT(*) AS unified_total FROM {{zone_prefix}}.silver.cdr_unified;
+
+ASSERT VALUE unified_total = 78
+SELECT COUNT(*) AS v3_total
+FROM {{zone_prefix}}.silver.cdr_unified
+WHERE schema_version = 3;
+
+-- Verify roaming records captured (V3-002, V3-005, V3-008, V3-022 = 4 total)
+ASSERT VALUE v3_total = 28
 SELECT COUNT(*) AS roaming_count
-FROM {{zone_prefix}}.silver.cdr_enriched
+FROM {{zone_prefix}}.silver.cdr_unified
 WHERE roaming_flag = true;
 
--- Verify new watermark advanced
-ASSERT VALUE roaming_count = 3
-SELECT MAX(enriched_at) AS new_watermark
-FROM {{zone_prefix}}.silver.cdr_enriched;
+ASSERT VALUE roaming_count = 4
+SELECT COUNT(*) AS dropped_count
+FROM {{zone_prefix}}.silver.cdr_unified
+WHERE drop_flag = true;
+
+-- Verify the new dropped call from incremental batch (V3-024, duration=5)
+ASSERT VALUE dropped_count >= 5
+SELECT call_id, duration_sec, drop_flag
+FROM {{zone_prefix}}.silver.cdr_unified
+WHERE call_id = 'V3-024';
+
+ASSERT VALUE drop_flag = true
+SELECT MAX(unified_at) AS new_watermark
+FROM {{zone_prefix}}.silver.cdr_unified;
+
+-- =============================================================================
+-- RESTORE demonstration: point-in-time recovery
+-- =============================================================================
+-- Show version history before restore
+SELECT COUNT(*) AS pre_restore_count
+FROM {{zone_prefix}}.silver.cdr_unified;
+
+RESTORE {{zone_prefix}}.silver.cdr_unified TO VERSION 0;
+
+-- After restore, re-run the full load to get back to current state
+-- (in production, you would restore to a specific version after investigation)

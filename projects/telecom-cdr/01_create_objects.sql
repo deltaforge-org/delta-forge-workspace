@@ -1,19 +1,70 @@
 -- =============================================================================
 -- Telecom CDR Pipeline: Object Creation & Seed Data
 -- =============================================================================
+-- Schema evolution lifecycle: v1 (2023 voice-only) -> v2 (2024 H1 multi-service)
+-- -> v3 (2024 H2 5G/roaming). Session reconstruction via LAG/LEAD gap detection.
+-- Churn scoring via behavioral composite. Star schema with 3 dims + 2 KPIs.
+-- =============================================================================
 
 -- ===================== ZONES =====================
 
 CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
-    COMMENT 'Workshop project zone';
+    COMMENT 'Telecom CDR project zone — schema evolution, session reconstruction, churn scoring';
 
 -- ===================== SCHEMAS =====================
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw call detail records and reference data';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'Enriched CDR with drop detection and subscriber profiles';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold   COMMENT 'Star schema for network quality and revenue analytics';
+CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw CDR feeds across 3 schema versions and reference data';
+CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'Unified CDR with schema evolution merge, subscriber profiles, reconstructed sessions';
+CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold   COMMENT 'Star schema for network quality, churn risk, and revenue analytics';
 
 -- ===================== BRONZE TABLES =====================
 
+-- CDR v1 (2023): Voice-only format — 6 core columns
+CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cdr_v1 (
+    call_id         STRING      NOT NULL,
+    caller          STRING      NOT NULL,
+    callee          STRING      NOT NULL,
+    start_time      TIMESTAMP   NOT NULL,
+    end_time        TIMESTAMP,
+    tower_id        STRING,
+    duration_sec    INT,
+    ingested_at     TIMESTAMP
+) LOCATION '{{data_path}}/telecom/bronze/raw_cdr_v1';
+
+-- CDR v2 (2024 H1): Multi-service — adds call_type, data_usage_mb, sms_count
+CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cdr_v2 (
+    call_id         STRING      NOT NULL,
+    caller          STRING      NOT NULL,
+    callee          STRING      NOT NULL,
+    start_time      TIMESTAMP   NOT NULL,
+    end_time        TIMESTAMP,
+    tower_id        STRING,
+    duration_sec    INT,
+    call_type       STRING,
+    data_usage_mb   DECIMAL(10,2),
+    sms_count       INT,
+    ingested_at     TIMESTAMP
+) LOCATION '{{data_path}}/telecom/bronze/raw_cdr_v2';
+
+-- CDR v3 (2024 H2): 5G era — adds roaming_flag, network_type, handover_count
+-- Type widening: duration_sec from INT to BIGINT for long data sessions
+CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cdr_v3 (
+    call_id         STRING      NOT NULL,
+    caller          STRING      NOT NULL,
+    callee          STRING      NOT NULL,
+    start_time      TIMESTAMP   NOT NULL,
+    end_time        TIMESTAMP,
+    tower_id        STRING,
+    duration_sec    BIGINT,
+    call_type       STRING,
+    data_usage_mb   DECIMAL(10,2),
+    sms_count       INT,
+    roaming_flag    BOOLEAN,
+    network_type    STRING,
+    handover_count  INT,
+    ingested_at     TIMESTAMP
+) LOCATION '{{data_path}}/telecom/bronze/raw_cdr_v3';
+
+-- Subscriber reference
 CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_subscribers (
     subscriber_id   STRING      NOT NULL,
     phone_number    STRING      NOT NULL,
@@ -22,9 +73,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_subscribers (
     activation_date DATE,
     status          STRING,
     monthly_spend   DECIMAL(8,2),
+    balance         DECIMAL(8,2),
     ingested_at     TIMESTAMP
 ) LOCATION '{{data_path}}/telecom/bronze/raw_subscribers';
 
+-- Cell tower reference
 CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cell_towers (
     tower_id       STRING      NOT NULL,
     location       STRING,
@@ -35,42 +88,35 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cell_towers (
     ingested_at    TIMESTAMP
 ) LOCATION '{{data_path}}/telecom/bronze/raw_cell_towers';
 
--- Initial CDR table (WITHOUT roaming_flag - added later via schema evolution)
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cdr (
-    cdr_id          STRING      NOT NULL,
-    caller_number   STRING      NOT NULL,
-    callee_number   STRING      NOT NULL,
-    tower_id        STRING,
-    start_time      TIMESTAMP   NOT NULL,
-    end_time        TIMESTAMP,
-    call_type       STRING,
-    data_usage_mb   DECIMAL(10,2),
-    revenue         DECIMAL(8,2),
-    ingested_at     TIMESTAMP
-) LOCATION '{{data_path}}/telecom/bronze/raw_cdr';
-
 -- ===================== SILVER TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.cdr_enriched (
-    cdr_id          STRING      NOT NULL,
+-- Unified CDR: all 3 versions merged, NULL-filled for missing columns
+CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.cdr_unified (
+    call_id         STRING      NOT NULL,
+    caller          STRING      NOT NULL,
+    callee          STRING      NOT NULL,
     caller_id       STRING,
     callee_id       STRING,
-    caller_number   STRING,
-    callee_number   STRING,
     tower_id        STRING,
     tower_city      STRING,
     tower_region    STRING,
     start_time      TIMESTAMP,
     end_time        TIMESTAMP,
-    duration_sec    INT,
-    call_type       STRING,
-    data_usage_mb   DECIMAL(10,2),
+    duration_sec    BIGINT,
+    call_type       STRING      DEFAULT 'voice',
+    data_usage_mb   DECIMAL(10,2) DEFAULT 0.00,
+    sms_count       INT         DEFAULT 0,
     roaming_flag    BOOLEAN     DEFAULT false,
+    network_type    STRING,
+    handover_count  INT         DEFAULT 0,
     drop_flag       BOOLEAN     DEFAULT false,
     revenue         DECIMAL(8,2),
-    enriched_at     TIMESTAMP
-) LOCATION '{{data_path}}/telecom/silver/cdr_enriched';
+    schema_version  INT,
+    unified_at      TIMESTAMP
+) LOCATION '{{data_path}}/telecom/silver/cdr_unified'
+TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
+-- Subscriber profiles: MERGE-upserted from CDR aggregation
 CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.subscriber_profiles (
     subscriber_id    STRING      NOT NULL,
     phone_number     STRING,
@@ -79,14 +125,33 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.subscriber_profiles (
     activation_date  DATE,
     status           STRING,
     monthly_spend    DECIMAL(8,2),
+    balance          DECIMAL(8,2),
     total_calls      INT,
     total_data_mb    DECIMAL(12,2),
+    total_sms        INT,
     total_revenue    DECIMAL(10,2),
-    avg_call_duration INT,
+    avg_call_duration BIGINT,
     drop_rate        DECIMAL(5,4),
+    days_since_last_call INT,
+    monthly_usage_trend  DECIMAL(8,2),
     last_activity    TIMESTAMP,
     updated_at       TIMESTAMP
 ) LOCATION '{{data_path}}/telecom/silver/subscriber_profiles';
+
+-- Sessions: reconstructed from CDR events using LAG gap detection
+CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.sessions (
+    session_id      STRING      NOT NULL,
+    subscriber_id   STRING      NOT NULL,
+    session_start   TIMESTAMP,
+    session_end     TIMESTAMP,
+    event_count     INT,
+    total_duration  BIGINT,
+    total_data_mb   DECIMAL(12,2),
+    call_types      STRING,
+    roaming_events  INT,
+    drop_events     INT,
+    created_at      TIMESTAMP
+) LOCATION '{{data_path}}/telecom/silver/sessions';
 
 -- ===================== GOLD TABLES =====================
 
@@ -97,10 +162,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_subscriber (
     plan_tier       STRING,
     activation_date DATE,
     status          STRING,
-    monthly_spend   DECIMAL(8,2)
+    monthly_spend   DECIMAL(8,2),
+    balance         DECIMAL(8,2)
 ) LOCATION '{{data_path}}/telecom/gold/dim_subscriber';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_cell_tower (
+CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_tower (
     tower_key      STRING      NOT NULL,
     tower_id       STRING,
     location       STRING,
@@ -108,21 +174,32 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_cell_tower (
     region         STRING,
     technology     STRING,
     capacity_mhz   INT
-) LOCATION '{{data_path}}/telecom/gold/dim_cell_tower';
+) LOCATION '{{data_path}}/telecom/gold/dim_tower';
+
+CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_plan (
+    plan_key       STRING      NOT NULL,
+    plan_type      STRING,
+    plan_tier      STRING,
+    monthly_spend  DECIMAL(8,2)
+) LOCATION '{{data_path}}/telecom/gold/dim_plan';
 
 CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_calls (
     call_key        STRING      NOT NULL,
     caller_key      STRING,
     callee_key      STRING,
-    cell_tower_key  STRING,
+    tower_key       STRING,
+    plan_key        STRING,
     start_time      TIMESTAMP,
-    duration_sec    INT,
+    duration_sec    BIGINT,
     call_type       STRING,
     data_usage_mb   DECIMAL(10,2),
     roaming_flag    BOOLEAN,
     drop_flag       BOOLEAN,
+    network_type    STRING,
+    schema_version  INT,
     revenue         DECIMAL(8,2)
-) LOCATION '{{data_path}}/telecom/gold/fact_calls';
+) LOCATION '{{data_path}}/telecom/gold/fact_calls'
+PARTITIONED BY (start_time);
 
 CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_network_quality (
     region          STRING,
@@ -132,151 +209,192 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_network_quality (
     drop_rate       DECIMAL(5,4),
     avg_duration    DECIMAL(8,1),
     total_data_mb   DECIMAL(12,2),
-    peak_concurrent INT,
+    avg_throughput_mb DECIMAL(8,2),
+    roaming_calls   INT,
+    fiveg_calls     INT,
     revenue         DECIMAL(10,2)
 ) LOCATION '{{data_path}}/telecom/gold/kpi_network_quality';
+
+CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_churn_risk (
+    subscriber_id    STRING      NOT NULL,
+    phone_number     STRING,
+    plan_type        STRING,
+    plan_tier        STRING,
+    status           STRING,
+    days_since_last_call INT,
+    monthly_usage_trend  DECIMAL(8,2),
+    drop_rate        DECIMAL(5,4),
+    balance          DECIMAL(8,2),
+    churn_score      INT,
+    churn_risk_level STRING,
+    scored_at        TIMESTAMP
+) LOCATION '{{data_path}}/telecom/gold/kpi_churn_risk';
 
 -- ===================== PSEUDONYMISATION =====================
 
 CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_subscribers (phone_number) TRANSFORM generalize PARAMS (range = 4);
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.cdr_enriched (caller_number) TRANSFORM generalize PARAMS (range = 4);
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.cdr_enriched (callee_number) TRANSFORM generalize PARAMS (range = 4);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.cdr_unified (caller) TRANSFORM generalize PARAMS (range = 4);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.cdr_unified (callee) TRANSFORM generalize PARAMS (range = 4);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.kpi_churn_risk (phone_number) TRANSFORM generalize PARAMS (range = 4);
 
 -- ===================== GRANTS =====================
 
+GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_cdr_v1 TO USER {{current_user}};
+GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_cdr_v2 TO USER {{current_user}};
+GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_cdr_v3 TO USER {{current_user}};
 GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_subscribers TO USER {{current_user}};
 GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_cell_towers TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_cdr TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.cdr_enriched TO USER {{current_user}};
+GRANT ADMIN ON TABLE {{zone_prefix}}.silver.cdr_unified TO USER {{current_user}};
 GRANT ADMIN ON TABLE {{zone_prefix}}.silver.subscriber_profiles TO USER {{current_user}};
+GRANT ADMIN ON TABLE {{zone_prefix}}.silver.sessions TO USER {{current_user}};
 GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_subscriber TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_cell_tower TO USER {{current_user}};
+GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_tower TO USER {{current_user}};
+GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_plan TO USER {{current_user}};
 GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_calls TO USER {{current_user}};
 GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_network_quality TO USER {{current_user}};
+GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_churn_risk TO USER {{current_user}};
 
--- ===================== SEED DATA: SUBSCRIBERS (12 rows) =====================
+-- ===================== SEED DATA: SUBSCRIBERS (15 rows) =====================
+-- Mix of prepaid/postpaid, some declining usage patterns for churn detection.
+-- SUB-012/013/014 have low balances. SUB-015 is already churned.
 
 INSERT INTO {{zone_prefix}}.bronze.raw_subscribers VALUES
-('SUB-001', '+1-212-555-1001', 'postpaid', 'platinum', '2022-03-15', 'active',   89.99, '2024-06-01T00:00:00'),
-('SUB-002', '+1-415-555-2002', 'postpaid', 'gold',     '2022-07-20', 'active',   59.99, '2024-06-01T00:00:00'),
-('SUB-003', '+1-312-555-3003', 'prepaid',  'silver',   '2023-01-10', 'active',   29.99, '2024-06-01T00:00:00'),
-('SUB-004', '+1-206-555-4004', 'postpaid', 'platinum', '2021-11-05', 'active',   89.99, '2024-06-01T00:00:00'),
-('SUB-005', '+1-617-555-5005', 'prepaid',  'bronze',   '2023-06-22', 'active',   14.99, '2024-06-01T00:00:00'),
-('SUB-006', '+1-512-555-6006', 'postpaid', 'gold',     '2022-09-30', 'active',   59.99, '2024-06-01T00:00:00'),
-('SUB-007', '+1-303-555-7007', 'prepaid',  'silver',   '2023-04-18', 'active',   29.99, '2024-06-01T00:00:00'),
-('SUB-008', '+1-503-555-8008', 'postpaid', 'gold',     '2022-02-14', 'suspended',59.99, '2024-06-01T00:00:00'),
-('SUB-009', '+1-305-555-9009', 'postpaid', 'platinum', '2021-08-01', 'active',   89.99, '2024-06-01T00:00:00'),
-('SUB-010', '+1-602-555-0010', 'prepaid',  'bronze',   '2023-10-12', 'active',   14.99, '2024-06-01T00:00:00'),
-('SUB-011', '+1-404-555-1011', 'postpaid', 'gold',     '2022-12-25', 'active',   59.99, '2024-06-01T00:00:00'),
-('SUB-012', '+1-214-555-2012', 'prepaid',  'silver',   '2023-08-08', 'churned',  29.99, '2024-06-01T00:00:00');
+('SUB-001', '+1-212-555-1001', 'postpaid', 'platinum', '2022-03-15', 'active',   89.99, 250.00, '2024-06-01T00:00:00'),
+('SUB-002', '+1-415-555-2002', 'postpaid', 'gold',     '2022-07-20', 'active',   59.99, 180.00, '2024-06-01T00:00:00'),
+('SUB-003', '+1-312-555-3003', 'prepaid',  'silver',   '2023-01-10', 'active',   29.99, 45.00,  '2024-06-01T00:00:00'),
+('SUB-004', '+1-206-555-4004', 'postpaid', 'platinum', '2021-11-05', 'active',   89.99, 310.00, '2024-06-01T00:00:00'),
+('SUB-005', '+1-617-555-5005', 'prepaid',  'bronze',   '2023-06-22', 'active',   14.99, 8.50,   '2024-06-01T00:00:00'),
+('SUB-006', '+1-512-555-6006', 'postpaid', 'gold',     '2022-09-30', 'active',   59.99, 200.00, '2024-06-01T00:00:00'),
+('SUB-007', '+1-303-555-7007', 'prepaid',  'silver',   '2023-04-18', 'active',   29.99, 35.00,  '2024-06-01T00:00:00'),
+('SUB-008', '+1-503-555-8008', 'postpaid', 'gold',     '2022-02-14', 'suspended',59.99, 0.00,   '2024-06-01T00:00:00'),
+('SUB-009', '+1-305-555-9009', 'postpaid', 'platinum', '2021-08-01', 'active',   89.99, 275.00, '2024-06-01T00:00:00'),
+('SUB-010', '+1-602-555-0010', 'prepaid',  'bronze',   '2023-10-12', 'active',   14.99, 12.00,  '2024-06-01T00:00:00'),
+('SUB-011', '+1-404-555-1011', 'postpaid', 'gold',     '2022-12-25', 'active',   59.99, 155.00, '2024-06-01T00:00:00'),
+('SUB-012', '+1-214-555-2012', 'prepaid',  'silver',   '2023-08-08', 'active',   29.99, 3.50,   '2024-06-01T00:00:00'),
+('SUB-013', '+1-720-555-3013', 'prepaid',  'bronze',   '2024-01-15', 'active',   14.99, 2.00,   '2024-06-01T00:00:00'),
+('SUB-014', '+1-813-555-4014', 'prepaid',  'silver',   '2023-11-20', 'active',   29.99, 4.25,   '2024-06-01T00:00:00'),
+('SUB-015', '+1-901-555-5015', 'postpaid', 'gold',     '2022-05-10', 'churned',  59.99, 0.00,   '2024-06-01T00:00:00');
 
-ASSERT ROW_COUNT = 12
+ASSERT ROW_COUNT = 15
 SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_subscribers;
 
 
--- ===================== SEED DATA: CELL TOWERS (8 rows) =====================
+-- ===================== SEED DATA: CELL TOWERS (10 rows across 4 regions) =====================
 
 INSERT INTO {{zone_prefix}}.bronze.raw_cell_towers VALUES
 ('TWR-NE-01', '40.7128,-74.0060',  'New York',      'Northeast', '5G',  100, '2024-06-01T00:00:00'),
 ('TWR-NE-02', '42.3601,-71.0589',  'Boston',        'Northeast', '4G',   60, '2024-06-01T00:00:00'),
+('TWR-NE-03', '39.9526,-75.1652',  'Philadelphia',  'Northeast', '4G',   55, '2024-06-01T00:00:00'),
 ('TWR-W-01',  '37.7749,-122.4194', 'San Francisco', 'West',      '5G',  100, '2024-06-01T00:00:00'),
 ('TWR-W-02',  '47.6062,-122.3321', 'Seattle',       'West',      '4G',   60, '2024-06-01T00:00:00'),
 ('TWR-C-01',  '41.8781,-87.6298',  'Chicago',       'Central',   '5G',   80, '2024-06-01T00:00:00'),
 ('TWR-C-02',  '30.2672,-97.7431',  'Austin',        'Central',   '4G',   60, '2024-06-01T00:00:00'),
 ('TWR-S-01',  '25.7617,-80.1918',  'Miami',         'South',     '5G',   80, '2024-06-01T00:00:00'),
-('TWR-S-02',  '33.7490,-84.3880',  'Atlanta',       'South',     '4G',   60, '2024-06-01T00:00:00');
+('TWR-S-02',  '33.7490,-84.3880',  'Atlanta',       'South',     '4G',   60, '2024-06-01T00:00:00'),
+('TWR-S-03',  '29.7604,-95.3698',  'Houston',       'South',     '5G',   90, '2024-06-01T00:00:00');
 
-ASSERT ROW_COUNT = 8
+ASSERT ROW_COUNT = 10
 SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cell_towers;
 
 
--- ===================== SEED DATA: CDR RECORDS (65 rows) =====================
--- Mix of voice, sms, data calls. Short voice calls (<10s) flagged as dropped.
+-- ===================== SEED DATA: CDR V1 — 2023 voice-only (25 rows) =====================
+-- Schema v1: call_id, caller, callee, start_time, end_time, tower_id, duration_sec
+-- No call_type, no data_usage, no roaming. Duration in INT (seconds).
+-- Includes 2 dropped calls (duration < 10s).
 
-INSERT INTO {{zone_prefix}}.bronze.raw_cdr VALUES
--- Morning peak (8-11am) - Northeast
-('CDR-00001', '+1-212-555-1001', '+1-415-555-2002', 'TWR-NE-01', '2024-06-01T08:15:00', '2024-06-01T08:19:32', 'voice',   0.00, 0.45, '2024-06-01T12:00:00'),
-('CDR-00002', '+1-212-555-1001', '+1-312-555-3003', 'TWR-NE-01', '2024-06-01T08:45:00', '2024-06-01T08:45:07', 'voice',   0.00, 0.02, '2024-06-01T12:00:00'),
-('CDR-00003', '+1-617-555-5005', '+1-212-555-1001', 'TWR-NE-02', '2024-06-01T09:10:00', '2024-06-01T09:22:15', 'voice',   0.00, 1.22, '2024-06-01T12:00:00'),
-('CDR-00004', '+1-212-555-1001', '+1-617-555-5005', 'TWR-NE-01', '2024-06-01T10:00:00', NULL,                  'sms',     0.00, 0.05, '2024-06-01T12:00:00'),
-('CDR-00005', '+1-617-555-5005', '+1-404-555-1011', 'TWR-NE-02', '2024-06-01T10:30:00', '2024-06-01T10:30:05', 'voice',   0.00, 0.01, '2024-06-01T12:00:00'),
+INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v1 VALUES
+('V1-001', '+1-212-555-1001', '+1-415-555-2002', '2023-03-15T08:15:00', '2023-03-15T08:19:32', 'TWR-NE-01', 272,  '2023-03-15T12:00:00'),
+('V1-002', '+1-212-555-1001', '+1-312-555-3003', '2023-03-15T08:45:00', '2023-03-15T08:45:07', 'TWR-NE-01', 7,    '2023-03-15T12:00:00'),
+('V1-003', '+1-617-555-5005', '+1-212-555-1001', '2023-03-15T09:10:00', '2023-03-15T09:22:15', 'TWR-NE-02', 735,  '2023-03-15T12:00:00'),
+('V1-004', '+1-415-555-2002', '+1-206-555-4004', '2023-04-02T10:00:00', '2023-04-02T10:15:42', 'TWR-W-01',  942,  '2023-04-02T12:00:00'),
+('V1-005', '+1-206-555-4004', '+1-503-555-8008', '2023-04-02T11:00:00', '2023-04-02T11:12:18', 'TWR-W-02',  738,  '2023-04-02T12:00:00'),
+('V1-006', '+1-312-555-3003', '+1-512-555-6006', '2023-05-10T08:05:00', '2023-05-10T08:18:30', 'TWR-C-01',  810,  '2023-05-10T12:00:00'),
+('V1-007', '+1-512-555-6006', '+1-312-555-3003', '2023-05-10T09:20:00', '2023-05-10T09:32:45', 'TWR-C-02',  765,  '2023-05-10T12:00:00'),
+('V1-008', '+1-305-555-9009', '+1-404-555-1011', '2023-06-01T08:30:00', '2023-06-01T08:48:22', 'TWR-S-01',  1102, '2023-06-01T12:00:00'),
+('V1-009', '+1-404-555-1011', '+1-305-555-9009', '2023-06-01T09:15:00', '2023-06-01T09:28:50', 'TWR-S-02',  830,  '2023-06-01T12:00:00'),
+('V1-010', '+1-303-555-7007', '+1-617-555-5005', '2023-06-15T10:00:00', '2023-06-15T10:25:40', 'TWR-C-01',  1540, '2023-06-15T12:00:00'),
+('V1-011', '+1-212-555-1001', '+1-305-555-9009', '2023-07-04T14:00:00', '2023-07-04T14:22:10', 'TWR-NE-01', 1330, '2023-07-04T18:00:00'),
+('V1-012', '+1-602-555-0010', '+1-214-555-2012', '2023-07-20T11:30:00', '2023-07-20T11:30:06', 'TWR-W-02',  6,    '2023-07-20T12:00:00'),
+('V1-013', '+1-404-555-1011', '+1-512-555-6006', '2023-08-05T13:00:00', '2023-08-05T13:28:20', 'TWR-S-02',  1700, '2023-08-05T18:00:00'),
+('V1-014', '+1-503-555-8008', '+1-212-555-1001', '2023-08-12T16:00:00', '2023-08-12T16:14:55', 'TWR-W-02',  895,  '2023-08-12T18:00:00'),
+('V1-015', '+1-214-555-2012', '+1-305-555-9009', '2023-09-01T09:00:00', '2023-09-01T09:05:15', 'TWR-C-02',  315,  '2023-09-01T12:00:00'),
+('V1-016', '+1-206-555-4004', '+1-303-555-7007', '2023-09-15T15:00:00', '2023-09-15T15:18:40', 'TWR-W-02',  1120, '2023-09-15T18:00:00'),
+('V1-017', '+1-512-555-6006', '+1-404-555-1011', '2023-10-01T08:00:00', '2023-10-01T08:32:10', 'TWR-C-02',  1930, '2023-10-01T12:00:00'),
+('V1-018', '+1-617-555-5005', '+1-415-555-2002', '2023-10-15T10:30:00', '2023-10-15T10:45:20', 'TWR-NE-02', 890,  '2023-10-15T12:00:00'),
+('V1-019', '+1-305-555-9009', '+1-206-555-4004', '2023-11-01T14:30:00', '2023-11-01T14:52:45', 'TWR-S-01',  1335, '2023-11-01T18:00:00'),
+('V1-020', '+1-212-555-1001', '+1-404-555-1011', '2023-11-10T17:00:00', '2023-11-10T17:32:00', 'TWR-NE-01', 1920, '2023-11-10T18:00:00'),
+('V1-021', '+1-720-555-3013', '+1-303-555-7007', '2023-11-20T09:00:00', '2023-11-20T09:08:30', 'TWR-C-01',  510,  '2023-11-20T12:00:00'),
+('V1-022', '+1-813-555-4014', '+1-901-555-5015', '2023-12-01T11:00:00', '2023-12-01T11:15:42', 'TWR-S-03',  942,  '2023-12-01T12:00:00'),
+('V1-023', '+1-303-555-7007', '+1-812-555-4014', '2023-12-10T13:00:00', '2023-12-10T13:20:18', 'TWR-C-01',  1218, '2023-12-10T18:00:00'),
+('V1-024', '+1-415-555-2002', '+1-617-555-5005', '2023-12-20T08:00:00', '2023-12-20T08:25:10', 'TWR-W-01',  1510, '2023-12-20T12:00:00'),
+('V1-025', '+1-404-555-1011', '+1-212-555-1001', '2023-12-31T20:00:00', '2023-12-31T20:14:25', 'TWR-S-02',  865,  '2023-12-31T22:00:00');
 
--- Morning peak - West
-('CDR-00006', '+1-415-555-2002', '+1-206-555-4004', 'TWR-W-01',  '2024-06-01T08:20:00', '2024-06-01T08:35:42', 'voice',   0.00, 1.55, '2024-06-01T12:00:00'),
-('CDR-00007', '+1-206-555-4004', '+1-503-555-8008', 'TWR-W-02',  '2024-06-01T09:00:00', '2024-06-01T09:12:18', 'voice',   0.00, 1.22, '2024-06-01T12:00:00'),
-('CDR-00008', '+1-415-555-2002', '+1-206-555-4004', 'TWR-W-01',  '2024-06-01T09:30:00', NULL,                  'data',  250.50, 2.50, '2024-06-01T12:00:00'),
-('CDR-00009', '+1-503-555-8008', '+1-415-555-2002', 'TWR-W-02',  '2024-06-01T10:15:00', '2024-06-01T10:15:04', 'voice',   0.00, 0.01, '2024-06-01T12:00:00'),
-('CDR-00010', '+1-206-555-4004', '+1-312-555-3003', 'TWR-W-02',  '2024-06-01T11:00:00', '2024-06-01T11:08:45', 'voice',   0.00, 0.87, '2024-06-01T12:00:00'),
+ASSERT ROW_COUNT = 25
+SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cdr_v1;
 
--- Morning peak - Central
-('CDR-00011', '+1-312-555-3003', '+1-512-555-6006', 'TWR-C-01',  '2024-06-01T08:05:00', '2024-06-01T08:18:30', 'voice',   0.00, 1.35, '2024-06-01T12:00:00'),
-('CDR-00012', '+1-512-555-6006', '+1-312-555-3003', 'TWR-C-02',  '2024-06-01T09:20:00', NULL,                  'data',  180.00, 1.80, '2024-06-01T12:00:00'),
-('CDR-00013', '+1-312-555-3003', '+1-214-555-2012', 'TWR-C-01',  '2024-06-01T10:45:00', '2024-06-01T10:52:10', 'voice',   0.00, 0.71, '2024-06-01T12:00:00'),
-('CDR-00014', '+1-512-555-6006', '+1-602-555-0010', 'TWR-C-02',  '2024-06-01T11:30:00', '2024-06-01T11:30:08', 'voice',   0.00, 0.02, '2024-06-01T12:00:00'),
 
--- Morning peak - South
-('CDR-00015', '+1-305-555-9009', '+1-404-555-1011', 'TWR-S-01',  '2024-06-01T08:30:00', '2024-06-01T08:48:22', 'voice',   0.00, 1.82, '2024-06-01T12:00:00'),
-('CDR-00016', '+1-404-555-1011', '+1-305-555-9009', 'TWR-S-02',  '2024-06-01T09:15:00', NULL,                  'sms',     0.00, 0.05, '2024-06-01T12:00:00'),
-('CDR-00017', '+1-305-555-9009', '+1-214-555-2012', 'TWR-S-01',  '2024-06-01T10:00:00', '2024-06-01T10:25:40', 'voice',   0.00, 2.56, '2024-06-01T12:00:00'),
-('CDR-00018', '+1-404-555-1011', '+1-602-555-0010', 'TWR-S-02',  '2024-06-01T11:20:00', '2024-06-01T11:20:03', 'voice',   0.00, 0.01, '2024-06-01T12:00:00'),
+-- ===================== SEED DATA: CDR V2 — 2024 H1 multi-service (25 rows) =====================
+-- Schema v2: adds call_type (voice/sms/data), data_usage_mb, sms_count
+-- Includes 2 dropped voice calls, data sessions, SMS events.
 
--- Afternoon (12-5pm) - mixed regions
-('CDR-00019', '+1-212-555-1001', '+1-303-555-7007', 'TWR-NE-01', '2024-06-01T12:30:00', '2024-06-01T12:42:15', 'voice',   0.00, 1.22, '2024-06-01T18:00:00'),
-('CDR-00020', '+1-303-555-7007', '+1-512-555-6006', 'TWR-C-01',  '2024-06-01T13:00:00', NULL,                  'data',  320.00, 3.20, '2024-06-01T18:00:00'),
-('CDR-00021', '+1-415-555-2002', '+1-305-555-9009', 'TWR-W-01',  '2024-06-01T13:45:00', '2024-06-01T14:02:30', 'voice',   0.00, 1.75, '2024-06-01T18:00:00'),
-('CDR-00022', '+1-602-555-0010', '+1-212-555-1001', 'TWR-W-02',  '2024-06-01T14:15:00', '2024-06-01T14:15:06', 'voice',   0.00, 0.01, '2024-06-01T18:00:00'),
-('CDR-00023', '+1-214-555-2012', '+1-404-555-1011', 'TWR-C-02',  '2024-06-01T14:30:00', '2024-06-01T14:38:20', 'voice',   0.00, 0.83, '2024-06-01T18:00:00'),
-('CDR-00024', '+1-305-555-9009', '+1-503-555-8008', 'TWR-S-01',  '2024-06-01T15:00:00', NULL,                  'data',  450.75, 4.51, '2024-06-01T18:00:00'),
-('CDR-00025', '+1-404-555-1011', '+1-212-555-1001', 'TWR-S-02',  '2024-06-01T15:30:00', '2024-06-01T15:45:10', 'voice',   0.00, 1.51, '2024-06-01T18:00:00'),
-('CDR-00026', '+1-312-555-3003', '+1-617-555-5005', 'TWR-C-01',  '2024-06-01T16:00:00', '2024-06-01T16:08:45', 'voice',   0.00, 0.87, '2024-06-01T18:00:00'),
-('CDR-00027', '+1-206-555-4004', '+1-602-555-0010', 'TWR-W-02',  '2024-06-01T16:30:00', NULL,                  'sms',     0.00, 0.05, '2024-06-01T18:00:00'),
-('CDR-00028', '+1-512-555-6006', '+1-303-555-7007', 'TWR-C-02',  '2024-06-01T17:00:00', '2024-06-01T17:22:55', 'voice',   0.00, 2.29, '2024-06-01T18:00:00'),
+INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v2 VALUES
+('V2-001', '+1-212-555-1001', '+1-415-555-2002', '2024-01-15T08:15:00', '2024-01-15T08:19:32', 'TWR-NE-01', 272,  'voice',  0.00,  0, '2024-01-15T12:00:00'),
+('V2-002', '+1-212-555-1001', '+1-312-555-3003', '2024-01-15T08:45:00', NULL,                  'TWR-NE-01', 0,    'sms',    0.00,  3, '2024-01-15T12:00:00'),
+('V2-003', '+1-415-555-2002', '+1-206-555-4004', '2024-01-20T09:00:00', NULL,                  'TWR-W-01',  NULL, 'data',   250.50, 0, '2024-01-20T12:00:00'),
+('V2-004', '+1-617-555-5005', '+1-404-555-1011', '2024-02-05T10:30:00', '2024-02-05T10:30:05', 'TWR-NE-02', 5,    'voice',  0.00,  0, '2024-02-05T12:00:00'),
+('V2-005', '+1-206-555-4004', '+1-312-555-3003', '2024-02-10T11:00:00', '2024-02-10T11:08:45', 'TWR-W-02',  525,  'voice',  0.00,  0, '2024-02-10T12:00:00'),
+('V2-006', '+1-312-555-3003', '+1-512-555-6006', '2024-02-15T08:05:00', '2024-02-15T08:18:30', 'TWR-C-01',  810,  'voice',  0.00,  0, '2024-02-15T12:00:00'),
+('V2-007', '+1-512-555-6006', '+1-602-555-0010', '2024-02-20T09:20:00', NULL,                  'TWR-C-02',  NULL, 'data',   180.00, 0, '2024-02-20T12:00:00'),
+('V2-008', '+1-305-555-9009', '+1-404-555-1011', '2024-03-01T08:30:00', '2024-03-01T08:48:22', 'TWR-S-01',  1102, 'voice',  0.00,  0, '2024-03-01T12:00:00'),
+('V2-009', '+1-404-555-1011', '+1-305-555-9009', '2024-03-01T09:15:00', NULL,                  'TWR-S-02',  0,    'sms',    0.00,  5, '2024-03-01T12:00:00'),
+('V2-010', '+1-303-555-7007', '+1-512-555-6006', '2024-03-15T13:00:00', NULL,                  'TWR-C-01',  NULL, 'data',   320.00, 0, '2024-03-15T18:00:00'),
+('V2-011', '+1-503-555-8008', '+1-415-555-2002', '2024-03-20T15:00:00', NULL,                  'TWR-W-02',  NULL, 'data',   580.00, 0, '2024-03-20T18:00:00'),
+('V2-012', '+1-212-555-1001', '+1-303-555-7007', '2024-04-01T12:30:00', '2024-04-01T12:42:15', 'TWR-NE-01', 735,  'voice',  0.00,  0, '2024-04-01T18:00:00'),
+('V2-013', '+1-214-555-2012', '+1-404-555-1011', '2024-04-05T14:30:00', '2024-04-05T14:38:20', 'TWR-C-02',  500,  'voice',  0.00,  0, '2024-04-05T18:00:00'),
+('V2-014', '+1-602-555-0010', '+1-212-555-1001', '2024-04-10T14:15:00', '2024-04-10T14:15:06', 'TWR-W-02',  6,    'voice',  0.00,  0, '2024-04-10T18:00:00'),
+('V2-015', '+1-720-555-3013', '+1-813-555-4014', '2024-04-15T10:00:00', '2024-04-15T10:12:30', 'TWR-C-01',  750,  'voice',  0.00,  0, '2024-04-15T12:00:00'),
+('V2-016', '+1-813-555-4014', '+1-305-555-9009', '2024-04-20T11:00:00', NULL,                  'TWR-S-03',  0,    'sms',    0.00,  2, '2024-04-20T12:00:00'),
+('V2-017', '+1-305-555-9009', '+1-503-555-8008', '2024-05-01T15:00:00', NULL,                  'TWR-S-01',  NULL, 'data',   450.75, 0, '2024-05-01T18:00:00'),
+('V2-018', '+1-404-555-1011', '+1-212-555-1001', '2024-05-05T15:30:00', '2024-05-05T15:45:10', 'TWR-S-02',  910,  'voice',  0.00,  0, '2024-05-05T18:00:00'),
+('V2-019', '+1-415-555-2002', '+1-305-555-9009', '2024-05-10T13:45:00', '2024-05-10T14:02:30', 'TWR-W-01',  1050, 'voice',  0.00,  0, '2024-05-10T18:00:00'),
+('V2-020', '+1-512-555-6006', '+1-303-555-7007', '2024-05-15T17:00:00', '2024-05-15T17:22:55', 'TWR-C-02',  1375, 'voice',  0.00,  0, '2024-05-15T18:00:00'),
+('V2-021', '+1-206-555-4004', '+1-617-555-5005', '2024-05-20T09:30:00', '2024-05-20T09:48:55', 'TWR-W-02',  1115, 'voice',  0.00,  0, '2024-05-20T12:00:00'),
+('V2-022', '+1-901-555-5015', '+1-404-555-1011', '2024-05-25T10:00:00', '2024-05-25T10:04:30', 'TWR-S-02',  270,  'voice',  0.00,  0, '2024-05-25T12:00:00'),
+('V2-023', '+1-312-555-3003', '+1-617-555-5005', '2024-06-01T16:00:00', '2024-06-01T16:08:45', 'TWR-C-01',  525,  'voice',  0.00,  0, '2024-06-01T18:00:00'),
+('V2-024', '+1-617-555-5005', '+1-212-555-1001', '2024-06-10T09:10:00', '2024-06-10T09:22:15', 'TWR-NE-02', 735,  'voice',  0.00,  0, '2024-06-10T12:00:00'),
+('V2-025', '+1-305-555-9009', '+1-214-555-2012', '2024-06-15T10:00:00', '2024-06-15T10:25:40', 'TWR-S-01',  1540, 'voice',  0.00,  0, '2024-06-15T12:00:00');
 
--- Evening (6-10pm) - mixed regions
-('CDR-00029', '+1-212-555-1001', '+1-415-555-2002', 'TWR-NE-01', '2024-06-01T18:15:00', '2024-06-01T18:28:30', 'voice',   0.00, 1.35, '2024-06-02T00:00:00'),
-('CDR-00030', '+1-617-555-5005', '+1-303-555-7007', 'TWR-NE-02', '2024-06-01T18:45:00', NULL,                  'data',  125.30, 1.25, '2024-06-02T00:00:00'),
-('CDR-00031', '+1-415-555-2002', '+1-206-555-4004', 'TWR-W-01',  '2024-06-01T19:00:00', '2024-06-01T19:05:20', 'voice',   0.00, 0.53, '2024-06-02T00:00:00'),
-('CDR-00032', '+1-305-555-9009', '+1-404-555-1011', 'TWR-S-01',  '2024-06-01T19:30:00', '2024-06-01T19:52:45', 'voice',   0.00, 2.27, '2024-06-02T00:00:00'),
-('CDR-00033', '+1-312-555-3003', '+1-512-555-6006', 'TWR-C-01',  '2024-06-01T20:00:00', '2024-06-01T20:00:09', 'voice',   0.00, 0.02, '2024-06-02T00:00:00'),
-('CDR-00034', '+1-404-555-1011', '+1-214-555-2012', 'TWR-S-02',  '2024-06-01T20:30:00', '2024-06-01T20:42:18', 'voice',   0.00, 1.22, '2024-06-02T00:00:00'),
-('CDR-00035', '+1-503-555-8008', '+1-206-555-4004', 'TWR-W-02',  '2024-06-01T21:00:00', NULL,                  'data',  580.00, 5.80, '2024-06-02T00:00:00'),
+ASSERT ROW_COUNT = 25
+SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cdr_v2;
 
--- Day 2 - June 2
-('CDR-00036', '+1-212-555-1001', '+1-617-555-5005', 'TWR-NE-01', '2024-06-02T07:30:00', '2024-06-02T07:45:10', 'voice',   0.00, 1.51, '2024-06-02T12:00:00'),
-('CDR-00037', '+1-415-555-2002', '+1-503-555-8008', 'TWR-W-01',  '2024-06-02T08:00:00', '2024-06-02T08:00:06', 'voice',   0.00, 0.01, '2024-06-02T12:00:00'),
-('CDR-00038', '+1-312-555-3003', '+1-214-555-2012', 'TWR-C-01',  '2024-06-02T08:30:00', '2024-06-02T08:41:20', 'voice',   0.00, 1.13, '2024-06-02T12:00:00'),
-('CDR-00039', '+1-305-555-9009', '+1-602-555-0010', 'TWR-S-01',  '2024-06-02T09:00:00', NULL,                  'data',  200.00, 2.00, '2024-06-02T12:00:00'),
-('CDR-00040', '+1-206-555-4004', '+1-415-555-2002', 'TWR-W-02',  '2024-06-02T09:30:00', '2024-06-02T09:48:55', 'voice',   0.00, 1.88, '2024-06-02T12:00:00'),
-('CDR-00041', '+1-404-555-1011', '+1-305-555-9009', 'TWR-S-02',  '2024-06-02T10:00:00', '2024-06-02T10:18:30', 'voice',   0.00, 1.85, '2024-06-02T12:00:00'),
-('CDR-00042', '+1-512-555-6006', '+1-312-555-3003', 'TWR-C-02',  '2024-06-02T10:30:00', '2024-06-02T10:30:04', 'voice',   0.00, 0.01, '2024-06-02T12:00:00'),
-('CDR-00043', '+1-303-555-7007', '+1-617-555-5005', 'TWR-C-01',  '2024-06-02T11:00:00', '2024-06-02T11:15:42', 'voice',   0.00, 1.57, '2024-06-02T12:00:00'),
-('CDR-00044', '+1-602-555-0010', '+1-503-555-8008', 'TWR-W-02',  '2024-06-02T11:30:00', NULL,                  'sms',     0.00, 0.05, '2024-06-02T12:00:00'),
-('CDR-00045', '+1-214-555-2012', '+1-212-555-1001', 'TWR-C-02',  '2024-06-02T12:00:00', '2024-06-02T12:06:30', 'voice',   0.00, 0.65, '2024-06-02T18:00:00'),
 
--- Day 2 afternoon/evening
-('CDR-00046', '+1-212-555-1001', '+1-305-555-9009', 'TWR-NE-01', '2024-06-02T13:00:00', '2024-06-02T13:22:10', 'voice',   0.00, 2.21, '2024-06-02T18:00:00'),
-('CDR-00047', '+1-415-555-2002', '+1-312-555-3003', 'TWR-W-01',  '2024-06-02T14:00:00', NULL,                  'data',  410.25, 4.10, '2024-06-02T18:00:00'),
-('CDR-00048', '+1-617-555-5005', '+1-206-555-4004', 'TWR-NE-02', '2024-06-02T14:30:00', '2024-06-02T14:30:08', 'voice',   0.00, 0.02, '2024-06-02T18:00:00'),
-('CDR-00049', '+1-305-555-9009', '+1-512-555-6006', 'TWR-S-01',  '2024-06-02T15:00:00', '2024-06-02T15:35:15', 'voice',   0.00, 3.52, '2024-06-02T18:00:00'),
-('CDR-00050', '+1-303-555-7007', '+1-404-555-1011', 'TWR-C-01',  '2024-06-02T16:00:00', '2024-06-02T16:12:40', 'voice',   0.00, 1.27, '2024-06-02T18:00:00'),
-('CDR-00051', '+1-206-555-4004', '+1-602-555-0010', 'TWR-W-02',  '2024-06-02T17:00:00', NULL,                  'data',  310.50, 3.11, '2024-06-02T18:00:00'),
-('CDR-00052', '+1-404-555-1011', '+1-212-555-1001', 'TWR-S-02',  '2024-06-02T18:00:00', '2024-06-02T18:14:25', 'voice',   0.00, 1.44, '2024-06-03T00:00:00'),
-('CDR-00053', '+1-512-555-6006', '+1-415-555-2002', 'TWR-C-02',  '2024-06-02T19:00:00', '2024-06-02T19:09:50', 'voice',   0.00, 0.98, '2024-06-03T00:00:00'),
-('CDR-00054', '+1-212-555-1001', '+1-303-555-7007', 'TWR-NE-01', '2024-06-02T20:00:00', '2024-06-02T20:20:05', 'voice',   0.00, 2.01, '2024-06-03T00:00:00'),
-('CDR-00055', '+1-305-555-9009', '+1-617-555-5005', 'TWR-S-01',  '2024-06-02T20:30:00', '2024-06-02T20:30:03', 'voice',   0.00, 0.01, '2024-06-03T00:00:00'),
+-- ===================== SEED DATA: CDR V3 — 2024 H2 5G era (20 rows) =====================
+-- Schema v3: adds roaming_flag, network_type (4G/5G), handover_count
+-- Type widening: duration_sec as BIGINT (long data sessions can exceed INT range conceptually).
+-- Includes 3 roaming events, 2 5G handovers, 1 dropped call.
 
--- Day 3 - June 3 (smaller sample)
-('CDR-00056', '+1-415-555-2002', '+1-206-555-4004', 'TWR-W-01',  '2024-06-03T08:00:00', '2024-06-03T08:25:10', 'voice',   0.00, 2.51, '2024-06-03T12:00:00'),
-('CDR-00057', '+1-312-555-3003', '+1-512-555-6006', 'TWR-C-01',  '2024-06-03T09:00:00', NULL,                  'data',  275.00, 2.75, '2024-06-03T12:00:00'),
-('CDR-00058', '+1-305-555-9009', '+1-404-555-1011', 'TWR-S-01',  '2024-06-03T10:00:00', '2024-06-03T10:18:45', 'voice',   0.00, 1.87, '2024-06-03T12:00:00'),
-('CDR-00059', '+1-617-555-5005', '+1-212-555-1001', 'TWR-NE-02', '2024-06-03T11:00:00', '2024-06-03T11:11:30', 'voice',   0.00, 1.15, '2024-06-03T12:00:00'),
-('CDR-00060', '+1-206-555-4004', '+1-303-555-7007', 'TWR-W-02',  '2024-06-03T12:00:00', '2024-06-03T12:00:05', 'voice',   0.00, 0.01, '2024-06-03T18:00:00'),
-('CDR-00061', '+1-404-555-1011', '+1-512-555-6006', 'TWR-S-02',  '2024-06-03T13:00:00', '2024-06-03T13:28:20', 'voice',   0.00, 2.83, '2024-06-03T18:00:00'),
-('CDR-00062', '+1-503-555-8008', '+1-212-555-1001', 'TWR-W-02',  '2024-06-03T14:00:00', NULL,                  'data',  490.00, 4.90, '2024-06-03T18:00:00'),
-('CDR-00063', '+1-214-555-2012', '+1-305-555-9009', 'TWR-C-02',  '2024-06-03T15:00:00', '2024-06-03T15:05:15', 'voice',   0.00, 0.52, '2024-06-03T18:00:00'),
-('CDR-00064', '+1-602-555-0010', '+1-415-555-2002', 'TWR-W-02',  '2024-06-03T16:00:00', '2024-06-03T16:00:07', 'voice',   0.00, 0.01, '2024-06-03T18:00:00'),
-('CDR-00065', '+1-212-555-1001', '+1-404-555-1011', 'TWR-NE-01', '2024-06-03T17:00:00', '2024-06-03T17:32:00', 'voice',   0.00, 3.20, '2024-06-03T18:00:00');
+INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v3 VALUES
+('V3-001', '+1-212-555-1001', '+1-415-555-2002', '2024-07-01T08:00:00', '2024-07-01T08:18:30', 'TWR-NE-01', 1110, 'voice', 0.00,   0, false, '5G',  0, '2024-07-01T12:00:00'),
+('V3-002', '+1-415-555-2002', '+1-305-555-9009', '2024-07-01T09:00:00', NULL,                  'TWR-W-01',  NULL, 'data',  520.00, 0, true,  '5G',  0, '2024-07-01T12:00:00'),
+('V3-003', '+1-305-555-9009', '+1-212-555-1001', '2024-07-01T09:30:00', '2024-07-01T09:30:06', 'TWR-S-01',  6,    'voice', 0.00,   0, false, '5G',  1, '2024-07-01T12:00:00'),
+('V3-004', '+1-312-555-3003', '+1-404-555-1011', '2024-07-05T10:00:00', '2024-07-05T10:22:15', 'TWR-C-01',  1335, 'voice', 0.00,   0, false, '5G',  2, '2024-07-05T12:00:00'),
+('V3-005', '+1-206-555-4004', '+1-617-555-5005', '2024-07-05T10:30:00', '2024-07-05T10:45:50', 'TWR-W-02',  950,  'voice', 0.00,   0, true,  '4G',  0, '2024-07-05T12:00:00'),
+('V3-006', '+1-404-555-1011', '+1-503-555-8008', '2024-07-10T11:00:00', NULL,                  'TWR-S-02',  NULL, 'data',  340.00, 0, false, '4G',  0, '2024-07-10T12:00:00'),
+('V3-007', '+1-512-555-6006', '+1-303-555-7007', '2024-07-10T12:00:00', '2024-07-10T12:12:40', 'TWR-C-02',  760,  'voice', 0.00,   0, false, '4G',  0, '2024-07-10T12:00:00'),
+('V3-008', '+1-602-555-0010', '+1-214-555-2012', '2024-07-15T13:00:00', '2024-07-15T13:08:20', 'TWR-W-02',  500,  'voice', 0.00,   0, true,  '4G',  0, '2024-07-15T18:00:00'),
+('V3-009', '+1-720-555-3013', '+1-812-555-4014', '2024-07-20T09:00:00', NULL,                  'TWR-C-01',  0,    'sms',   0.00,   4, false, '5G',  0, '2024-07-20T12:00:00'),
+('V3-010', '+1-813-555-4014', '+1-720-555-3013', '2024-07-25T14:00:00', '2024-07-25T14:15:30', 'TWR-S-03',  930,  'voice', 0.00,   0, false, '5G',  0, '2024-07-25T18:00:00'),
+('V3-011', '+1-212-555-1001', '+1-404-555-1011', '2024-08-01T17:00:00', '2024-08-01T17:32:00', 'TWR-NE-01', 1920, 'voice', 0.00,   0, false, '5G',  1, '2024-08-01T18:00:00'),
+('V3-012', '+1-415-555-2002', '+1-206-555-4004', '2024-08-05T08:00:00', '2024-08-05T08:25:10', 'TWR-W-01',  1510, 'voice', 0.00,   0, false, '5G',  0, '2024-08-05T12:00:00'),
+('V3-013', '+1-305-555-9009', '+1-617-555-5005', '2024-08-10T20:30:00', '2024-08-10T20:35:15', 'TWR-S-01',  285,  'voice', 0.00,   0, false, '5G',  0, '2024-08-10T22:00:00'),
+('V3-014', '+1-303-555-7007', '+1-512-555-6006', '2024-08-15T13:00:00', NULL,                  'TWR-C-01',  NULL, 'data',  275.00, 0, false, '5G',  0, '2024-08-15T18:00:00'),
+('V3-015', '+1-404-555-1011', '+1-214-555-2012', '2024-08-20T20:30:00', '2024-08-20T20:42:18', 'TWR-S-02',  708,  'voice', 0.00,   0, false, '4G',  0, '2024-08-20T22:00:00'),
+('V3-016', '+1-206-555-4004', '+1-602-555-0010', '2024-09-01T17:00:00', NULL,                  'TWR-W-02',  NULL, 'data',  310.50, 0, false, '4G',  0, '2024-09-01T18:00:00'),
+('V3-017', '+1-512-555-6006', '+1-415-555-2002', '2024-09-05T19:00:00', '2024-09-05T19:09:50', 'TWR-C-02',  590,  'voice', 0.00,   0, false, '4G',  0, '2024-09-05T22:00:00'),
+('V3-018', '+1-617-555-5005', '+1-303-555-7007', '2024-09-10T18:45:00', NULL,                  'TWR-NE-02', NULL, 'data',  125.30, 0, false, '4G',  0, '2024-09-10T22:00:00'),
+('V3-019', '+1-214-555-2012', '+1-305-555-9009', '2024-09-15T15:00:00', '2024-09-15T15:05:15', 'TWR-C-02',  315,  'voice', 0.00,   0, false, '4G',  0, '2024-09-15T18:00:00'),
+('V3-020', '+1-901-555-5015', '+1-212-555-1001', '2024-09-20T10:00:00', '2024-09-20T10:02:15', 'TWR-S-02',  135,  'voice', 0.00,   0, false, '4G',  0, '2024-09-20T12:00:00');
 
-ASSERT ROW_COUNT = 65
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cdr;
+ASSERT ROW_COUNT = 20
+SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cdr_v3;
 

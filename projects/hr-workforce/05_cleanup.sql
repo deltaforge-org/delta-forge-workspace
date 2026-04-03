@@ -3,39 +3,49 @@
 -- =============================================================================
 
 -- ===================== DEACTIVATED PIPELINE =====================
--- This cleanup pipeline is DISABLED by default. It must be manually
--- activated before execution to prevent accidental data loss.
--- To run: first SET STATUS on this pipeline to 'active', then trigger.
 
 PIPELINE hr_workforce_cleanup
-  DESCRIPTION 'Cleanup pipeline for Hr Workforce — drops all objects. DISABLED by default.'
+  DESCRIPTION 'Cleanup pipeline for HR Workforce - drops all objects. DISABLED by default.'
   TAGS 'cleanup', 'maintenance', 'hr-workforce'
   STATUS disabled
   LIFECYCLE production
 ;
 
+-- ===================== DROP PSEUDONYMISATION RULES =====================
 
--- ===================== GOLD TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.kpi_workforce_analytics;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.fact_compensation_events;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_position;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_department;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_employee;
+DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.employee_dim (ssn);
+DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.employee_dim (email);
+DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.employee_dim (employee_name);
+DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.employee_dim (date_of_birth);
+DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.employee_dim (base_salary);
 
--- ===================== SILVER TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.comp_events_enriched;
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.dim_employee_scd2;
+-- ===================== DROP GOLD TABLES =====================
 
--- ===================== BRONZE TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_comp_events;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_positions;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_departments;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_employees;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_retention_risk WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_workforce_analytics WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.fact_compensation WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_position WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_department WITH FILES;
 
--- ===================== SCHEMAS =====================
+-- ===================== DROP SILVER TABLES =====================
+
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.org_change_log WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.comp_events_enriched WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.employee_dim WITH FILES;
+
+-- ===================== DROP BRONZE TABLES =====================
+
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_comp_events WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_positions WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_departments WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_employees WITH FILES;
+
+-- ===================== DROP SCHEMAS =====================
+
 DROP SCHEMA IF EXISTS {{zone_prefix}}.gold;
 DROP SCHEMA IF EXISTS {{zone_prefix}}.silver;
 DROP SCHEMA IF EXISTS {{zone_prefix}}.bronze;
 
--- ===================== ZONES =====================
+-- ===================== DROP ZONES =====================
+
 DROP ZONE IF EXISTS {{zone_prefix}};

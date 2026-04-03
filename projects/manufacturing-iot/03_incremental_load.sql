@@ -1,6 +1,10 @@
 -- =============================================================================
 -- Manufacturing IoT Pipeline: Incremental Load
 -- =============================================================================
+-- Demonstrates incremental processing of new sensor readings (June 2 morning)
+-- into validated and smoothed silver layers. Uses INCREMENTAL_FILTER macro.
+-- RESTORE for point-in-time recovery.
+-- =============================================================================
 
 -- ============================================================================
 -- DYNAMIC INCREMENTAL FILTER (Delta Forge Macro)
@@ -10,135 +14,191 @@
 -- manually track watermarks.
 --
 -- Usage: {{INCREMENTAL_FILTER(target_table, key_col, date_col, overlap_days)}}
--- Output: expands to e.g. "reading_id > 'R-080' AND reading_time > '2024-06-01T05:00:00'"
+-- Output: expands to e.g. "reading_id > 'R-090' AND reading_time > '2024-06-01T21:00:00'"
 --         or "1=1" if the target table is empty (first run = full load)
 -- ============================================================================
 
 -- Preview the generated filter condition:
 PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.readings_validated, reading_id, reading_time, 1)}};
 
--- Use in a MERGE or INSERT ... SELECT:
--- INSERT INTO {{zone_prefix}}.silver.readings_validated
--- SELECT * FROM {{zone_prefix}}.bronze.raw_sensor_readings
--- WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.readings_validated, reading_id, reading_time, 1)}};
-
 -- Show current watermark
 SELECT MAX(validated_at) AS current_watermark
 FROM {{zone_prefix}}.silver.readings_validated;
 
-SELECT 'silver.readings_validated' AS table_name, COUNT(*) AS row_count
+SELECT
+    'silver.readings_validated' AS table_name, COUNT(*) AS row_count
 FROM {{zone_prefix}}.silver.readings_validated
 UNION ALL
-SELECT 'gold.fact_sensor_readings', COUNT(*)
-FROM {{zone_prefix}}.gold.fact_sensor_readings;
+SELECT 'silver.readings_smoothed', COUNT(*)
+FROM {{zone_prefix}}.silver.readings_smoothed
+UNION ALL
+SELECT 'gold.fact_readings', COUNT(*)
+FROM {{zone_prefix}}.gold.fact_readings;
 
 -- =============================================================================
 -- Insert 10 new sensor readings (June 2, Morning shift)
 -- =============================================================================
+-- Includes 1 temperature anomaly (R-093: 91.0C spike on P1LA),
+-- 1 downtime event (R-100: 5min), normal readings across 4 plants.
 
-INSERT INTO {{zone_prefix}}.bronze.raw_sensor_readings VALUES
-('R-081', 'SEN-P1L1-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:00:00', 43.0,  6.2, 28.0, 1855.0, 31, 0, 0,  '2024-06-02T08:00:00'),
-('R-082', 'SEN-P1L1-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:15:00', 43.5,  6.3, 28.5, 1860.0, 30, 1, 0,  '2024-06-02T08:00:00'),
-('R-083', 'SEN-P1L1-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:30:00', 91.0,  6.1, 27.8, 1850.0, 28, 2, 0,  '2024-06-02T08:00:00'),
-('R-084', 'SEN-P2L1-TEMP', 'PLANT-02', 'Line-A', '2024-06-02T06:00:00', 55.5,  8.5, 35.0, 2200.0, 15, 0, 0,  '2024-06-02T08:00:00'),
-('R-085', 'SEN-P2L1-TEMP', 'PLANT-02', 'Line-A', '2024-06-02T06:15:00', 56.0,  8.6, 35.3, 2210.0, 14, 0, 0,  '2024-06-02T08:00:00'),
-('R-086', 'SEN-P3L1-TEMP', 'PLANT-03', 'Line-A', '2024-06-02T06:00:00', 32.5,  4.5, 20.0, 1500.0, 38, 0, 0,  '2024-06-02T08:00:00'),
-('R-087', 'SEN-P3L1-TEMP', 'PLANT-03', 'Line-A', '2024-06-02T06:15:00', 33.0,  4.6, 20.5, 1510.0, 37, 1, 0,  '2024-06-02T08:00:00'),
-('R-088', 'SEN-P4L1-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:00:00', 48.0,  7.2, 30.0, 2050.0, 22, 0, 0,  '2024-06-02T08:00:00'),
-('R-089', 'SEN-P4L1-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:15:00', 48.8,  7.3, 30.5, 2060.0, 23, 0, 0,  '2024-06-02T08:00:00'),
-('R-090', 'SEN-P4L1-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:30:00', 49.2,  7.1, 29.8, 2045.0, 22, 1, 5,  '2024-06-02T08:00:00');
+INSERT INTO {{zone_prefix}}.bronze.raw_readings VALUES
+('R-091', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:00:00', 43.00,  31, 0, 0,  '2024-06-02T08:00:00'),
+('R-092', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:15:00', 43.50,  30, 1, 0,  '2024-06-02T08:00:00'),
+('R-093', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:30:00', 91.00,  28, 2, 0,  '2024-06-02T08:00:00'),
+('R-094', 'SEN-P2LA-TEMP', 'PLANT-02', 'Line-A', '2024-06-02T06:00:00', 55.50,  15, 0, 0,  '2024-06-02T08:00:00'),
+('R-095', 'SEN-P2LA-TEMP', 'PLANT-02', 'Line-A', '2024-06-02T06:15:00', 56.00,  14, 0, 0,  '2024-06-02T08:00:00'),
+('R-096', 'SEN-P3LA-TEMP', 'PLANT-03', 'Line-A', '2024-06-02T06:00:00', 32.50,  38, 0, 0,  '2024-06-02T08:00:00'),
+('R-097', 'SEN-P3LA-TEMP', 'PLANT-03', 'Line-A', '2024-06-02T06:15:00', 33.00,  37, 1, 0,  '2024-06-02T08:00:00'),
+('R-098', 'SEN-P4LA-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:00:00', 48.00,  22, 0, 0,  '2024-06-02T08:00:00'),
+('R-099', 'SEN-P4LA-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:15:00', 48.80,  23, 0, 0,  '2024-06-02T08:00:00'),
+('R-100', 'SEN-P4LA-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:30:00', 49.20,  22, 1, 5,  '2024-06-02T08:00:00');
 
 ASSERT ROW_COUNT = 10
-SELECT 'row count check' AS status;
+SELECT COUNT(*) AS new_reading_count
+FROM {{zone_prefix}}.bronze.raw_readings
+WHERE ingested_at >= '2024-06-02T08:00:00';
 
 
 -- =============================================================================
--- Incremental MERGE: only new readings
+-- Incremental MERGE: validate new readings
 -- =============================================================================
 
 MERGE INTO {{zone_prefix}}.silver.readings_validated AS tgt
 USING (
-    WITH readings_with_ma AS (
-        SELECT
-            r.reading_id,
-            r.sensor_id,
-            s.sensor_type,
-            r.plant_id,
-            r.line_name,
-            r.reading_time,
-            CASE
-                WHEN EXTRACT(HOUR FROM r.reading_time) >= 6  AND EXTRACT(HOUR FROM r.reading_time) < 14 THEN 'SHIFT-AM'
-                WHEN EXTRACT(HOUR FROM r.reading_time) >= 14 AND EXTRACT(HOUR FROM r.reading_time) < 22 THEN 'SHIFT-PM'
-                ELSE 'SHIFT-NIGHT'
-            END AS shift_id,
-            r.temperature_c,
-            r.pressure_bar,
-            r.vibration_hz,
-            r.rpm,
-            CAST(AVG(r.temperature_c) OVER (
-                PARTITION BY r.sensor_id ORDER BY r.reading_time ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-            ) AS DECIMAL(8,2)) AS temp_moving_avg,
-            CAST(AVG(r.pressure_bar) OVER (
-                PARTITION BY r.sensor_id ORDER BY r.reading_time ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-            ) AS DECIMAL(8,2)) AS press_moving_avg,
-            CAST(AVG(r.vibration_hz) OVER (
-                PARTITION BY r.sensor_id ORDER BY r.reading_time ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-            ) AS DECIMAL(8,2)) AS vib_moving_avg,
-            CAST(AVG(r.rpm) OVER (
-                PARTITION BY r.sensor_id ORDER BY r.reading_time ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-            ) AS DECIMAL(8,2)) AS rpm_moving_avg,
-            CASE
-                WHEN r.units_produced > 0
-                THEN CAST((1.0 - (r.defect_units * 1.0 / r.units_produced)) * 100 AS DECIMAL(5,2))
-                ELSE 100.00
-            END AS quality_score,
-            CASE
-                WHEN s.sensor_type = 'temperature' AND (r.temperature_c < s.threshold_min OR r.temperature_c > s.threshold_max) THEN true
-                ELSE false
-            END AS anomaly_flag,
-            CASE
-                WHEN s.sensor_type = 'temperature' AND r.temperature_c > s.threshold_max THEN 'Temperature above threshold'
-                ELSE NULL
-            END AS anomaly_reason,
-            r.units_produced,
-            r.defect_units,
-            r.downtime_min,
-            r.ingested_at
-        FROM {{zone_prefix}}.bronze.raw_sensor_readings r
-        LEFT JOIN {{zone_prefix}}.bronze.raw_sensors s ON r.sensor_id = s.sensor_id
-        WHERE r.ingested_at > (SELECT COALESCE(MAX(validated_at), '1970-01-01T00:00:00') FROM {{zone_prefix}}.silver.readings_validated)
-    )
-    SELECT * FROM readings_with_ma
+    SELECT
+        r.reading_id,
+        r.sensor_id,
+        s.sensor_type,
+        r.plant_id,
+        r.line_name,
+        r.reading_time,
+        CASE
+            WHEN EXTRACT(HOUR FROM r.reading_time) >= 6  AND EXTRACT(HOUR FROM r.reading_time) < 14 THEN 'SHIFT-AM'
+            WHEN EXTRACT(HOUR FROM r.reading_time) >= 14 AND EXTRACT(HOUR FROM r.reading_time) < 22 THEN 'SHIFT-PM'
+            ELSE 'SHIFT-NIGHT'
+        END AS shift_id,
+        r.value,
+        s.threshold_min,
+        s.threshold_max,
+        CASE
+            WHEN s.sensor_type = 'temperature' AND r.value BETWEEN -50 AND 500    THEN true
+            WHEN s.sensor_type = 'pressure'    AND r.value BETWEEN 0 AND 200      THEN true
+            WHEN s.sensor_type = 'vibration'   AND r.value BETWEEN 0 AND 50000    THEN true
+            WHEN s.sensor_type = 'rpm'         AND r.value BETWEEN 0 AND 20000    THEN true
+            ELSE false
+        END AS in_range_flag,
+        CASE
+            WHEN r.units_produced > 0
+            THEN CAST((1.0 - (r.defect_units * 1.0 / r.units_produced)) * 100 AS DECIMAL(5,2))
+            ELSE 100.00
+        END AS quality_score,
+        r.units_produced,
+        r.defect_units,
+        r.downtime_min,
+        r.ingested_at
+    FROM {{zone_prefix}}.bronze.raw_readings r
+    LEFT JOIN {{zone_prefix}}.bronze.raw_sensors s ON r.sensor_id = s.sensor_id
+    WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.readings_validated, reading_id, reading_time, 1)}}
 ) AS src
 ON tgt.reading_id = src.reading_id
 WHEN NOT MATCHED THEN INSERT (
     reading_id, sensor_id, sensor_type, plant_id, line_name, reading_time, shift_id,
-    temperature_c, pressure_bar, vibration_hz, rpm,
-    temp_moving_avg, press_moving_avg, vib_moving_avg, rpm_moving_avg,
-    quality_score, anomaly_flag, anomaly_reason,
+    value, threshold_min, threshold_max, in_range_flag, quality_score,
     units_produced, defect_units, downtime_min, validated_at
 ) VALUES (
     src.reading_id, src.sensor_id, src.sensor_type, src.plant_id, src.line_name,
-    src.reading_time, src.shift_id, src.temperature_c, src.pressure_bar,
-    src.vibration_hz, src.rpm, src.temp_moving_avg, src.press_moving_avg,
-    src.vib_moving_avg, src.rpm_moving_avg, src.quality_score, src.anomaly_flag,
-    src.anomaly_reason, src.units_produced, src.defect_units, src.downtime_min,
-    src.ingested_at
+    src.reading_time, src.shift_id, src.value, src.threshold_min, src.threshold_max,
+    src.in_range_flag, src.quality_score, src.units_produced, src.defect_units,
+    src.downtime_min, src.ingested_at
+);
+
+-- =============================================================================
+-- Incremental MERGE: smooth new readings and detect anomalies
+-- =============================================================================
+
+MERGE INTO {{zone_prefix}}.silver.readings_smoothed AS tgt
+USING (
+    WITH smoothed AS (
+        SELECT
+            v.reading_id,
+            v.sensor_id,
+            v.sensor_type,
+            v.plant_id,
+            v.line_name,
+            v.reading_time,
+            v.shift_id,
+            v.value,
+            CAST(AVG(v.value) OVER (
+                PARTITION BY v.sensor_id ORDER BY v.reading_time
+                ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+            ) AS DECIMAL(10,2)) AS moving_avg,
+            CAST(STDDEV(v.value) OVER (
+                PARTITION BY v.sensor_id ORDER BY v.reading_time
+                ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+            ) AS DECIMAL(10,4)) AS moving_stddev,
+            v.validated_at
+        FROM {{zone_prefix}}.silver.readings_validated v
+    )
+    SELECT
+        s.*,
+        CASE
+            WHEN s.moving_stddev IS NOT NULL
+                 AND s.moving_stddev > 0
+                 AND ABS(s.value - s.moving_avg) > 2 * s.moving_stddev
+            THEN true
+            ELSE false
+        END AS anomaly_flag,
+        CASE
+            WHEN s.moving_stddev IS NOT NULL
+                 AND s.moving_stddev > 0
+                 AND ABS(s.value - s.moving_avg) > 2 * s.moving_stddev
+            THEN s.sensor_type || ' anomaly: value=' || CAST(s.value AS STRING)
+                 || ' deviates from moving_avg=' || CAST(s.moving_avg AS STRING)
+            ELSE NULL
+        END AS anomaly_reason
+    FROM smoothed s
+    WHERE s.reading_id IN (SELECT reading_id FROM {{zone_prefix}}.silver.readings_validated WHERE validated_at >= '2024-06-02T08:00:00')
+) AS src
+ON tgt.reading_id = src.reading_id
+WHEN MATCHED THEN UPDATE SET
+    tgt.moving_avg     = src.moving_avg,
+    tgt.moving_stddev  = src.moving_stddev,
+    tgt.anomaly_flag   = src.anomaly_flag,
+    tgt.anomaly_reason = src.anomaly_reason,
+    tgt.smoothed_at    = src.validated_at
+WHEN NOT MATCHED THEN INSERT (
+    reading_id, sensor_id, sensor_type, plant_id, line_name, reading_time, shift_id,
+    value, moving_avg, moving_stddev, anomaly_flag, anomaly_reason, smoothed_at
+) VALUES (
+    src.reading_id, src.sensor_id, src.sensor_type, src.plant_id, src.line_name,
+    src.reading_time, src.shift_id, src.value, src.moving_avg, src.moving_stddev,
+    src.anomaly_flag, src.anomaly_reason, src.validated_at
 );
 
 -- =============================================================================
 -- Verify incremental results
 -- =============================================================================
 
--- Silver should now have 80 + 10 = 90 validated readings
-SELECT COUNT(*) AS silver_total FROM {{zone_prefix}}.silver.readings_validated;
--- Verify anomaly in incremental batch (R-083 temp = 91.0 > threshold 85.0)
-ASSERT ROW_COUNT = 90
-SELECT reading_id, temperature_c, anomaly_flag, anomaly_reason
-FROM {{zone_prefix}}.silver.readings_validated
-WHERE reading_id = 'R-083';
+-- Validated should now have 90 + 10 = 100
+SELECT COUNT(*) AS validated_total FROM {{zone_prefix}}.silver.readings_validated;
 
--- Verify watermark advanced
+ASSERT VALUE validated_total = 100
+SELECT reading_id, value, in_range_flag
+FROM {{zone_prefix}}.silver.readings_validated
+WHERE reading_id = 'R-093';
+
+-- Verify anomaly detection in incremental batch (R-093 temp = 91.0 spike)
+ASSERT VALUE in_range_flag = true
+SELECT reading_id, value, anomaly_flag, anomaly_reason
+FROM {{zone_prefix}}.silver.readings_smoothed
+WHERE reading_id = 'R-093';
+
 ASSERT VALUE anomaly_flag = true
 SELECT MAX(validated_at) AS new_watermark
 FROM {{zone_prefix}}.silver.readings_validated;
+
+-- =============================================================================
+-- RESTORE demonstration: point-in-time recovery
+-- =============================================================================
+
+RESTORE {{zone_prefix}}.silver.readings_validated TO VERSION 0;

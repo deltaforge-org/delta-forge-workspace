@@ -1,20 +1,23 @@
 [project]
 id = "legal-case-management"
 name = "Legal Case Management Pipeline"
-version = "1.0.0"
+version = "2.0.0"
 author = "Delta Forge Team"
 description = """
-Advanced legal case management pipeline with graph-based relationship modeling using Cypher queries
-for attorney-client-case networks. Features billable utilization analysis, case profitability scoring,
-co-counsel network discovery, community detection for practice groups, and comprehensive pseudonymisation
-of client PII. Includes a gold-layer star schema with fact_billings and supporting dimensions.
+Litigation analytics pipeline combining Delta tables with a property graph for relationship
+analysis. Cypher queries reveal hidden connections between parties, conflict-of-interest chains,
+and attorney influence networks. PageRank identifies most-influential attorneys, community
+detection (Louvain) discovers practice groups from co-counsel edges, and multi-hop traversals
+perform conflict-of-interest checks. PII of clients and witnesses is pseudonymised via REDACT,
+MASK, and keyed_hash. Gold star schema drives firm performance KPIs including utilization rates,
+revenue per attorney, and case profitability.
 """
 industry = "legal"
-categories = ["pipeline", "medallion", "legal"]
-tags = ["PII", "data-protection", "transformation", "full-load", "graph", "cypher", "billing", "star-schema"]
+categories = ["pipeline", "medallion", "legal", "graph"]
+tags = ["PII", "data-protection", "graph", "cypher", "pagerank", "community-detection", "star-schema", "billing", "pseudonymisation"]
 difficulty = "advanced"
-estimated_time_minutes = 15
-load_type = "full"
+estimated_time_minutes = 20
+load_type = "both"
 
 [project.variables]
 data_path = { description = "Root path for Delta table storage", required = true }
@@ -28,15 +31,15 @@ timezone = "America/New_York"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_attorneys"
-
-[[project.target_objects]]
-type = "delta_table"
 name = "{{zone_prefix}}.bronze.raw_cases"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_clients"
+name = "{{zone_prefix}}.bronze.raw_parties"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_attorneys"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -44,15 +47,19 @@ name = "{{zone_prefix}}.bronze.raw_billings"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_case_attorneys"
+name = "{{zone_prefix}}.bronze.raw_relationships"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_case_clients"
+name = "{{zone_prefix}}.silver.cases_enriched"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.silver.billings_enriched"
+name = "{{zone_prefix}}.silver.billings_validated"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.party_profiles"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -64,8 +71,16 @@ name = "{{zone_prefix}}.gold.dim_attorney"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.gold.dim_client"
+name = "{{zone_prefix}}.gold.dim_party"
 
 [[project.target_objects]]
 type = "delta_table"
 name = "{{zone_prefix}}.gold.fact_billings"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_firm_performance"
+
+[[project.target_objects]]
+type = "graph"
+name = "{{zone_prefix}}.gold.legal_network"

@@ -1,23 +1,25 @@
 [project]
 id = "real-estate-property"
 name = "Real Estate Property Pipeline"
-version = "1.0.0"
+version = "2.0.0"
 author = "Delta Forge Team"
 description = """
-Advanced real estate property pipeline implementing medallion architecture with
-SCD Type 2 (property listing price history tracking), bloom filters for fast
-property_id lookup, RESTORE for rollback of bad imports, and pseudonymisation
-(HASH buyer_name, seller_name). Features a gold-layer star schema with
-fact_transactions, SCD2 property dimension, buyer/agent/neighborhood dimensions,
-and market trend KPIs including median prices, days on market, over-asking
-analysis, and price momentum using LAG window functions.
+Enterprise county assessor property pipeline implementing SCD Type 2 with 3 annual assessment batches
+(2022/2023/2024) tracking property value history, RESTORE correction workflow for bad assessment batches,
+bloom filters on parcel_id for fast lookup, time travel for "value as of assessment date", partitioning
+by county, window functions for YoY assessment trends, neighborhood benchmarking, and assessment accuracy
+analysis comparing assessed_value to actual sale_price. Features dim_neighborhood, dim_agent,
+dim_property_type, fact_transactions star schema with price_per_sqft, over_asking_pct, days_on_market,
+assessed_vs_sale_ratio, kpi_market_trends by city x property_type x quarter, and kpi_assessment_accuracy.
+18 properties, 40 assessments (3 batches), 25 sales, 6 neighborhoods, 8 agents. Pseudonymisation
+via keyed_hash on buyer_name and seller_name.
 """
 industry = "real_estate"
-categories = ["pipeline", "medallion", "real-estate", "property"]
-tags = ["SCD2", "bloom-filter", "RESTORE", "pseudonymisation", "star-schema", "market-trends", "price-analysis"]
+categories = ["pipeline", "medallion", "real-estate", "property", "assessment"]
+tags = ["SCD2", "bloom-filter", "RESTORE", "pseudonymisation", "star-schema", "market-trends", "price-analysis", "assessment-accuracy", "partitioning", "time-travel"]
 difficulty = "advanced"
-estimated_time_minutes = 20
-load_type = "full"
+estimated_time_minutes = 25
+load_type = "both"
 
 [project.variables]
 data_path = { description = "Root path for Delta table storage", required = true }
@@ -35,15 +37,11 @@ name = "{{zone_prefix}}.bronze.raw_properties"
 
 [[project.target_objects]]
 type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_assessments"
+
+[[project.target_objects]]
+type = "delta_table"
 name = "{{zone_prefix}}.bronze.raw_transactions"
-
-[[project.target_objects]]
-type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_buyers"
-
-[[project.target_objects]]
-type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_agents"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -51,27 +49,19 @@ name = "{{zone_prefix}}.bronze.raw_neighborhoods"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.silver.property_scd2"
+name = "{{zone_prefix}}.bronze.raw_agents"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.silver.transaction_enriched"
+name = "{{zone_prefix}}.silver.property_dim"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.gold.fact_transactions"
+name = "{{zone_prefix}}.silver.transactions_enriched"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.gold.dim_property"
-
-[[project.target_objects]]
-type = "delta_table"
-name = "{{zone_prefix}}.gold.dim_buyer"
-
-[[project.target_objects]]
-type = "delta_table"
-name = "{{zone_prefix}}.gold.dim_agent"
+name = "{{zone_prefix}}.silver.correction_log"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -79,4 +69,20 @@ name = "{{zone_prefix}}.gold.dim_neighborhood"
 
 [[project.target_objects]]
 type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_agent"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_property_type"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_transactions"
+
+[[project.target_objects]]
+type = "delta_table"
 name = "{{zone_prefix}}.gold.kpi_market_trends"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_assessment_accuracy"

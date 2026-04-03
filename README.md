@@ -1,74 +1,81 @@
 # Delta Forge Workspace
 
-Enterprise pipeline cookbook with **25 self-contained projects** demonstrating medallion architecture, scheduled pipelines, incremental/full loads, PII protection, and advanced Delta Forge features.
+Enterprise pipeline cookbook with **13 advanced projects** demonstrating medallion architecture, scheduled multi-step pipelines, incremental/full loads, PII protection, and Delta Forge features in combination.
+
+Each project has a unique feature combination — no two projects demonstrate the same patterns.
 
 ## Quick Start
 
 1. Open Delta Forge GUI
 2. Navigate to any project under `projects/`
-3. Run files in numbered order:
-   - `01_create_objects.sql` — Creates zones, schemas, tables, seeds bronze data
-   - `02_full_load.sql` — Runs the full pipeline (bronze → silver → gold)
-   - `03_incremental_load.sql` — Demonstrates incremental delta processing
-   - `04_verify_gold.sql` — Validates gold-layer metrics with ASSERT statements
-   - `05_cleanup.sql` — Tears down all created objects (deactivated pipeline — must be enabled manually)
+3. **Standard projects** (12 of 13) — run files in numbered order:
+   - `01_create_objects.sql` — Creates zone, schemas, tables, seeds bronze data
+   - `02_full_load.sql` — Multi-step PIPELINE with STEP DAG (bronze → silver → gold)
+   - `03_incremental_load.sql` — Delta processing with `INCREMENTAL_FILTER` macro
+   - `04_verify_gold.sql` — Validates gold-layer star schema with ASSERT statements
+   - `05_cleanup.sql` — Deactivated pipeline (STATUS disabled) — must be enabled manually
+4. **Split-file project** (`supply-chain-analytics`) — actions organized per file by layer:
+   - `bronze/*.sql` → `silver/*.sql` → `gold/*.sql` → `maintenance/*.sql`
+   - Orchestrated by `pipeline.sql` using `INCLUDE SCRIPT` references
 
 ## Template Variables
-
-All SQL files use these template variables:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `{{data_path}}` | Root path for Delta table storage | Yes |
-| `{{zone_prefix}}` | Zone name for this project (each project gets one dedicated zone) | No |
+| `{{zone_prefix}}` | Zone name for this project (one dedicated zone each) | No |
 | `{{current_user}}` | Current user for GRANT statements | Yes |
 
 ## Incremental Loading
 
-Projects use the `INCREMENTAL_FILTER` macro for dynamic watermark-based loading:
+All projects use the `INCREMENTAL_FILTER` macro for dynamic watermark-based loading:
 
 ```sql
--- Reads MAX values from the target table and generates a WHERE clause
 SELECT * FROM {{zone_prefix}}.bronze.source_table
 WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.target_table, id, updated_at, 3)}};
-
 -- Expands to: id > 12345 AND updated_at > '2024-01-15'
 -- Or: 1=1 (if target is empty — first run = full load)
 ```
 
 ## Projects
 
-| # | Project | Industry | Key Features | Load Type |
-|---|---------|----------|-------------|-----------|
-| 1 | healthcare-patient-ehr | Healthcare | MERGE dedup, pseudonymisation, constraints, window fn | Both |
-| 2 | banking-transactions | Banking | CDF, time travel, partitioning, deletion vectors | Incremental |
-| 3 | retail-pos-sales | Retail | Bloom filters, Z-ordering, partition pruning, window fn | Both |
-| 4 | telecom-cdr | Telecom | Schema evolution, MERGE upsert, VACUUM, OPTIMIZE | Incremental |
-| 5 | insurance-claims | Insurance | MERGE SCD2, time travel joins, CHECK constraints | Full |
-| 6 | ecommerce-orders | E-Commerce | Soft delete, MERGE multi-source, CDF | Incremental |
-| 7 | manufacturing-iot | Manufacturing | Partitioning, OPTIMIZE, moving avg, constraints | Incremental |
-| 8 | pharma-clinical-trials | Pharma | All pseudonymisation transforms, deletion vectors, RESTORE | Full |
-| 9 | logistics-shipments | Logistics | MERGE idempotent, schema evolution, Z-ordering | Incremental |
-| 10 | energy-smart-meters | Energy | Partitioning, bloom filters, VACUUM retention | Incremental |
-| 11 | education-student-records | Education | Constraints (GPA), MERGE upsert, time travel | Full |
-| 12 | government-tax-filing | Government | Pseudonymisation REDACT, partitioning, CDF | Both |
-| 13 | media-streaming | Media | Window fn (sessions), deletion vectors, OPTIMIZE | Incremental |
-| 14 | agriculture-crop-yields | Agriculture | Schema evolution, constraints, partitioning | Full |
-| 15 | aviation-flight-ops | Aviation | MERGE composite keys, Z-ordering, time travel | Both |
-| 16 | real-estate-property | Real Estate | SCD2, bloom filters, RESTORE | Full |
-| 17 | hospitality-reservations | Hospitality | Soft delete, MERGE dedup, occupancy window fn | Incremental |
-| 18 | legal-case-management | Legal | Graph/Cypher, pseudonymisation, constraints | Full |
-| 19 | automotive-telematics | Automotive | Partitioning, schema evolution, deletion vectors | Incremental |
-| 20 | nonprofit-donations | Nonprofit | CDF, constraints, time travel | Both |
-| 21 | mining-operations | Mining | Partitioning, cumulative window fn, VACUUM | Incremental |
-| 22 | sports-analytics | Sports | Graph/Cypher, MERGE upsert, Z-ordering | Full |
-| 23 | hr-workforce | HR | SCD2, pseudonymisation (all transforms), deletion vectors | Both |
-| 24 | cybersecurity-incidents | Cybersecurity | MERGE dedup, bloom filters, OPTIMIZE | Incremental |
-| 25 | food-safety-inspections | Food & Bev | Constraints, RESTORE, partitioning | Full |
+| # | Project | Industry | Unique Feature Combination | Tables | Steps |
+|---|---------|----------|---------------------------|--------|-------|
+| 1 | healthcare-patient-ehr | Healthcare | All 4 pseudonymisation transforms + SCD2 + CDF audit + GDPR erasure + RESTORE | 11 | 11 |
+| 2 | banking-transactions | Banking | CDF → materialized snapshots + fraud scoring + SCD2 customer + time travel audit | 12 | 11 |
+| 3 | ecommerce-orders | E-Commerce | Multi-source MERGE (3 channels) + soft delete + RFM segmentation + funnel sessionization + CDF inventory | 17 | 13 |
+| 4 | insurance-claims | Insurance | SCD2 (3 batches) + point-in-time joins + fraud outlier detection + RESTORE correction | 13 | 14 |
+| 5 | telecom-cdr | Telecom | Schema evolution lifecycle (v1→v2→v3 + type widening) + session windows + churn scoring | 14 | 14 |
+| 6 | manufacturing-iot | Manufacturing | Anomaly detection (moving avg + stddev) + OEE formula + VACUUM retention + CHECK constraints | 14 | 11 |
+| 7 | logistics-shipments | Logistics | Event sourcing + idempotent composite-key dedup + SLA violation detection + schema evolution | 16 | 12 |
+| 8 | government-tax-filing | Government | Append-only + amendment MERGE preserving originals + CDF audit trail + bloom filters | 13 | 13 |
+| 9 | real-estate-property | Real Estate | SCD2 assessment history (3 batches) + RESTORE correction + assessment accuracy analysis | 12 | 14 |
+| 10 | legal-case-management | Legal | Graph/Cypher (PageRank, Louvain, conflict check) + pseudonymisation + Delta star schema | 12 | 13 |
+| 11 | hr-workforce | HR | All 5 pseudonymisation transforms + SCD2 + CDF org log + GDPR erasure + compa-ratio + pay gap | 12 | 13 |
+| 12 | cybersecurity-incidents | Cybersecurity | 3-source SIEM ingestion + 5-min window dedup + MITRE ATT&CK + bloom filters + incident correlation | 16 | 12 |
+| 13 | supply-chain-analytics | Supply Chain | **Split-file pattern**: INCLUDE SCRIPT per step + procurement→warehouse→transport→demand pipeline | 20 | 15 |
+
+## Pipeline Patterns
+
+### Standard: Single-file STEP DAG
+```sql
+PIPELINE my_pipeline SCHEDULE 'daily_schedule' ...;
+
+STEP validate_bronze TIMEOUT '2m' AS ...;
+STEP transform DEPENDS ON (validate_bronze) AS ...;
+STEP build_dim_a DEPENDS ON (transform) AS ...;   -- parallel
+STEP build_dim_b DEPENDS ON (transform) AS ...;   -- parallel
+STEP build_fact DEPENDS ON (build_dim_a, build_dim_b) AS ...;
+STEP optimize DEPENDS ON (build_fact) CONTINUE ON FAILURE AS ...;
+```
+
+### Split-file: INCLUDE SCRIPT per step
+```sql
+STEP validate_bronze AS INCLUDE SCRIPT 'silver/01_validate_bronze.sql';
+STEP build_inventory DEPENDS ON (validate_bronze) AS INCLUDE SCRIPT 'silver/02_inventory_positions.sql';
+```
 
 ## Architecture
-
-Each project follows the **medallion pattern**:
 
 ```
                     ┌─────────────────────────────────────────┐
@@ -86,4 +93,4 @@ Each project follows the **medallion pattern**:
                     └─────────────────────────────────────────┘
 ```
 
-Each project gets **one dedicated zone** with three schemas (`bronze`, `silver`, `gold`). This keeps all workshop projects cleanly isolated while minimizing zone noise in the catalog.
+Each project gets **one dedicated zone** with three schemas (`bronze`, `silver`, `gold`), keeping workshop projects cleanly isolated.

@@ -1,20 +1,22 @@
 [project]
 id = "telecom-cdr"
 name = "Telecom CDR Pipeline"
-version = "1.0.0"
+version = "2.0.0"
 author = "Delta Forge Team"
 description = """
-Advanced telecommunications CDR (Call Detail Record) pipeline implementing medallion architecture
-with schema evolution (adding roaming_flag column), MERGE upsert for subscriber profiles,
-dropped-call detection, and network quality analytics. Features VACUUM/OPTIMIZE for storage
-governance and a gold-layer star schema with fact_calls, subscriber/cell-tower dimensions,
-and network quality KPI dashboard.
+Advanced telecommunications CDR pipeline implementing medallion architecture with full schema
+evolution lifecycle (v1 voice-only -> v2 multi-service -> v3 5G/roaming), type widening
+(duration INT -> BIGINT), session window reconstruction via LAG/LEAD gap detection, MERGE
+upsert for subscriber profiles, churn risk scoring (behavioral 0-100), dropped-call detection,
+network quality analytics, and VACUUM/OPTIMIZE storage governance. Features a gold-layer star
+schema with fact_calls, subscriber/tower/plan dimensions, network quality KPIs, and churn risk
+dashboard. Pseudonymisation generalizes phone numbers (mask last 4 digits).
 """
 industry = "telecommunications"
 categories = ["pipeline", "medallion", "telecommunications"]
-tags = ["CDR", "schema-evolution", "MERGE", "VACUUM", "OPTIMIZE", "network-quality", "churn-detection", "star-schema"]
+tags = ["CDR", "schema-evolution", "type-widening", "session-reconstruction", "MERGE", "VACUUM", "OPTIMIZE", "network-quality", "churn-scoring", "star-schema", "LAG-LEAD", "pseudonymisation"]
 difficulty = "advanced"
-estimated_time_minutes = 15
+estimated_time_minutes = 20
 load_type = "incremental"
 
 [project.variables]
@@ -29,7 +31,15 @@ timezone = "UTC"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_cdr"
+name = "{{zone_prefix}}.bronze.raw_cdr_v1"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_cdr_v2"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_cdr_v3"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -41,7 +51,7 @@ name = "{{zone_prefix}}.bronze.raw_cell_towers"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.silver.cdr_enriched"
+name = "{{zone_prefix}}.silver.cdr_unified"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -49,7 +59,7 @@ name = "{{zone_prefix}}.silver.subscriber_profiles"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.gold.fact_calls"
+name = "{{zone_prefix}}.silver.sessions"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -57,8 +67,20 @@ name = "{{zone_prefix}}.gold.dim_subscriber"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.gold.dim_cell_tower"
+name = "{{zone_prefix}}.gold.dim_tower"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_plan"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_calls"
 
 [[project.target_objects]]
 type = "delta_table"
 name = "{{zone_prefix}}.gold.kpi_network_quality"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_churn_risk"

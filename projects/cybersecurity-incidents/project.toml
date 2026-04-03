@@ -1,19 +1,21 @@
 [project]
 id = "cybersecurity-incidents"
 name = "Cybersecurity Incidents Pipeline"
-version = "1.0.0"
+version = "2.0.0"
 author = "Delta Forge Team"
 description = """
-Advanced cybersecurity SIEM alert pipeline with duplicate alert correlation using ROW_NUMBER window
-deduplication, MITRE ATT&CK tactic classification, threat intelligence enrichment, mean-time-to-detect
-calculations, and bloom filter optimization for IP lookups. Features a gold-layer star schema with
-hourly threat dashboard KPIs and incident fact table.
+SOC (Security Operations Center) SIEM pipeline ingesting alerts from 3 sources (firewall, IDS,
+endpoint) every 15 minutes. Deduplicates within 5-minute windows via ROW_NUMBER, correlates
+multi-alert incidents using window-based gap detection, enriches with threat intelligence scores,
+classifies by MITRE ATT&CK framework (15 techniques across 7 tactics), calculates MTTD/MTTR,
+and maintains a real-time threat dashboard. Features bloom filters on source_ip, OPTIMIZE
+compaction, pseudonymisation of IP addresses, and a gold-layer star schema with 4 dimensions.
 """
 industry = "cybersecurity"
 categories = ["pipeline", "medallion", "cybersecurity"]
-tags = ["PII", "data-protection", "transformation", "incremental-load", "MITRE", "threat-intel", "bloom-filter", "OPTIMIZE", "star-schema"]
+tags = ["PII", "data-protection", "MITRE", "threat-intel", "bloom-filter", "OPTIMIZE", "star-schema", "multi-source", "incident-correlation", "pseudonymisation", "window-dedup"]
 difficulty = "advanced"
-estimated_time_minutes = 15
+estimated_time_minutes = 20
 load_type = "incremental"
 
 [project.variables]
@@ -28,23 +30,35 @@ timezone = "UTC"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_alerts"
+name = "{{zone_prefix}}.bronze.raw_firewall_alerts"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_source_ips"
+name = "{{zone_prefix}}.bronze.raw_ids_alerts"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_targets"
+name = "{{zone_prefix}}.bronze.raw_endpoint_alerts"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_rules"
+name = "{{zone_prefix}}.bronze.raw_threat_intel"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_mitre_techniques"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.alerts_deduped"
 
 [[project.target_objects]]
 type = "delta_table"
 name = "{{zone_prefix}}.silver.incidents_correlated"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.threat_enriched"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -60,8 +74,16 @@ name = "{{zone_prefix}}.gold.dim_rule"
 
 [[project.target_objects]]
 type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_mitre"
+
+[[project.target_objects]]
+type = "delta_table"
 name = "{{zone_prefix}}.gold.fact_incidents"
 
 [[project.target_objects]]
 type = "delta_table"
 name = "{{zone_prefix}}.gold.kpi_threat_dashboard"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_response_metrics"

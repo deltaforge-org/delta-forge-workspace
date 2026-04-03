@@ -2,90 +2,137 @@
 
 ## Scenario
 
-A government tax authority processes individual and business tax filings across federal and state jurisdictions. This pipeline implements the full medallion architecture to transform raw filing data into an analytical star schema for revenue analysis, compliance monitoring, audit candidate detection, and preparer performance evaluation.
+A government tax authority processes individual and business tax filings across federal and state jurisdictions. Filed returns are append-only (immutable once filed). Amendments arrive as separate records that NEVER overwrite originals. The pipeline tracks every amendment via CDF for audit compliance, partitions by fiscal year, pseudonymises taxpayer PII, and builds analytics for revenue forecasting and preparer quality monitoring.
 
-The system tracks filing status changes via Change Data Feed (CDF), partitions data by fiscal year, and applies pseudonymisation to taxpayer PII (REDACT SSN, MASK taxpayer_name).
+## Unique Combination
+
+Append-only enforcement + amendment MERGE that preserves originals + CDF audit trail + partitioning by fiscal_year + pseudonymisation (REDACT SSN, MASK name) + bloom filter on taxpayer_id + star schema with amendment-aware fact + preparer quality KPI
 
 ## Star Schema
 
 ```
-+------------------+         +------------------+
-| dim_taxpayer     |         | dim_jurisdiction |
-|------------------|         |------------------|
-| taxpayer_key(PK) |         | jurisdiction_key |
-| taxpayer_id      |         | jurisdiction_name|
-| filing_type      |         | jurisdiction_lvl |
-| state            |    +----+ state            |
-| income_bracket   |    |    | tax_rate         |
-| dependent_count  |    |    | standard_deduct  |
-+--------+---------+    |    +------------------+
-         |              |
-    +----+----+    +----+
-    |  fact_  +----+
-    | filings |
-    +---------+----+    +------------------+
-    |filing_key    |    | dim_preparer     |
-    |taxpayer_key  |    |------------------|
-    |jurisd_key    +----+ preparer_key(PK) |
-    |preparer_key  |    | preparer_name    |
-    |fiscal_year   |    | firm             |
-    |filing_date   |    | certification    |
-    |gross_income  |    | error_rate       |
-    |deductions    |    +------------------+
-    |taxable_income|
-    |tax_owed      |
-    |tax_paid      |
-    |refund_amount |
-    |filing_status |
-    |amended_flag  |
-    +--------------+
++------------------+         +-------------------+
+| dim_taxpayer     |         | dim_jurisdiction  |
+|------------------|         |-------------------|
+| taxpayer_key(PK) |         | jurisdiction_key  |
+| taxpayer_id      |         | jurisdiction_id   |
+| filing_type      |    +----+ jurisdiction_name |
+| state            |    |    | jurisdiction_level|
+| income_bracket   |    |    | state             |
+| dependent_count  |    |    | base_tax_rate     |
+| total_filings    |    |    | standard_deduction|
+| ever_audited     |    |    +-------------------+
++--------+---------+    |
+         |              |    +-------------------+
+    +----+----+----+----+    | dim_preparer      |
+    |   fact_filings   |    |-------------------|
+    |------------------|    | preparer_key (PK) |
+    | filing_key       +----+ preparer_id       |
+    | taxpayer_key     |    | preparer_name     |
+    | jurisdiction_key |    | firm              |
+    | preparer_key     |    | certification     |
+    | fiscal_year_key  |    | amendment_rate    |
+    | gross_income     |    +-------------------+
+    | deductions       |
+    | taxable_income   |    +-------------------+
+    | tax_owed         |    | dim_fiscal_year   |
+    | effective_       +----+-------------------|
+    |   taxable_income |    | fiscal_year_key   |
+    | effective_       |    | fiscal_year       |
+    |   tax_owed       |    | filing_deadline   |
+    | was_amended      |    | total_filings     |
+    | amendment_reason |    | total_amendments  |
+    | amendment_count  |    | audit_flag_count  |
+    | effective_tax_   |    +-------------------+
+    |   rate           |
+    | audit_flag       |
+    +------------------+
 
-+----------------------------+
-|   kpi_revenue_analysis     |
-|----------------------------|
-| fiscal_year                |
-| jurisdiction               |
-| total_filings              |
-| total_taxable_income       |
-| total_tax_collected        |
-| total_refunds              |
-| avg_effective_rate         |
-| audit_flag_count           |
-| compliance_rate            |
-+----------------------------+
++-----------------------------+   +----------------------------+
+| kpi_revenue_analysis        |   | kpi_preparer_quality       |
+|-----------------------------|   |----------------------------|
+| fiscal_year                 |   | preparer_name              |
+| jurisdiction_name           |   | firm                       |
+| total_filings               |   | certification              |
+| total_taxable_income        |   | total_filings              |
+| total_tax_collected         |   | amendment_count            |
+| total_refunds               |   | amendment_rate_pct         |
+| avg_effective_rate          |   | audit_count                |
+| audit_flag_count            |   | audit_rate_pct             |
+| compliance_rate             |   | avg_client_income          |
+| amendment_count             |   | avg_deduction_pct          |
+| audit_yield_pct             |   | avg_effective_rate         |
++-----------------------------+   +----------------------------+
+```
+
+## Pipeline DAG
+
+```
+validate_bronze
+       |
+  +----+------------+
+append_filings    apply_amendments       <-- parallel (append-only + amendment MERGE)
+       |                  |
+  enable_cdf_audit        |
+       |                  |
+  build_taxpayer_profiles |
+       |                  |
+       +--------+---------+
+                |
+  +-------------+-------------+-------------------+
+build_dim_    build_dim_    build_dim_    build_dim_
+ taxpayer     jurisdiction   preparer    fiscal_year   <-- parallel
+  |              |              |              |
+  +--------------+--------------+--------------+
+                         |
+              build_fact_filings              <-- joins originals + amendments
+                         |
+              +----------+-----------+
+  build_kpi_revenue_analysis  build_kpi_preparer_quality   <-- parallel
+              |                         |
+              +-----------+-------------+
+                          |
+           bloom_and_optimize (CONTINUE ON FAILURE)
 ```
 
 ## Features Demonstrated
 
 | Feature | Description |
 |---|---|
+| **Append-only Filings** | filings_immutable receives INSERTs only -- no UPDATE, no DELETE |
+| **Separate Amendments** | amendments_applied table with MERGE, computing delta from original |
+| **CDF Audit Trail** | Change Data Feed on filings_immutable materialized into audit_trail |
 | **Pseudonymisation (REDACT)** | SSN fully redacted with `[REDACTED]` |
 | **Pseudonymisation (MASK)** | Taxpayer name masked: `M*****` pattern |
-| **Partitioning** | Filings partitioned by fiscal_year for query performance |
-| **CDF** | Change Data Feed tracks filing status transitions (Filed -> Accepted -> Audited) |
+| **Bloom Filter** | Fast taxpayer_id lookup on filings_immutable |
+| **Partitioning** | Filings partitioned by fiscal_year |
 | **Audit Detection** | Automatic flagging of deductions > 40% of gross income |
-| **Effective Tax Rate** | Calculated per filing and aggregated in KPIs |
-| **Income Brackets** | Dynamic derivation (Under $50K through Over $1M) |
+| **Amendment Impact** | effective_taxable_income and effective_tax_owed via COALESCE |
+| **Preparer Quality** | Amendment rates and audit rates per preparer |
 | **NTILE Analysis** | Income quartile distribution in verification queries |
 | **YoY Trends** | LAG window function for year-over-year revenue comparison |
 
 ## Data Profile
 
-- **15 taxpayers**: 10 individuals + 5 businesses across NY, CA, TX, FL
-- **5 jurisdictions**: Federal IRS + 4 state agencies
-- **4 tax preparers**: CPA, EA, RTRP with varying error rates
-- **42+ filings**: Spanning FY 2022-2024 with amended returns, audits, and reviews
-- **Amended filings**: Post-audit corrections demonstrating CDF tracking
+- **20 taxpayers**: 14 individuals + 6 businesses across NY, CA, TX, FL, IL
+- **6 jurisdictions**: Federal IRS + 5 state agencies
+- **5 tax preparers**: CPA, EA, RTRP with varying amendment rates
+- **50 filings**: 20 FY2022, 18 FY2023, 12 FY2024 with audits and reviews
+- **12 amendments**: Referencing specific filing_ids with delta computation
+- **4 audit-flagged filings**: High deductions (>40% of gross income)
+- **2 high-amendment-rate preparers**: PREP-02 and PREP-04
 
 ## Verification Checklist
 
 - [ ] Revenue analysis KPIs exist for all fiscal years and jurisdictions
-- [ ] Star schema joins produce complete filing records with all dimensions
+- [ ] Star schema joins produce 50+ filing records with all 4 dimensions
 - [ ] Audit candidates correctly flagged (deductions > 40% of income)
-- [ ] Preparer error rates reflect amended filing ratios
+- [ ] Amendment impact shows original vs effective taxable_income and tax_owed
+- [ ] Preparer quality KPI shows amendment_rate_pct and audit_rate_pct for all 5
+- [ ] Fiscal year dimension has filing_deadline, total_filings, amendment counts
+- [ ] YoY tax revenue trends calculated with LAG by jurisdiction
 - [ ] Income distribution NTILE analysis shows proper quartile assignment
-- [ ] Year-over-year tax revenue trends calculated with LAG
 - [ ] Compliance rates reflect accepted vs total filings by jurisdiction
-- [ ] Refund analysis distinguishes overpayments from underpayments
-- [ ] CDF captures filing status transitions during incremental load
+- [ ] Audit trail has 50+ records covering all filings and amendments
+- [ ] Refund analysis distinguishes overpayments from underpayments by type
 - [ ] PERCENT_RANK correctly ranks taxpayers by total contribution

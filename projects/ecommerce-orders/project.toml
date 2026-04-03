@@ -1,20 +1,22 @@
 [project]
 id = "ecommerce-orders"
-name = "E-Commerce Orders Pipeline"
-version = "1.0.0"
+name = "Omnichannel E-Commerce Orders Pipeline"
+version = "2.0.0"
 author = "Delta Forge Team"
 description = """
-Advanced e-commerce order pipeline implementing medallion architecture with multi-source
-MERGE (web, mobile, marketplace channels), soft-delete handling for cancelled orders,
-Change Data Feed (CDF) for downstream sync, and customer RFM segmentation using NTILE
-window functions. Features a gold-layer star schema with fact_order_lines, channel/product/customer
-dimensions, and a KPI sales dashboard with cancellation trend analysis.
+Omnichannel retail pipeline ingesting orders from three distinct systems (web, mobile app, POS
+terminals) into a unified order stream via a 3-way UNION ALL MERGE. Handles cancellations as
+soft deletes with CDF-enabled downstream inventory adjustments, builds RFM customer segmentation
+using NTILE quartile scoring, detects funnel drop-offs via session window analysis with LAG-based
+session break detection, and feeds a gold-layer star schema with fact_order_lines plus four
+conformed dimensions. Includes schema evolution (loyalty_points), Z-ordering, bloom filters,
+and comprehensive KPI dashboards for channel mix, cancellation trends, and conversion funnels.
 """
 industry = "ecommerce"
 categories = ["pipeline", "medallion", "ecommerce"]
-tags = ["multi-source", "soft-delete", "CDF", "MERGE", "RFM-segmentation", "star-schema", "incremental", "pseudonymisation"]
+tags = ["multi-source-merge", "soft-delete", "CDF", "MERGE", "RFM-segmentation", "star-schema", "incremental", "pseudonymisation", "sessionization", "funnel-analysis", "schema-evolution", "Z-order", "bloom-filter"]
 difficulty = "advanced"
-estimated_time_minutes = 15
+estimated_time_minutes = 20
 load_type = "incremental"
 
 [project.variables]
@@ -29,11 +31,15 @@ timezone = "UTC"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_orders"
+name = "{{zone_prefix}}.bronze.raw_web_orders"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_customers"
+name = "{{zone_prefix}}.bronze.raw_mobile_orders"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_pos_orders"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -41,7 +47,15 @@ name = "{{zone_prefix}}.bronze.raw_products"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.silver.orders_merged"
+name = "{{zone_prefix}}.bronze.raw_customers"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_browsing_events"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.orders_unified"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -49,11 +63,11 @@ name = "{{zone_prefix}}.silver.customer_rfm"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.gold.fact_order_lines"
+name = "{{zone_prefix}}.silver.inventory_adjustments"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.gold.dim_customer"
+name = "{{zone_prefix}}.silver.sessions"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -61,8 +75,24 @@ name = "{{zone_prefix}}.gold.dim_product"
 
 [[project.target_objects]]
 type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_customer"
+
+[[project.target_objects]]
+type = "delta_table"
 name = "{{zone_prefix}}.gold.dim_channel"
 
 [[project.target_objects]]
 type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_date"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_order_lines"
+
+[[project.target_objects]]
+type = "delta_table"
 name = "{{zone_prefix}}.gold.kpi_sales_dashboard"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_funnel_analysis"

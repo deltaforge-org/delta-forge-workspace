@@ -1,19 +1,22 @@
 [project]
 id = "insurance-claims"
-name = "Insurance Claims Pipeline"
-version = "1.0.0"
+name = "Property & Casualty Insurance Claims Pipeline"
+version = "2.0.0"
 author = "Delta Forge Team"
 description = """
-Advanced insurance claims pipeline with SCD Type 2 policy tracking (two-pass MERGE: expire + insert),
-time travel for point-in-time policy joins, loss ratio analytics, claims aging reports, and adjuster
-performance scoring. Features CHECK constraints on amounts and dates, and a gold-layer star schema
-with fact_claims and SCD2 dim_policy.
+Property & casualty insurance pipeline with SCD Type 2 policy tracking across three change batches
+(initial load, premium increases, coverage upgrades), point-in-time policy joins for incident-date-
+accurate enrichment, fraud outlier detection using statistical scoring (claim_amount vs coverage-type
+average), RESTORE-based correction workflow for bad batch rollback, CDF-enabled actuarial snapshots
+capturing every claim status change, and a gold-layer star schema with fact_claims, dim_claimant,
+dim_adjuster, dim_coverage_type, plus KPI dashboards for loss ratios and adjuster performance.
+Includes CHECK constraints, bloom filters, and comprehensive referential integrity validation.
 """
 industry = "insurance"
 categories = ["pipeline", "medallion", "insurance"]
-tags = ["PII", "data-protection", "transformation", "full-load", "SCD2", "time-travel", "loss-ratio", "star-schema"]
+tags = ["SCD2", "point-in-time-join", "RESTORE", "CDF", "fraud-detection", "CHECK-constraints", "loss-ratio", "star-schema", "pseudonymisation", "actuarial"]
 difficulty = "advanced"
-estimated_time_minutes = 15
+estimated_time_minutes = 20
 load_type = "full"
 
 [project.variables]
@@ -44,7 +47,7 @@ name = "{{zone_prefix}}.bronze.raw_adjusters"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.silver.dim_policy_scd2"
+name = "{{zone_prefix}}.silver.policy_dim"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -52,7 +55,7 @@ name = "{{zone_prefix}}.silver.claims_enriched"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.gold.dim_policy"
+name = "{{zone_prefix}}.silver.actuarial_snapshots"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -64,8 +67,16 @@ name = "{{zone_prefix}}.gold.dim_adjuster"
 
 [[project.target_objects]]
 type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_coverage_type"
+
+[[project.target_objects]]
+type = "delta_table"
 name = "{{zone_prefix}}.gold.fact_claims"
 
 [[project.target_objects]]
 type = "delta_table"
 name = "{{zone_prefix}}.gold.kpi_loss_ratios"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_adjuster_performance"

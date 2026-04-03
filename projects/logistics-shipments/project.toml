@@ -1,20 +1,21 @@
 [project]
 id = "logistics-shipments"
 name = "Logistics Shipments Pipeline"
-version = "1.0.0"
+version = "2.0.0"
 author = "Delta Forge Team"
 description = """
-Advanced logistics/supply chain pipeline implementing medallion architecture with idempotent
-MERGE (deduplication on shipment_id + event_timestamp), schema evolution (adding tracking_url
-column), Z-ordering for route optimization queries, and carrier performance analytics.
-Features a gold-layer star schema with fact_shipments, carrier/location/route dimensions,
-and delivery performance KPI dashboard.
+Global logistics pipeline implementing event sourcing with idempotent composite-key deduplication
+(shipment_id + event_type + event_timestamp), shipment timeline reconstruction via window functions,
+SLA violation detection against carrier contracts, schema evolution (customs clearance fields),
+Z-ordering for route optimization queries, and a gold-layer star schema with carrier performance
+and SLA compliance KPI dashboards. Seed data includes 80 tracking events across 25 shipments with
+15 exact duplicates, 5 out-of-order events, 3 SLA violations, and 2 exception shipments.
 """
 industry = "logistics"
 categories = ["pipeline", "medallion", "logistics"]
-tags = ["idempotent", "dedup", "schema-evolution", "Z-order", "carrier-performance", "SLA", "star-schema"]
+tags = ["event-sourcing", "idempotent-dedup", "composite-key", "schema-evolution", "Z-order", "SLA-compliance", "star-schema", "window-functions", "timeline-reconstruction"]
 difficulty = "advanced"
-estimated_time_minutes = 15
+estimated_time_minutes = 20
 load_type = "incremental"
 
 [project.variables]
@@ -29,7 +30,7 @@ timezone = "UTC"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.bronze.raw_events"
+name = "{{zone_prefix}}.bronze.raw_tracking_events"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -45,11 +46,19 @@ name = "{{zone_prefix}}.bronze.raw_customers"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.silver.shipments_deduped"
+name = "{{zone_prefix}}.bronze.raw_sla_contracts"
 
 [[project.target_objects]]
 type = "delta_table"
-name = "{{zone_prefix}}.gold.fact_shipments"
+name = "{{zone_prefix}}.silver.events_deduped"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.shipment_status"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.sla_violations"
 
 [[project.target_objects]]
 type = "delta_table"
@@ -65,4 +74,16 @@ name = "{{zone_prefix}}.gold.dim_route"
 
 [[project.target_objects]]
 type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_customer"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_shipments"
+
+[[project.target_objects]]
+type = "delta_table"
 name = "{{zone_prefix}}.gold.kpi_delivery_performance"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_sla_compliance"
