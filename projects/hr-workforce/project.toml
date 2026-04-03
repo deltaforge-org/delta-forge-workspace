@@ -1,0 +1,73 @@
+[project]
+id = "hr-workforce"
+name = "HR Workforce Analytics Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced HR workforce analytics pipeline implementing medallion architecture with
+SCD Type 2 (two-pass MERGE for compensation history tracking), pseudonymisation
+(REDACT salary, MASK SSN, keyed_hash employee_name), and deletion vectors for
+terminated employee data erasure. Features a gold-layer star schema with
+fact_compensation_events, SCD2 employee dimension, department/position dimensions,
+and workforce analytics KPIs including turnover, gender pay gap, and compa-ratio.
+"""
+industry = "human_resources"
+categories = ["pipeline", "medallion", "hr", "workforce"]
+tags = ["SCD2", "MERGE", "pseudonymisation", "deletion-vectors", "star-schema", "compensation", "turnover-analysis"]
+difficulty = "advanced"
+estimated_time_minutes = 20
+load_type = "both"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "hr" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "hr_workforce_pipeline"
+schedule = "0 6 * * *"
+timezone = "America/New_York"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_employees"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_departments"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_positions"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_comp_events"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.dim_employee_scd2"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.comp_events_enriched"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_compensation_events"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_employee"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_department"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_position"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_workforce_analytics"

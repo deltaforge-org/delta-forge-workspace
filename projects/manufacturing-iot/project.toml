@@ -1,0 +1,69 @@
+[project]
+id = "manufacturing-iot"
+name = "Manufacturing IoT Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced manufacturing IoT pipeline implementing medallion architecture with sensor data
+validation (CHECK constraints for temperature and pressure ranges), moving average window
+functions for signal smoothing, anomaly detection using statistical thresholds, and OEE
+(Overall Equipment Effectiveness) calculation. Features partitioning by plant_id and
+production_line, OPTIMIZE compaction, and a gold-layer star schema with fact_sensor_readings,
+sensor/production-line/shift dimensions, and OEE KPI dashboard.
+"""
+industry = "manufacturing"
+categories = ["pipeline", "medallion", "manufacturing"]
+tags = ["IoT", "sensors", "anomaly-detection", "OEE", "moving-average", "CHECK-constraints", "OPTIMIZE", "star-schema"]
+difficulty = "advanced"
+estimated_time_minutes = 15
+load_type = "incremental"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "mfg" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "manufacturing_iot_pipeline"
+schedule = "0 */2 * * *"
+timezone = "UTC"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_sensor_readings"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_sensors"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_production_lines"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_shifts"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.readings_validated"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_sensor_readings"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_sensor"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_production_line"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_shift"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_oee"

@@ -1,0 +1,82 @@
+[project]
+id = "real-estate-property"
+name = "Real Estate Property Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced real estate property pipeline implementing medallion architecture with
+SCD Type 2 (property listing price history tracking), bloom filters for fast
+property_id lookup, RESTORE for rollback of bad imports, and pseudonymisation
+(HASH buyer_name, seller_name). Features a gold-layer star schema with
+fact_transactions, SCD2 property dimension, buyer/agent/neighborhood dimensions,
+and market trend KPIs including median prices, days on market, over-asking
+analysis, and price momentum using LAG window functions.
+"""
+industry = "real_estate"
+categories = ["pipeline", "medallion", "real-estate", "property"]
+tags = ["SCD2", "bloom-filter", "RESTORE", "pseudonymisation", "star-schema", "market-trends", "price-analysis"]
+difficulty = "advanced"
+estimated_time_minutes = 20
+load_type = "full"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "realty" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "realty_property_pipeline"
+schedule = "0 9 * * *"
+timezone = "America/New_York"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_properties"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_transactions"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_buyers"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_agents"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_neighborhoods"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.property_scd2"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.transaction_enriched"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_transactions"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_property"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_buyer"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_agent"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_neighborhood"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_market_trends"

@@ -1,0 +1,76 @@
+[project]
+id = "hospitality-reservations"
+name = "Hospitality Reservations Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced hospitality reservations pipeline implementing medallion architecture with soft deletes
+for cancelled reservations, MERGE deduplication of duplicate booking attempts, and window functions
+for occupancy trends and RevPAR analysis. Gold layer includes a star schema with fact_reservations,
+property/room_type/guest/channel dimensions, and a KPI revenue management dashboard with ADR,
+RevPAR, cancellation rates, loyalty impact, and channel mix optimization.
+"""
+industry = "hospitality"
+categories = ["pipeline", "medallion", "hospitality", "hotels"]
+tags = ["soft-delete", "merge-dedup", "revpar", "adr", "occupancy", "loyalty", "star-schema", "pseudonymisation"]
+difficulty = "advanced"
+estimated_time_minutes = 20
+load_type = "incremental"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "hotel" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "hospitality_reservations_pipeline"
+schedule = "0 */4 * * *"
+timezone = "UTC"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_bookings"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_properties"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_room_types"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_guests"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_channels"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.bookings_deduped"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_reservations"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_property"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_room_type"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_guest"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_channel"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_revenue_management"

@@ -1,0 +1,68 @@
+[project]
+id = "logistics-shipments"
+name = "Logistics Shipments Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced logistics/supply chain pipeline implementing medallion architecture with idempotent
+MERGE (deduplication on shipment_id + event_timestamp), schema evolution (adding tracking_url
+column), Z-ordering for route optimization queries, and carrier performance analytics.
+Features a gold-layer star schema with fact_shipments, carrier/location/route dimensions,
+and delivery performance KPI dashboard.
+"""
+industry = "logistics"
+categories = ["pipeline", "medallion", "logistics"]
+tags = ["idempotent", "dedup", "schema-evolution", "Z-order", "carrier-performance", "SLA", "star-schema"]
+difficulty = "advanced"
+estimated_time_minutes = 15
+load_type = "incremental"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "logi" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "logistics_shipments_pipeline"
+schedule = "0 */6 * * *"
+timezone = "UTC"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_events"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_carriers"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_locations"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_customers"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.shipments_deduped"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_shipments"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_carrier"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_location"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_route"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_delivery_performance"

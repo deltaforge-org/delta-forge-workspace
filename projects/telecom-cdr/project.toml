@@ -1,0 +1,64 @@
+[project]
+id = "telecom-cdr"
+name = "Telecom CDR Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced telecommunications CDR (Call Detail Record) pipeline implementing medallion architecture
+with schema evolution (adding roaming_flag column), MERGE upsert for subscriber profiles,
+dropped-call detection, and network quality analytics. Features VACUUM/OPTIMIZE for storage
+governance and a gold-layer star schema with fact_calls, subscriber/cell-tower dimensions,
+and network quality KPI dashboard.
+"""
+industry = "telecommunications"
+categories = ["pipeline", "medallion", "telecommunications"]
+tags = ["CDR", "schema-evolution", "MERGE", "VACUUM", "OPTIMIZE", "network-quality", "churn-detection", "star-schema"]
+difficulty = "advanced"
+estimated_time_minutes = 15
+load_type = "incremental"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "telco" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "telecom_cdr_pipeline"
+schedule = "0 2 * * *"
+timezone = "UTC"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_cdr"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_subscribers"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_cell_towers"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.cdr_enriched"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.subscriber_profiles"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_calls"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_subscriber"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_cell_tower"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_network_quality"

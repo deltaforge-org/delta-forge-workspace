@@ -1,0 +1,69 @@
+[project]
+id = "automotive-telematics"
+name = "Automotive Telematics Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced automotive fleet telematics pipeline implementing medallion architecture with
+trip-level safety scoring, fuel efficiency analysis, predictive maintenance scheduling,
+and route optimization signals. Features partitioning by vehicle_type and month, OPTIMIZE
+compaction, schema evolution for new sensor columns, and deletion vectors for vehicle
+decommissioning. Gold-layer star schema with fact_trips, vehicle/driver/route dimensions,
+and KPI fleet performance dashboard with utilization and harsh event rate tracking.
+"""
+industry = "automotive"
+categories = ["pipeline", "medallion", "automotive"]
+tags = ["telematics", "fleet-management", "safety-scoring", "partitioning", "deletion-vectors", "incremental", "pseudonymisation", "star-schema"]
+difficulty = "advanced"
+estimated_time_minutes = 15
+load_type = "incremental"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "auto" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "automotive_telematics_pipeline"
+schedule = "0 */8 * * *"
+timezone = "UTC"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_trips"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_vehicles"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_drivers"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_routes"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.trips_enriched"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_trips"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_vehicle"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_driver"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_route"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_fleet_performance"

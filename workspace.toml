@@ -1,0 +1,23 @@
+[workspace]
+name = "delta-forge-workspace"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Enterprise pipeline cookbook: 25 self-contained projects demonstrating \
+medallion architecture (bronze/silver/gold), scheduled pipelines, incremental \
+and full loads, PII protection, and advanced Delta Forge features. Each project \
+targets a unique industry with production-grade complexity.
+"""
+
+[workspace.defaults]
+data_path = { description = "Root path for Delta table storage", required = true }
+current_user = { description = "Current logged-in user for GRANT statements", required = true }
+
+[workspace.categories]
+pipeline = "ETL pipeline orchestration with SCHEDULE + PIPELINE commands"
+medallion = "Bronze/Silver/Gold layered architecture"
+PII = "Personally identifiable information handling"
+data-protection = "Pseudonymisation, masking, redaction, GDPR compliance"
+transformation = "Data cleansing, enrichment, aggregation"
+incremental-load = "Watermark-based delta processing"
+full-load = "Complete table refresh patterns"

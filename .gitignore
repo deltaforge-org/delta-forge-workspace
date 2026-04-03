@@ -1,0 +1,16 @@
+# Delta Forge data files
+*.parquet
+*.delta/
+_delta_log/
+*.checkpoint
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

@@ -1,0 +1,63 @@
+[project]
+id = "banking-transactions"
+name = "Banking Transactions Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced banking transaction pipeline with Change Data Feed (CDF) for account balance tracking,
+fraud detection scoring using window functions and velocity checks, running balance calculations,
+time travel for audit trails, and a gold-layer star schema with daily volume KPIs. Includes
+partitioning by transaction date and OPTIMIZE compaction.
+"""
+industry = "banking"
+categories = ["pipeline", "medallion", "banking"]
+tags = ["PII", "data-protection", "transformation", "incremental-load", "CDF", "time-travel", "fraud-detection", "partitioning", "star-schema"]
+difficulty = "advanced"
+estimated_time_minutes = 15
+load_type = "incremental"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "bank" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "bank_transaction_pipeline"
+schedule = "0 */4 * * *"
+timezone = "UTC"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_transactions"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_accounts"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_merchants"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.transactions_enriched"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.accounts_cdf"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_account"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_merchant"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_transactions"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_daily_volumes"

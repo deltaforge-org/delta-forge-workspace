@@ -1,0 +1,71 @@
+[project]
+id = "legal-case-management"
+name = "Legal Case Management Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced legal case management pipeline with graph-based relationship modeling using Cypher queries
+for attorney-client-case networks. Features billable utilization analysis, case profitability scoring,
+co-counsel network discovery, community detection for practice groups, and comprehensive pseudonymisation
+of client PII. Includes a gold-layer star schema with fact_billings and supporting dimensions.
+"""
+industry = "legal"
+categories = ["pipeline", "medallion", "legal"]
+tags = ["PII", "data-protection", "transformation", "full-load", "graph", "cypher", "billing", "star-schema"]
+difficulty = "advanced"
+estimated_time_minutes = 15
+load_type = "full"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "legal" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "legal_billing_pipeline"
+schedule = "0 7 * * *"
+timezone = "America/New_York"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_attorneys"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_cases"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_clients"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_billings"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_case_attorneys"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_case_clients"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.billings_enriched"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_case"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_attorney"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_client"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_billings"

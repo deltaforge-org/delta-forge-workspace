@@ -1,0 +1,75 @@
+[project]
+id = "food-safety-inspections"
+name = "Food Safety Inspections Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced food safety inspection pipeline implementing medallion architecture with
+inspection scoring (100 minus violation points), grade assignment (A/B/C/F),
+repeat offender identification, inspector calibration analysis, and establishment
+improvement tracking using LAG window functions. Features CHECK constraints on
+inspection scores (0-100) and valid grades, RESTORE for rolling back incorrectly
+scored batches, and partitioning by district. Gold-layer star schema with
+fact_inspections, establishment/inspector/district/violation dimensions, and KPI
+compliance dashboard with inspector consistency scoring.
+"""
+industry = "food_beverage"
+categories = ["pipeline", "medallion", "food_safety"]
+tags = ["check-constraints", "restore", "partitioning", "inspector-calibration", "repeat-offender", "star-schema", "pseudonymisation"]
+difficulty = "advanced"
+estimated_time_minutes = 15
+load_type = "full"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "food" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "food_safety_inspections_pipeline"
+schedule = "0 8 * * 1"
+timezone = "US/Eastern"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_inspections"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_establishments"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_inspectors"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_violations"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.inspections_scored"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_inspections"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_establishment"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_inspector"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_district"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_violation"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_compliance"

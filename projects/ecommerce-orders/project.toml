@@ -1,0 +1,68 @@
+[project]
+id = "ecommerce-orders"
+name = "E-Commerce Orders Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced e-commerce order pipeline implementing medallion architecture with multi-source
+MERGE (web, mobile, marketplace channels), soft-delete handling for cancelled orders,
+Change Data Feed (CDF) for downstream sync, and customer RFM segmentation using NTILE
+window functions. Features a gold-layer star schema with fact_order_lines, channel/product/customer
+dimensions, and a KPI sales dashboard with cancellation trend analysis.
+"""
+industry = "ecommerce"
+categories = ["pipeline", "medallion", "ecommerce"]
+tags = ["multi-source", "soft-delete", "CDF", "MERGE", "RFM-segmentation", "star-schema", "incremental", "pseudonymisation"]
+difficulty = "advanced"
+estimated_time_minutes = 15
+load_type = "incremental"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "ecom" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "ecommerce_orders_pipeline"
+schedule = "*/30 * * * *"
+timezone = "UTC"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_orders"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_customers"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_products"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.orders_merged"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.customer_rfm"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_order_lines"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_customer"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_product"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_channel"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_sales_dashboard"

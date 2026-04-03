@@ -1,0 +1,68 @@
+[project]
+id = "energy-smart-meters"
+name = "Energy Smart Meters Pipeline"
+version = "1.0.0"
+author = "Delta Forge Team"
+description = """
+Advanced energy/utilities pipeline implementing medallion architecture with hourly smart meter
+readings, peak/off-peak tariff calculation, solar generation offset analysis, and consumption
+billing. Features partitioning by region and billing_month, bloom filters for meter_id lookup,
+VACUUM retention governance, and a gold-layer star schema with fact_meter_readings,
+meter/tariff/region dimensions, and consumption billing KPI dashboard.
+"""
+industry = "energy"
+categories = ["pipeline", "medallion", "energy"]
+tags = ["smart-meters", "tariff", "solar", "peak-offpeak", "billing", "VACUUM", "partitioning", "star-schema", "pseudonymisation"]
+difficulty = "advanced"
+estimated_time_minutes = 15
+load_type = "incremental"
+
+[project.variables]
+data_path = { description = "Root path for Delta table storage", required = true }
+zone_prefix = { description = "Zone name for this project", required = false, default = "energy" }
+current_user = { description = "Current user for GRANT statements", required = true }
+
+[project.pipeline]
+name = "energy_smart_meters_pipeline"
+schedule = "0 3 * * *"
+timezone = "UTC"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_readings"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_meters"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_tariffs"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_regions"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.readings_costed"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_meter_readings"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_meter"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_tariff"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_region"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_consumption_billing"
