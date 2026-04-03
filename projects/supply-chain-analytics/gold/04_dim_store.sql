@@ -5,7 +5,7 @@
 -- demand metrics from the silver demand_signals table.
 -- =============================================================================
 
-CREATE OR REPLACE TABLE {{zone_prefix}}.gold.dim_store AS
+CREATE OR REPLACE TABLE sc.gold.dim_store AS
 SELECT
   s.store_id,
   s.store_name,
@@ -20,7 +20,7 @@ SELECT
   COALESCE(dem.avg_daily_demand, 0) AS avg_daily_demand,
   COALESCE(dem.days_with_sales, 0) AS days_with_sales,
   CURRENT_TIMESTAMP AS updated_at
-FROM {{zone_prefix}}.bronze.stores s
+FROM sc.bronze.stores s
 LEFT JOIN (
   SELECT
     store_id,
@@ -29,6 +29,6 @@ LEFT JOIN (
     COUNT(DISTINCT sku) AS unique_skus,
     AVG(net_sold) AS avg_daily_demand,
     COUNT(DISTINCT sale_date) AS days_with_sales
-  FROM {{zone_prefix}}.silver.demand_signals
+  FROM sc.silver.demand_signals
   GROUP BY store_id
 ) dem ON dem.store_id = s.store_id;

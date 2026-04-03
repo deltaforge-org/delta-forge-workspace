@@ -12,7 +12,7 @@
 -- Output: "event_id > 'CE-055' AND event_date > '2025-03-29'" or "1=1" if empty
 -- ============================================================================
 
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.comp_events_enriched, event_id, event_date, 3)}};
+PRINT {{INCREMENTAL_FILTER(hr.silver.comp_events_enriched, event_id, event_date, 3)}};
 
 -- ===================== STEP 1: capture_watermark =====================
 
@@ -20,10 +20,10 @@ STEP capture_watermark
   TIMEOUT '2m'
 AS
   SELECT MAX(event_date) AS last_watermark
-  FROM {{zone_prefix}}.silver.comp_events_enriched;
+  FROM hr.silver.comp_events_enriched;
 
-  SELECT COUNT(*) AS pre_scd2_count FROM {{zone_prefix}}.silver.employee_dim;
-  SELECT COUNT(*) AS pre_fact_count FROM {{zone_prefix}}.gold.fact_compensation;
+  SELECT COUNT(*) AS pre_scd2_count FROM hr.silver.employee_dim;
+  SELECT COUNT(*) AS pre_fact_count FROM hr.gold.fact_compensation;
 
 -- ===================== STEP 2: insert_new_bronze_events =====================
 -- Simulating Q1 2025 annual review cycle: 4 raises + 2 promotions
@@ -31,7 +31,7 @@ AS
 STEP insert_new_bronze_events
   DEPENDS ON (capture_watermark)
 AS
-  INSERT INTO {{zone_prefix}}.bronze.raw_comp_events VALUES
+  INSERT INTO hr.bronze.raw_comp_events VALUES
       ('CE-056', 'EMP-002', 'DEPT-ENG',  'POS-SSE',  '2025-04-01', 'promotion',       140000.00, 10000.00, 4.5, 'Promoted SE2 to SSE',         '2025-04-01T06:00:00'),
       ('CE-057', 'EMP-018', 'DEPT-ENG',  'POS-SE2',  '2025-04-01', 'salary_adjustment',115000.00, 5000.00,  4.0, '6.5% merit increase',         '2025-04-01T06:00:00'),
       ('CE-058', 'EMP-014', 'DEPT-SALE', 'POS-SR1',  '2025-04-01', 'salary_adjustment', 66150.00, 7000.00,  4.5, '5% + commission bonus',       '2025-04-01T06:00:00'),
@@ -39,7 +39,7 @@ AS
 
   ASSERT ROW_COUNT = 4
   SELECT COUNT(*) AS new_events
-  FROM {{zone_prefix}}.bronze.raw_comp_events
+  FROM hr.bronze.raw_comp_events
   WHERE ingested_at > '2025-03-01T00:00:00';
 
 -- ===================== STEP 3: scd2_expire_old =====================
@@ -49,7 +49,7 @@ STEP scd2_expire_old
   DEPENDS ON (insert_new_bronze_events)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.employee_dim AS tgt
+  MERGE INTO hr.silver.employee_dim AS tgt
   USING (
       SELECT DISTINCT
           ce.employee_id,
@@ -57,7 +57,7 @@ AS
           ce.position_id   AS new_pos,
           ce.base_salary   AS new_salary,
           CAST(ce.event_date AS DATE) AS change_date
-      FROM {{zone_prefix}}.bronze.raw_comp_events ce
+      FROM hr.bronze.raw_comp_events ce
       WHERE ce.ingested_at > '2025-03-01T00:00:00'
         AND ce.event_type IN ('promotion', 'salary_adjustment', 'transfer')
   ) AS changes
@@ -76,7 +76,7 @@ AS
 STEP scd2_insert_new
   DEPENDS ON (scd2_expire_old)
 AS
-  INSERT INTO {{zone_prefix}}.silver.employee_dim
+  INSERT INTO hr.silver.employee_dim
   SELECT
       200 + ROW_NUMBER() OVER (ORDER BY ce.employee_id, ce.event_date) AS surrogate_key,
       ce.employee_id,
@@ -95,14 +95,14 @@ AS
       CAST(ce.event_date AS DATE) AS valid_from,
       CAST(NULL AS DATE) AS valid_to,
       true AS is_current
-  FROM {{zone_prefix}}.bronze.raw_comp_events ce
-  JOIN {{zone_prefix}}.bronze.raw_employees e ON ce.employee_id = e.employee_id
+  FROM hr.bronze.raw_comp_events ce
+  JOIN hr.bronze.raw_employees e ON ce.employee_id = e.employee_id
   WHERE ce.ingested_at > '2025-03-01T00:00:00'
     AND ce.event_type IN ('promotion', 'salary_adjustment', 'transfer');
 
   ASSERT ROW_COUNT = 4
   SELECT COUNT(*) AS new_scd2_rows
-  FROM {{zone_prefix}}.silver.employee_dim
+  FROM hr.silver.employee_dim
   WHERE valid_from = CAST('2025-04-01' AS DATE);
 
 -- ===================== STEP 5: incremental_enrich_comp_events =====================
@@ -111,7 +111,7 @@ STEP incremental_enrich_comp_events
   DEPENDS ON (scd2_insert_new)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.comp_events_enriched
+  INSERT INTO hr.silver.comp_events_enriched
   SELECT
       ce.event_id,
       ce.employee_id,
@@ -133,18 +133,18 @@ AS
           3
       ) AS compa_ratio,
       CURRENT_TIMESTAMP AS processed_at
-  FROM {{zone_prefix}}.bronze.raw_comp_events ce
+  FROM hr.bronze.raw_comp_events ce
   LEFT JOIN (
       SELECT employee_id, base_salary, event_date,
              LEAD(event_date) OVER (PARTITION BY employee_id ORDER BY event_date) AS next_event_date
-      FROM {{zone_prefix}}.bronze.raw_comp_events
+      FROM hr.bronze.raw_comp_events
   ) prev ON ce.employee_id = prev.employee_id AND ce.event_date = prev.next_event_date
-  JOIN {{zone_prefix}}.bronze.raw_positions p ON ce.position_id = p.position_id
+  JOIN hr.bronze.raw_positions p ON ce.position_id = p.position_id
   WHERE ce.ingested_at > '2025-03-01T00:00:00';
 
   ASSERT ROW_COUNT = 4
   SELECT COUNT(*) AS new_enriched
-  FROM {{zone_prefix}}.silver.comp_events_enriched
+  FROM hr.silver.comp_events_enriched
   WHERE event_date >= CAST('2025-04-01' AS DATE);
 
 -- ===================== STEP 6: verify_no_duplicates =====================
@@ -154,7 +154,7 @@ STEP verify_no_duplicates
 AS
   ASSERT ROW_COUNT = 0
   SELECT event_id, COUNT(*) AS cnt
-  FROM {{zone_prefix}}.silver.comp_events_enriched
+  FROM hr.silver.comp_events_enriched
   GROUP BY event_id
   HAVING COUNT(*) > 1;
 
@@ -164,7 +164,7 @@ STEP refresh_gold_fact
   DEPENDS ON (verify_no_duplicates)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_compensation AS tgt
+  MERGE INTO hr.gold.fact_compensation AS tgt
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY ce.event_id) + 55 AS event_key,
@@ -179,11 +179,11 @@ AS
           ce.salary_change_pct,
           ce.performance_rating,
           ce.compa_ratio
-      FROM {{zone_prefix}}.silver.comp_events_enriched ce
-      JOIN {{zone_prefix}}.silver.employee_dim ed
+      FROM hr.silver.comp_events_enriched ce
+      JOIN hr.silver.employee_dim ed
           ON ce.employee_id = ed.employee_id AND ed.is_current = true
-      JOIN {{zone_prefix}}.gold.dim_department dd ON ce.department_id = dd.department_id
-      JOIN {{zone_prefix}}.gold.dim_position dp ON ce.position_id = dp.position_id
+      JOIN hr.gold.dim_department dd ON ce.department_id = dd.department_id
+      JOIN hr.gold.dim_position dp ON ce.position_id = dp.position_id
       WHERE ce.event_date >= CAST('2025-04-01' AS DATE)
   ) AS src
   ON tgt.event_key = src.event_key
@@ -198,7 +198,7 @@ AS
   );
 
   ASSERT ROW_COUNT >= 59
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.gold.fact_compensation;
+  SELECT COUNT(*) AS row_count FROM hr.gold.fact_compensation;
 
 -- ===================== STEP 8: optimize =====================
 
@@ -206,6 +206,6 @@ STEP optimize
   DEPENDS ON (refresh_gold_fact)
   CONTINUE ON FAILURE
 AS
-  OPTIMIZE {{zone_prefix}}.silver.employee_dim;
-  OPTIMIZE {{zone_prefix}}.silver.comp_events_enriched;
-  OPTIMIZE {{zone_prefix}}.gold.fact_compensation;
+  OPTIMIZE hr.silver.employee_dim;
+  OPTIMIZE hr.silver.comp_events_enriched;
+  OPTIMIZE hr.gold.fact_compensation;

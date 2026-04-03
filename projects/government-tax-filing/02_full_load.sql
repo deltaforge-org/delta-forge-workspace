@@ -19,19 +19,19 @@ STEP validate_bronze
   TIMEOUT '2m'
 AS
   ASSERT ROW_COUNT = 50
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_filings;
+  SELECT COUNT(*) AS row_count FROM tax.bronze.raw_filings;
 
   ASSERT ROW_COUNT = 12
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_amendments;
+  SELECT COUNT(*) AS row_count FROM tax.bronze.raw_amendments;
 
   ASSERT ROW_COUNT = 20
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_taxpayers;
+  SELECT COUNT(*) AS row_count FROM tax.bronze.raw_taxpayers;
 
   ASSERT ROW_COUNT = 6
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_jurisdictions;
+  SELECT COUNT(*) AS row_count FROM tax.bronze.raw_jurisdictions;
 
   ASSERT ROW_COUNT = 5
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_preparers;
+  SELECT COUNT(*) AS row_count FROM tax.bronze.raw_preparers;
 
 -- ===================== STEP 2: append_filings =====================
 -- Append-only INSERT: original filings are NEVER updated or deleted in silver.
@@ -41,7 +41,7 @@ STEP append_filings
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.filings_immutable
+  INSERT INTO tax.silver.filings_immutable
   SELECT
       f.filing_id,
       f.taxpayer_id,
@@ -82,10 +82,10 @@ AS
           ELSE 'Over $1M'
       END                                                            AS income_bracket,
       CURRENT_TIMESTAMP                                              AS loaded_at
-  FROM {{zone_prefix}}.bronze.raw_filings f;
+  FROM tax.bronze.raw_filings f;
 
   ASSERT ROW_COUNT = 50
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.silver.filings_immutable;
+  SELECT COUNT(*) AS row_count FROM tax.silver.filings_immutable;
 
 -- ===================== STEP 3: apply_amendments =====================
 -- MERGE amendments into silver.amendments_applied, computing the delta between
@@ -95,7 +95,7 @@ STEP apply_amendments
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.amendments_applied AS tgt
+  MERGE INTO tax.silver.amendments_applied AS tgt
   USING (
       SELECT
           a.amendment_id,
@@ -124,8 +124,8 @@ AS
           END                                                        AS large_delta_flag,
           a.preparer_id,
           CURRENT_TIMESTAMP                                          AS loaded_at
-      FROM {{zone_prefix}}.bronze.raw_amendments a
-      JOIN {{zone_prefix}}.bronze.raw_filings f ON a.original_filing_id = f.filing_id
+      FROM tax.bronze.raw_amendments a
+      JOIN tax.bronze.raw_filings f ON a.original_filing_id = f.filing_id
   ) AS src
   ON tgt.amendment_id = src.amendment_id
   WHEN NOT MATCHED THEN INSERT (
@@ -141,7 +141,7 @@ AS
   );
 
   ASSERT ROW_COUNT = 12
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.silver.amendments_applied;
+  SELECT COUNT(*) AS row_count FROM tax.silver.amendments_applied;
 
 -- ===================== STEP 4: enable_cdf_audit =====================
 -- Materialize the CDF from filings_immutable into the audit_trail table.
@@ -150,7 +150,7 @@ STEP enable_cdf_audit
   DEPENDS ON (append_filings)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.audit_trail
+  INSERT INTO tax.silver.audit_trail
   SELECT
       ROW_NUMBER() OVER (ORDER BY fi.filing_id)                     AS audit_id,
       'filings_immutable'                                            AS table_name,
@@ -162,12 +162,12 @@ AS
       CONCAT('Gross=', CAST(fi.gross_income AS STRING),
              ' TaxOwed=', CAST(fi.tax_owed AS STRING),
              ' Status=', fi.filing_status)                           AS details
-  FROM {{zone_prefix}}.silver.filings_immutable fi;
+  FROM tax.silver.filings_immutable fi;
 
   -- Also log amendments
-  INSERT INTO {{zone_prefix}}.silver.audit_trail
+  INSERT INTO tax.silver.audit_trail
   SELECT
-      (SELECT COALESCE(MAX(audit_id), 0) FROM {{zone_prefix}}.silver.audit_trail)
+      (SELECT COALESCE(MAX(audit_id), 0) FROM tax.silver.audit_trail)
           + ROW_NUMBER() OVER (ORDER BY aa.amendment_id)             AS audit_id,
       'amendments_applied'                                           AS table_name,
       'AMENDMENT'                                                    AS operation,
@@ -178,7 +178,7 @@ AS
       CONCAT('OrigTax=', CAST(aa.original_tax_owed AS STRING),
              ' AmendedTax=', CAST(aa.amended_tax_owed AS STRING),
              ' Delta%=', CAST(aa.delta_pct AS STRING))               AS details
-  FROM {{zone_prefix}}.silver.amendments_applied aa;
+  FROM tax.silver.amendments_applied aa;
 
 -- ===================== STEP 5: build_taxpayer_profiles =====================
 -- Aggregate across filings and amendments to build lifetime taxpayer profiles.
@@ -187,7 +187,7 @@ STEP build_taxpayer_profiles
   DEPENDS ON (enable_cdf_audit, apply_amendments)
   TIMEOUT '5m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.taxpayer_profiles
+  INSERT INTO tax.silver.taxpayer_profiles
   SELECT
       t.taxpayer_id,
       t.taxpayer_name,
@@ -202,7 +202,7 @@ AS
       fstats.latest_income_bracket,
       COALESCE(fstats.avg_deduction_pct, 0)                         AS avg_deduction_pct,
       COALESCE(fstats.ever_audited, false)                          AS ever_audited
-  FROM {{zone_prefix}}.bronze.raw_taxpayers t
+  FROM tax.bronze.raw_taxpayers t
   LEFT JOIN (
       SELECT
           taxpayer_id,
@@ -215,12 +215,12 @@ AS
           FIRST_VALUE(income_bracket) OVER (
               PARTITION BY taxpayer_id ORDER BY fiscal_year DESC, filing_date DESC
           )                                                          AS latest_income_bracket
-      FROM {{zone_prefix}}.silver.filings_immutable
+      FROM tax.silver.filings_immutable
       GROUP BY taxpayer_id, income_bracket, fiscal_year, filing_date
   ) fstats ON t.taxpayer_id = fstats.taxpayer_id
   LEFT JOIN (
       SELECT taxpayer_id, COUNT(*) AS total_amendments
-      FROM {{zone_prefix}}.silver.amendments_applied
+      FROM tax.silver.amendments_applied
       GROUP BY taxpayer_id
   ) astats ON t.taxpayer_id = astats.taxpayer_id;
 
@@ -230,7 +230,7 @@ STEP build_dim_taxpayer
   DEPENDS ON (build_taxpayer_profiles)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.gold.dim_taxpayer
+  INSERT INTO tax.gold.dim_taxpayer
   SELECT
       ROW_NUMBER() OVER (ORDER BY tp.taxpayer_id)                   AS taxpayer_key,
       tp.taxpayer_id,
@@ -240,7 +240,7 @@ AS
       tp.dependent_count,
       tp.total_filings,
       tp.ever_audited
-  FROM {{zone_prefix}}.silver.taxpayer_profiles tp;
+  FROM tax.silver.taxpayer_profiles tp;
 
 -- ===================== STEP 7: dim_jurisdiction =====================
 
@@ -248,7 +248,7 @@ STEP build_dim_jurisdiction
   DEPENDS ON (build_taxpayer_profiles)
   TIMEOUT '2m'
 AS
-  INSERT INTO {{zone_prefix}}.gold.dim_jurisdiction
+  INSERT INTO tax.gold.dim_jurisdiction
   SELECT
       ROW_NUMBER() OVER (ORDER BY j.jurisdiction_id)                AS jurisdiction_key,
       j.jurisdiction_id,
@@ -257,7 +257,7 @@ AS
       j.state,
       j.base_tax_rate,
       j.standard_deduction
-  FROM {{zone_prefix}}.bronze.raw_jurisdictions j;
+  FROM tax.bronze.raw_jurisdictions j;
 
 -- ===================== STEP 8: dim_preparer =====================
 -- Calculate total filings and amendment rate per preparer.
@@ -266,7 +266,7 @@ STEP build_dim_preparer
   DEPENDS ON (build_taxpayer_profiles)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.gold.dim_preparer
+  INSERT INTO tax.gold.dim_preparer
   SELECT
       ROW_NUMBER() OVER (ORDER BY p.preparer_id)                    AS preparer_key,
       p.preparer_id,
@@ -279,14 +279,14 @@ AS
           ROUND(100.0 * stats.amended_count / NULLIF(stats.total_filings, 0), 2),
           0.00
       )                                                              AS amendment_rate
-  FROM {{zone_prefix}}.bronze.raw_preparers p
+  FROM tax.bronze.raw_preparers p
   LEFT JOIN (
       SELECT
           preparer_id,
           COUNT(*)                                                   AS total_filings,
           SUM(CASE WHEN aa.amendment_id IS NOT NULL THEN 1 ELSE 0 END) AS amended_count
-      FROM {{zone_prefix}}.silver.filings_immutable fi
-      LEFT JOIN {{zone_prefix}}.silver.amendments_applied aa
+      FROM tax.silver.filings_immutable fi
+      LEFT JOIN tax.silver.amendments_applied aa
           ON fi.filing_id = aa.original_filing_id
       GROUP BY preparer_id
   ) stats ON p.preparer_id = stats.preparer_id;
@@ -297,7 +297,7 @@ STEP build_dim_fiscal_year
   DEPENDS ON (build_taxpayer_profiles)
   TIMEOUT '2m'
 AS
-  INSERT INTO {{zone_prefix}}.gold.dim_fiscal_year
+  INSERT INTO tax.gold.dim_fiscal_year
   SELECT
       ROW_NUMBER() OVER (ORDER BY fi.fiscal_year)                   AS fiscal_year_key,
       fi.fiscal_year,
@@ -306,12 +306,12 @@ AS
       COUNT(*)                                                       AS total_filings,
       COALESCE(amend_ct.cnt, 0)                                      AS total_amendments,
       SUM(CASE WHEN fi.audit_flag = true THEN 1 ELSE 0 END)        AS audit_flag_count
-  FROM {{zone_prefix}}.silver.filings_immutable fi
+  FROM tax.silver.filings_immutable fi
   LEFT JOIN (
       SELECT
           EXTRACT(YEAR FROM amendment_date) - 1                      AS fiscal_year,
           COUNT(*)                                                   AS cnt
-      FROM {{zone_prefix}}.silver.amendments_applied
+      FROM tax.silver.amendments_applied
       GROUP BY EXTRACT(YEAR FROM amendment_date) - 1
   ) amend_ct ON fi.fiscal_year = amend_ct.fiscal_year
   GROUP BY fi.fiscal_year, amend_ct.cnt;
@@ -324,7 +324,7 @@ STEP build_fact_filings
   DEPENDS ON (build_dim_taxpayer, build_dim_jurisdiction, build_dim_preparer, build_dim_fiscal_year)
   TIMEOUT '5m'
 AS
-  INSERT INTO {{zone_prefix}}.gold.fact_filings
+  INSERT INTO tax.gold.fact_filings
   SELECT
       ROW_NUMBER() OVER (ORDER BY fi.filing_id)                     AS filing_key,
       dt.taxpayer_key,
@@ -353,21 +353,21 @@ AS
       END                                                            AS effective_tax_rate,
       fi.audit_flag,
       fi.filing_status
-  FROM {{zone_prefix}}.silver.filings_immutable fi
-  JOIN {{zone_prefix}}.gold.dim_taxpayer dt      ON fi.taxpayer_id = dt.taxpayer_id
-  JOIN {{zone_prefix}}.gold.dim_jurisdiction dj  ON fi.jurisdiction_id = dj.jurisdiction_id
-  LEFT JOIN {{zone_prefix}}.gold.dim_preparer dp ON fi.preparer_id = dp.preparer_id
-  JOIN {{zone_prefix}}.gold.dim_fiscal_year dfy  ON fi.fiscal_year = dfy.fiscal_year
+  FROM tax.silver.filings_immutable fi
+  JOIN tax.gold.dim_taxpayer dt      ON fi.taxpayer_id = dt.taxpayer_id
+  JOIN tax.gold.dim_jurisdiction dj  ON fi.jurisdiction_id = dj.jurisdiction_id
+  LEFT JOIN tax.gold.dim_preparer dp ON fi.preparer_id = dp.preparer_id
+  JOIN tax.gold.dim_fiscal_year dfy  ON fi.fiscal_year = dfy.fiscal_year
   -- Latest amendment per filing (if multiple, take the most recent)
   LEFT JOIN (
       SELECT *,
           ROW_NUMBER() OVER (PARTITION BY original_filing_id ORDER BY amendment_date DESC) AS rn
-      FROM {{zone_prefix}}.silver.amendments_applied
+      FROM tax.silver.amendments_applied
   ) aa ON fi.filing_id = aa.original_filing_id AND aa.rn = 1
   -- Amendment count per filing
   LEFT JOIN (
       SELECT original_filing_id, COUNT(*) AS amendment_count
-      FROM {{zone_prefix}}.silver.amendments_applied
+      FROM tax.silver.amendments_applied
       GROUP BY original_filing_id
   ) ac ON fi.filing_id = ac.original_filing_id;
 
@@ -378,7 +378,7 @@ STEP build_kpi_revenue_analysis
   DEPENDS ON (build_fact_filings)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.gold.kpi_revenue_analysis
+  INSERT INTO tax.gold.kpi_revenue_analysis
   SELECT
       ff.fiscal_year,
       dj.jurisdiction_name,
@@ -402,8 +402,8 @@ AS
           / NULLIF(SUM(CASE WHEN ff.audit_flag = true THEN ff.tax_owed ELSE 0 END), 0),
           2
       )                                                              AS audit_yield_pct
-  FROM {{zone_prefix}}.gold.fact_filings ff
-  JOIN {{zone_prefix}}.gold.dim_jurisdiction dj ON ff.jurisdiction_key = dj.jurisdiction_key
+  FROM tax.gold.fact_filings ff
+  JOIN tax.gold.dim_jurisdiction dj ON ff.jurisdiction_key = dj.jurisdiction_key
   GROUP BY ff.fiscal_year, dj.jurisdiction_name;
 
 -- ===================== STEP 12: kpi_preparer_quality =====================
@@ -413,7 +413,7 @@ STEP build_kpi_preparer_quality
   DEPENDS ON (build_fact_filings)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.gold.kpi_preparer_quality
+  INSERT INTO tax.gold.kpi_preparer_quality
   SELECT
       dp.preparer_name,
       dp.firm,
@@ -436,8 +436,8 @@ AS
           CASE WHEN ff.gross_income > 0 THEN 100.0 * ff.deductions / ff.gross_income ELSE 0 END
       ), 2)                                                          AS avg_deduction_pct,
       ROUND(AVG(ff.effective_tax_rate), 4)                           AS avg_effective_rate
-  FROM {{zone_prefix}}.gold.fact_filings ff
-  JOIN {{zone_prefix}}.gold.dim_preparer dp ON ff.preparer_key = dp.preparer_key
+  FROM tax.gold.fact_filings ff
+  JOIN tax.gold.dim_preparer dp ON ff.preparer_key = dp.preparer_key
   GROUP BY dp.preparer_name, dp.firm, dp.certification;
 
 -- ===================== STEP 13: bloom_and_optimize =====================
@@ -447,13 +447,13 @@ STEP bloom_and_optimize
   TIMEOUT '5m'
   CONTINUE ON FAILURE
 AS
-  OPTIMIZE {{zone_prefix}}.silver.filings_immutable;
-  OPTIMIZE {{zone_prefix}}.silver.amendments_applied;
-  OPTIMIZE {{zone_prefix}}.silver.taxpayer_profiles;
-  OPTIMIZE {{zone_prefix}}.gold.fact_filings;
-  OPTIMIZE {{zone_prefix}}.gold.dim_taxpayer;
-  OPTIMIZE {{zone_prefix}}.gold.dim_jurisdiction;
-  OPTIMIZE {{zone_prefix}}.gold.dim_preparer;
-  OPTIMIZE {{zone_prefix}}.gold.dim_fiscal_year;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_revenue_analysis;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_preparer_quality;
+  OPTIMIZE tax.silver.filings_immutable;
+  OPTIMIZE tax.silver.amendments_applied;
+  OPTIMIZE tax.silver.taxpayer_profiles;
+  OPTIMIZE tax.gold.fact_filings;
+  OPTIMIZE tax.gold.dim_taxpayer;
+  OPTIMIZE tax.gold.dim_jurisdiction;
+  OPTIMIZE tax.gold.dim_preparer;
+  OPTIMIZE tax.gold.dim_fiscal_year;
+  OPTIMIZE tax.gold.kpi_revenue_analysis;
+  OPTIMIZE tax.gold.kpi_preparer_quality;

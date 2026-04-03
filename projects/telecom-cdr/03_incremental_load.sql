@@ -19,28 +19,28 @@
 -- ============================================================================
 
 -- Preview the generated filter condition:
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.cdr_unified, call_id, start_time, 1)}};
+PRINT {{INCREMENTAL_FILTER(telco.silver.cdr_unified, call_id, start_time, 1)}};
 
 -- Show current watermark
 SELECT MAX(unified_at) AS current_watermark
-FROM {{zone_prefix}}.silver.cdr_unified;
+FROM telco.silver.cdr_unified;
 
 SELECT
     'silver.cdr_unified' AS table_name, COUNT(*) AS row_count
-FROM {{zone_prefix}}.silver.cdr_unified
+FROM telco.silver.cdr_unified
 UNION ALL
 SELECT 'gold.fact_calls', COUNT(*)
-FROM {{zone_prefix}}.gold.fact_calls
+FROM telco.gold.fact_calls
 UNION ALL
 SELECT 'gold.kpi_churn_risk', COUNT(*)
-FROM {{zone_prefix}}.gold.kpi_churn_risk;
+FROM telco.gold.kpi_churn_risk;
 
 -- =============================================================================
 -- Insert 8 new v3 CDR records (October 2024 — latest 5G batch)
 -- =============================================================================
 -- Includes 1 roaming event, 1 dropped call, 1 5G handover, long data session.
 
-INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v3 (
+INSERT INTO telco.bronze.raw_cdr_v3 (
     call_id, caller, callee, start_time, end_time, tower_id, duration_sec,
     call_type, data_usage_mb, sms_count, roaming_flag, network_type, handover_count, ingested_at
 ) VALUES
@@ -55,7 +55,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v3 (
 
 ASSERT ROW_COUNT = 8
 SELECT COUNT(*) AS new_v3_count
-FROM {{zone_prefix}}.bronze.raw_cdr_v3
+FROM telco.bronze.raw_cdr_v3
 WHERE ingested_at >= '2024-10-01T00:00:00';
 
 
@@ -64,11 +64,11 @@ WHERE ingested_at >= '2024-10-01T00:00:00';
 -- Uses INCREMENTAL_FILTER for watermark-based selection
 -- =============================================================================
 
-MERGE INTO {{zone_prefix}}.silver.cdr_unified AS tgt
+MERGE INTO telco.silver.cdr_unified AS tgt
 USING (
     WITH subscriber_lookup AS (
         SELECT subscriber_id, phone_number
-        FROM {{zone_prefix}}.bronze.raw_subscribers
+        FROM telco.bronze.raw_subscribers
     )
     SELECT
         v.call_id,
@@ -100,11 +100,11 @@ USING (
         END AS revenue,
         3               AS schema_version,
         v.ingested_at   AS unified_at
-    FROM {{zone_prefix}}.bronze.raw_cdr_v3 v
+    FROM telco.bronze.raw_cdr_v3 v
     LEFT JOIN subscriber_lookup caller_sub ON v.caller = caller_sub.phone_number
     LEFT JOIN subscriber_lookup callee_sub ON v.callee = callee_sub.phone_number
-    LEFT JOIN {{zone_prefix}}.bronze.raw_cell_towers t ON v.tower_id = t.tower_id
-    WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.cdr_unified, call_id, start_time, 1)}}
+    LEFT JOIN telco.bronze.raw_cell_towers t ON v.tower_id = t.tower_id
+    WHERE {{INCREMENTAL_FILTER(telco.silver.cdr_unified, call_id, start_time, 1)}}
 ) AS src
 ON tgt.call_id = src.call_id
 WHEN NOT MATCHED THEN INSERT (
@@ -123,42 +123,42 @@ WHEN NOT MATCHED THEN INSERT (
 -- =============================================================================
 
 -- Unified should now have 70 + 8 = 78 records
-SELECT COUNT(*) AS unified_total FROM {{zone_prefix}}.silver.cdr_unified;
+SELECT COUNT(*) AS unified_total FROM telco.silver.cdr_unified;
 
 ASSERT VALUE unified_total = 78
 SELECT COUNT(*) AS v3_total
-FROM {{zone_prefix}}.silver.cdr_unified
+FROM telco.silver.cdr_unified
 WHERE schema_version = 3;
 
 -- Verify roaming records captured (V3-002, V3-005, V3-008, V3-022 = 4 total)
 ASSERT VALUE v3_total = 28
 SELECT COUNT(*) AS roaming_count
-FROM {{zone_prefix}}.silver.cdr_unified
+FROM telco.silver.cdr_unified
 WHERE roaming_flag = true;
 
 ASSERT VALUE roaming_count = 4
 SELECT COUNT(*) AS dropped_count
-FROM {{zone_prefix}}.silver.cdr_unified
+FROM telco.silver.cdr_unified
 WHERE drop_flag = true;
 
 -- Verify the new dropped call from incremental batch (V3-024, duration=5)
 ASSERT VALUE dropped_count >= 5
 SELECT call_id, duration_sec, drop_flag
-FROM {{zone_prefix}}.silver.cdr_unified
+FROM telco.silver.cdr_unified
 WHERE call_id = 'V3-024';
 
 ASSERT VALUE drop_flag = true
 SELECT MAX(unified_at) AS new_watermark
-FROM {{zone_prefix}}.silver.cdr_unified;
+FROM telco.silver.cdr_unified;
 
 -- =============================================================================
 -- RESTORE demonstration: point-in-time recovery
 -- =============================================================================
 -- Show version history before restore
 SELECT COUNT(*) AS pre_restore_count
-FROM {{zone_prefix}}.silver.cdr_unified;
+FROM telco.silver.cdr_unified;
 
-RESTORE {{zone_prefix}}.silver.cdr_unified TO VERSION 0;
+RESTORE telco.silver.cdr_unified TO VERSION 0;
 
 -- After restore, re-run the full load to get back to current state
 -- (in production, you would restore to a specific version after investigation)

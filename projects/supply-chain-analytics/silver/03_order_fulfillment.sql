@@ -8,7 +8,7 @@
 -- Only processes POs with status 'received'.
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS {{zone_prefix}}.silver.order_fulfillment (
+CREATE TABLE IF NOT EXISTS sc.silver.order_fulfillment (
   po_id             STRING,
   supplier_id       STRING,
   sku               STRING,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS {{zone_prefix}}.silver.order_fulfillment (
   updated_at        TIMESTAMP
 );
 
-MERGE INTO {{zone_prefix}}.silver.order_fulfillment AS tgt
+MERGE INTO sc.silver.order_fulfillment AS tgt
 USING (
   SELECT
     po.po_id,
@@ -41,12 +41,12 @@ USING (
     CASE WHEN po.received_date <= po.expected_date THEN true ELSE false END AS on_time_flag,
     po.unit_cost,
     po.qty_ordered * po.unit_cost AS total_cost
-  FROM {{zone_prefix}}.bronze.purchase_orders po
+  FROM sc.bronze.purchase_orders po
   LEFT JOIN (
     SELECT
       reference_id,
       SUM(quantity) AS qty_received
-    FROM {{zone_prefix}}.bronze.warehouse_movements
+    FROM sc.bronze.warehouse_movements
     WHERE movement_type = 'receipt'
       AND reference_id IS NOT NULL
     GROUP BY reference_id

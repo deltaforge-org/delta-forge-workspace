@@ -9,7 +9,7 @@
 --   - defect_rate: shipments with exceptions / total shipments
 -- =============================================================================
 
-CREATE OR REPLACE TABLE {{zone_prefix}}.gold.kpi_supplier_scorecard AS
+CREATE OR REPLACE TABLE sc.gold.kpi_supplier_scorecard AS
 WITH supplier_orders AS (
   SELECT
     fo.supplier_id,
@@ -21,7 +21,7 @@ WITH supplier_orders AS (
     SUM(fo.total_cost) AS total_spend,
     SUM(fo.qty_ordered) AS total_qty_ordered,
     SUM(fo.qty_received) AS total_qty_received
-  FROM {{zone_prefix}}.gold.fact_orders fo
+  FROM sc.gold.fact_orders fo
   GROUP BY fo.supplier_id, fo.supplier_name
 ),
 supplier_shipments AS (
@@ -29,7 +29,7 @@ supplier_shipments AS (
     fo.supplier_id,
     COUNT(DISTINCT fo.shipment_id) AS total_shipments,
     SUM(CASE WHEN fo.shipment_exception = true THEN 1 ELSE 0 END) AS exception_shipments
-  FROM {{zone_prefix}}.gold.fact_orders fo
+  FROM sc.gold.fact_orders fo
   WHERE fo.shipment_id IS NOT NULL
   GROUP BY fo.supplier_id
 )

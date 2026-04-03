@@ -9,18 +9,18 @@
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS cyber TYPE EXTERNAL
     COMMENT 'Security Operations Center SIEM analytics zone';
 
 -- ===================== SCHEMAS =====================
 
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw SIEM alert feeds from 3 sources plus threat intelligence';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'Deduplicated alerts, correlated incidents, threat-enriched data';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold   COMMENT 'Threat dashboard star schema with MITRE classification';
+CREATE SCHEMA IF NOT EXISTS cyber.bronze COMMENT 'Raw SIEM alert feeds from 3 sources plus threat intelligence';
+CREATE SCHEMA IF NOT EXISTS cyber.silver COMMENT 'Deduplicated alerts, correlated incidents, threat-enriched data';
+CREATE SCHEMA IF NOT EXISTS cyber.gold   COMMENT 'Threat dashboard star schema with MITRE classification';
 
 -- ===================== BRONZE: 3 ALERT SOURCE TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_firewall_alerts (
+CREATE DELTA TABLE IF NOT EXISTS cyber.bronze.raw_firewall_alerts (
     alert_id         STRING      NOT NULL,
     source_ip        STRING      NOT NULL,
     target_host      STRING      NOT NULL,
@@ -32,9 +32,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_firewall_alerts (
     protocol         STRING,
     raw_log          STRING,
     ingested_at      TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/bronze/raw_firewall_alerts';
+) LOCATION 'cyber/cyber/bronze/raw_firewall_alerts';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_ids_alerts (
+CREATE DELTA TABLE IF NOT EXISTS cyber.bronze.raw_ids_alerts (
     alert_id         STRING      NOT NULL,
     source_ip        STRING      NOT NULL,
     target_host      STRING      NOT NULL,
@@ -46,9 +46,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_ids_alerts (
     protocol         STRING,
     raw_log          STRING,
     ingested_at      TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/bronze/raw_ids_alerts';
+) LOCATION 'cyber/cyber/bronze/raw_ids_alerts';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_endpoint_alerts (
+CREATE DELTA TABLE IF NOT EXISTS cyber.bronze.raw_endpoint_alerts (
     alert_id         STRING      NOT NULL,
     source_ip        STRING      NOT NULL,
     target_host      STRING      NOT NULL,
@@ -60,11 +60,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_endpoint_alerts (
     file_hash        STRING,
     raw_log          STRING,
     ingested_at      TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/bronze/raw_endpoint_alerts';
+) LOCATION 'cyber/cyber/bronze/raw_endpoint_alerts';
 
 -- ===================== BRONZE: THREAT INTELLIGENCE =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_threat_intel (
+CREATE DELTA TABLE IF NOT EXISTS cyber.bronze.raw_threat_intel (
     ip_address       STRING      NOT NULL,
     subnet           STRING,
     geo_country      STRING,
@@ -75,9 +75,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_threat_intel (
     first_seen       DATE,
     last_seen        DATE,
     ingested_at      TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/bronze/raw_threat_intel';
+) LOCATION 'cyber/cyber/bronze/raw_threat_intel';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_mitre_techniques (
+CREATE DELTA TABLE IF NOT EXISTS cyber.bronze.raw_mitre_techniques (
     technique_id     STRING      NOT NULL,
     technique_name   STRING      NOT NULL,
     tactic           STRING      NOT NULL,
@@ -85,11 +85,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_mitre_techniques (
     description      STRING,
     severity_weight  INT,
     ingested_at      TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/bronze/raw_mitre_techniques';
+) LOCATION 'cyber/cyber/bronze/raw_mitre_techniques';
 
 -- ===================== SILVER TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.alerts_deduped (
+CREATE DELTA TABLE IF NOT EXISTS cyber.silver.alerts_deduped (
     alert_id         STRING      NOT NULL,
     source           STRING      NOT NULL,
     source_ip        STRING      NOT NULL,
@@ -102,10 +102,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.alerts_deduped (
     raw_log          STRING,
     dedup_bucket     STRING,
     deduped_at       TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/silver/alerts_deduped'
+) LOCATION 'cyber/cyber/silver/alerts_deduped'
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.incidents_correlated (
+CREATE DELTA TABLE IF NOT EXISTS cyber.silver.incidents_correlated (
     incident_id       STRING      NOT NULL,
     source_ip         STRING      NOT NULL,
     primary_target    STRING      NOT NULL,
@@ -120,9 +120,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.incidents_correlated (
     duration_minutes  INT,
     status            STRING      NOT NULL,
     correlated_at     TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/silver/incidents_correlated';
+) LOCATION 'cyber/cyber/silver/incidents_correlated';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.threat_enriched (
+CREATE DELTA TABLE IF NOT EXISTS cyber.silver.threat_enriched (
     incident_id       STRING      NOT NULL,
     source_ip         STRING      NOT NULL,
     primary_target    STRING,
@@ -139,11 +139,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.threat_enriched (
     technique_name    STRING,
     combined_risk_score INT,
     enriched_at       TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/silver/threat_enriched';
+) LOCATION 'cyber/cyber/silver/threat_enriched';
 
 -- ===================== GOLD TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_source_ip (
+CREATE DELTA TABLE IF NOT EXISTS cyber.gold.dim_source_ip (
     source_ip_key    INT         NOT NULL,
     ip_address       STRING      NOT NULL,
     subnet           STRING,
@@ -153,25 +153,25 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_source_ip (
     threat_category  STRING,
     is_known_bad     BOOLEAN,
     loaded_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/gold/dim_source_ip';
+) LOCATION 'cyber/cyber/gold/dim_source_ip';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_target (
+CREATE DELTA TABLE IF NOT EXISTS cyber.gold.dim_target (
     target_key       INT         NOT NULL,
     hostname         STRING      NOT NULL,
     environment      STRING,
     criticality      STRING,
     loaded_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/gold/dim_target';
+) LOCATION 'cyber/cyber/gold/dim_target';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_rule (
+CREATE DELTA TABLE IF NOT EXISTS cyber.gold.dim_rule (
     rule_key         INT         NOT NULL,
     rule_id          STRING      NOT NULL,
     rule_name        STRING,
     category         STRING,
     loaded_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/gold/dim_rule';
+) LOCATION 'cyber/cyber/gold/dim_rule';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_mitre (
+CREATE DELTA TABLE IF NOT EXISTS cyber.gold.dim_mitre (
     mitre_key        INT         NOT NULL,
     technique_id     STRING      NOT NULL,
     technique_name   STRING      NOT NULL,
@@ -179,9 +179,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_mitre (
     tactic_id        STRING,
     severity_weight  INT,
     loaded_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/gold/dim_mitre';
+) LOCATION 'cyber/cyber/gold/dim_mitre';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_incidents (
+CREATE DELTA TABLE IF NOT EXISTS cyber.gold.fact_incidents (
     incident_key        INT         NOT NULL,
     source_ip_key       INT         NOT NULL,
     target_key          INT         NOT NULL,
@@ -199,9 +199,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_incidents (
     mitre_tactic        STRING,
     status              STRING      NOT NULL,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/gold/fact_incidents';
+) LOCATION 'cyber/cyber/gold/fact_incidents';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_threat_dashboard (
+CREATE DELTA TABLE IF NOT EXISTS cyber.gold.kpi_threat_dashboard (
     hour_bucket      TIMESTAMP   NOT NULL,
     total_alerts     INT         NOT NULL,
     unique_sources   INT,
@@ -214,9 +214,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_threat_dashboard (
     top_mitre_tactic STRING,
     top_source_ip    STRING,
     loaded_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/gold/kpi_threat_dashboard';
+) LOCATION 'cyber/cyber/gold/kpi_threat_dashboard';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_response_metrics (
+CREATE DELTA TABLE IF NOT EXISTS cyber.gold.kpi_response_metrics (
     severity         STRING      NOT NULL,
     period           STRING      NOT NULL,
     incident_count   INT,
@@ -227,30 +227,30 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_response_metrics (
     escalated_pct    DECIMAL(5,2),
     avg_threat_score DECIMAL(5,1),
     loaded_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/cyber/gold/kpi_response_metrics';
+) LOCATION 'cyber/cyber/gold/kpi_response_metrics';
 
 -- ===================== GRANTS =====================
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_firewall_alerts TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_ids_alerts TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_endpoint_alerts TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_threat_intel TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_mitre_techniques TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.alerts_deduped TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.incidents_correlated TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.threat_enriched TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_source_ip TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_target TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_rule TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_mitre TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_incidents TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_threat_dashboard TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_response_metrics TO USER {{current_user}};
+GRANT ADMIN ON TABLE cyber.bronze.raw_firewall_alerts TO USER admin;
+GRANT ADMIN ON TABLE cyber.bronze.raw_ids_alerts TO USER admin;
+GRANT ADMIN ON TABLE cyber.bronze.raw_endpoint_alerts TO USER admin;
+GRANT ADMIN ON TABLE cyber.bronze.raw_threat_intel TO USER admin;
+GRANT ADMIN ON TABLE cyber.bronze.raw_mitre_techniques TO USER admin;
+GRANT ADMIN ON TABLE cyber.silver.alerts_deduped TO USER admin;
+GRANT ADMIN ON TABLE cyber.silver.incidents_correlated TO USER admin;
+GRANT ADMIN ON TABLE cyber.silver.threat_enriched TO USER admin;
+GRANT ADMIN ON TABLE cyber.gold.dim_source_ip TO USER admin;
+GRANT ADMIN ON TABLE cyber.gold.dim_target TO USER admin;
+GRANT ADMIN ON TABLE cyber.gold.dim_rule TO USER admin;
+GRANT ADMIN ON TABLE cyber.gold.dim_mitre TO USER admin;
+GRANT ADMIN ON TABLE cyber.gold.fact_incidents TO USER admin;
+GRANT ADMIN ON TABLE cyber.gold.kpi_threat_dashboard TO USER admin;
+GRANT ADMIN ON TABLE cyber.gold.kpi_response_metrics TO USER admin;
 
 -- ===================== SEED: THREAT INTELLIGENCE (20 IPs) =====================
 -- 5 critical, 10 high, 5 medium threat scores
 
-INSERT INTO {{zone_prefix}}.bronze.raw_threat_intel VALUES
+INSERT INTO cyber.bronze.raw_threat_intel VALUES
 ('185.220.101.34',  '185.220.101.0/24', 'RU', 'Moscow',     95, 'apt',         true,  '2023-06-15', '2024-01-14', '2024-01-15T00:00:00'),
 ('103.235.46.78',   '103.235.46.0/24',  'CN', 'Beijing',    92, 'apt',         true,  '2023-08-01', '2024-01-14', '2024-01-15T00:00:00'),
 ('112.85.42.187',   '112.85.42.0/24',   'CN', 'Shanghai',   97, 'apt',         true,  '2023-05-20', '2024-01-14', '2024-01-15T00:00:00'),
@@ -273,11 +273,11 @@ INSERT INTO {{zone_prefix}}.bronze.raw_threat_intel VALUES
 ('45.155.205.233',  '45.155.205.0/24',  'DE', 'Berlin',     75, 'scanner',     false, '2023-12-15', '2024-01-14', '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 20
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_threat_intel;
+SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_threat_intel;
 
 -- ===================== SEED: MITRE ATT&CK TECHNIQUES (15 across 7 tactics) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_mitre_techniques VALUES
+INSERT INTO cyber.bronze.raw_mitre_techniques VALUES
 ('T1190',     'Exploit Public-Facing Application', 'initial-access',      'TA0001', 'Adversary exploits a vulnerability in an internet-facing application', 8, '2024-01-15T00:00:00'),
 ('T1110.001', 'Password Guessing',                 'initial-access',      'TA0001', 'Brute force password guessing against authentication services',        6, '2024-01-15T00:00:00'),
 ('T1059.001', 'PowerShell',                         'execution',           'TA0002', 'Use of PowerShell for command execution',                              7, '2024-01-15T00:00:00'),
@@ -295,12 +295,12 @@ INSERT INTO {{zone_prefix}}.bronze.raw_mitre_techniques VALUES
 ('T1071.001', 'Web Protocols',                       'command-and-control', 'TA0011', 'C2 communication over HTTP/HTTPS',                                    7, '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 15
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_mitre_techniques;
+SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_mitre_techniques;
 
 -- ===================== SEED: FIREWALL ALERTS (30 rows) =====================
 -- Includes ~8 duplicates within 5-min windows
 
-INSERT INTO {{zone_prefix}}.bronze.raw_firewall_alerts VALUES
+INSERT INTO cyber.bronze.raw_firewall_alerts VALUES
 ('FW-001', '185.220.101.34', 'web-prod-01', 'R-SQL-INJ',   '2024-01-15T02:14:30', 8, 'high',     45200,  'TCP', 'SQL injection payload in POST /api/login',               '2024-01-15T02:15:00'),
 ('FW-002', '185.220.101.34', 'web-prod-01', 'R-SQL-INJ',   '2024-01-15T02:16:45', 8, 'high',     38100,  'TCP', 'SQL injection in GET /api/users DUPLICATE',               '2024-01-15T02:17:00'),
 ('FW-003', '103.235.46.78',  'vpn-gw-01',   'R-BRUTE-SSH', '2024-01-15T03:20:00', 9, 'critical', 1200,   'TCP', 'Brute force: 500 failed SSH attempts in 60s',             '2024-01-15T03:20:30'),
@@ -333,12 +333,12 @@ INSERT INTO {{zone_prefix}}.bronze.raw_firewall_alerts VALUES
 ('FW-030', '5.188.86.22',    'web-prod-01', 'R-SQL-INJ',   '2024-01-16T03:00:00', 9, 'critical', 88000,  'TCP', 'Persistent APT SQL injection next day',                   '2024-01-16T03:00:30');
 
 ASSERT ROW_COUNT = 30
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_firewall_alerts;
+SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_firewall_alerts;
 
 -- ===================== SEED: IDS ALERTS (25 rows) =====================
 -- Includes ~7 duplicates within 5-min windows
 
-INSERT INTO {{zone_prefix}}.bronze.raw_ids_alerts VALUES
+INSERT INTO cyber.bronze.raw_ids_alerts VALUES
 ('IDS-001', '23.129.64.201',  'web-prod-01', 'R-PORTSCAN',  '2024-01-15T08:00:00', 4, 'medium',   'SIG-1001', 'TCP', 'Full port scan from Tor exit node',               '2024-01-15T08:00:30'),
 ('IDS-002', '23.129.64.201',  'web-prod-02', 'R-PORTSCAN',  '2024-01-15T08:02:00', 4, 'medium',   'SIG-1001', 'TCP', 'Port scan targeting web cluster',                  '2024-01-15T08:02:30'),
 ('IDS-003', '23.129.64.201',  'api-prod-01', 'R-PORTSCAN',  '2024-01-15T08:04:00', 4, 'medium',   'SIG-1001', 'TCP', 'Port scan targeting API server',                   '2024-01-15T08:04:30'),
@@ -366,12 +366,12 @@ INSERT INTO {{zone_prefix}}.bronze.raw_ids_alerts VALUES
 ('IDS-025', '45.155.205.233', 'dev-app-01',  'R-PORTSCAN',  '2024-01-16T01:05:00', 3, 'low',      'SIG-1008', 'TCP', 'Dev server scan from Berlin',                     '2024-01-16T01:05:30');
 
 ASSERT ROW_COUNT = 25
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_ids_alerts;
+SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_ids_alerts;
 
 -- ===================== SEED: ENDPOINT ALERTS (20 rows) =====================
 -- Includes ~5 duplicates within 5-min windows
 
-INSERT INTO {{zone_prefix}}.bronze.raw_endpoint_alerts VALUES
+INSERT INTO cyber.bronze.raw_endpoint_alerts VALUES
 ('EP-001', '10.0.1.50',      'db-prod-01',  'R-POWERSHELL', '2024-01-15T05:30:00', 6, 'medium',   'powershell.exe', 'a1b2c3d4e5', 'PowerShell download cradle detected',           '2024-01-15T05:30:30'),
 ('EP-002', '10.0.1.50',      'db-prod-01',  'R-CRED-DUMP', '2024-01-15T05:32:00', 9, 'critical',  'mimikatz.exe',   'f6g7h8i9j0', 'Mimikatz credential dump detected',             '2024-01-15T05:32:30'),
 ('EP-003', '10.0.1.50',      'db-prod-01',  'R-CRED-DUMP', '2024-01-15T05:33:00', 9, 'critical',  'mimikatz.exe',   'f6g7h8i9j0', 'Credential dump DUPLICATE',                     '2024-01-15T05:33:30'),
@@ -394,8 +394,8 @@ INSERT INTO {{zone_prefix}}.bronze.raw_endpoint_alerts VALUES
 ('EP-020', '112.85.42.187',  'web-prod-01', 'R-MALWARE',   '2024-01-15T21:00:00', 9, 'critical',  'cobalt.exe',     'n6o7p8q9r0', 'Cobalt Strike beacon detected',                 '2024-01-15T21:00:30');
 
 ASSERT ROW_COUNT = 20
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_endpoint_alerts;
+SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_endpoint_alerts;
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_source_ip (ip_address) TRANSFORM generalize PARAMS (range = 24);
+CREATE PSEUDONYMISATION RULE ON cyber.gold.dim_source_ip (ip_address) TRANSFORM generalize PARAMS (range = 24);

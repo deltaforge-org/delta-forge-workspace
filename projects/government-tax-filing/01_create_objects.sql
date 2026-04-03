@@ -8,18 +8,18 @@
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS tax TYPE EXTERNAL
     COMMENT 'Government tax filing project zone';
 
 -- ===================== SCHEMAS =====================
 
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw tax filing source data — filings, amendments, taxpayers, jurisdictions, preparers';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'Immutable filings, applied amendments, taxpayer profiles, CDF audit trail';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold   COMMENT 'Filing star schema with amendment-aware facts, revenue and preparer KPIs';
+CREATE SCHEMA IF NOT EXISTS tax.bronze COMMENT 'Raw tax filing source data — filings, amendments, taxpayers, jurisdictions, preparers';
+CREATE SCHEMA IF NOT EXISTS tax.silver COMMENT 'Immutable filings, applied amendments, taxpayer profiles, CDF audit trail';
+CREATE SCHEMA IF NOT EXISTS tax.gold   COMMENT 'Filing star schema with amendment-aware facts, revenue and preparer KPIs';
 
 -- ===================== BRONZE TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_filings (
+CREATE DELTA TABLE IF NOT EXISTS tax.bronze.raw_filings (
     filing_id           STRING      NOT NULL,
     taxpayer_id         STRING      NOT NULL,
     jurisdiction_id     STRING      NOT NULL,
@@ -36,11 +36,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_filings (
     filing_type         STRING,
     notes               STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/filing/raw_filings';
+) LOCATION 'tax/bronze/filing/raw_filings';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_filings TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.bronze.raw_filings TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_amendments (
+CREATE DELTA TABLE IF NOT EXISTS tax.bronze.raw_amendments (
     amendment_id        STRING      NOT NULL,
     original_filing_id  STRING      NOT NULL,
     taxpayer_id         STRING      NOT NULL,
@@ -52,11 +52,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_amendments (
     amendment_reason    STRING,
     preparer_id         STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/filing/raw_amendments';
+) LOCATION 'tax/bronze/filing/raw_amendments';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_amendments TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.bronze.raw_amendments TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_taxpayers (
+CREATE DELTA TABLE IF NOT EXISTS tax.bronze.raw_taxpayers (
     taxpayer_id         STRING      NOT NULL,
     taxpayer_name       STRING,
     ssn                 STRING,
@@ -65,11 +65,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_taxpayers (
     dependent_count     INT,
     annual_income       DECIMAL(14,2),
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/filing/raw_taxpayers';
+) LOCATION 'tax/bronze/filing/raw_taxpayers';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_taxpayers TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.bronze.raw_taxpayers TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_jurisdictions (
+CREATE DELTA TABLE IF NOT EXISTS tax.bronze.raw_jurisdictions (
     jurisdiction_id     STRING      NOT NULL,
     jurisdiction_name   STRING      NOT NULL,
     jurisdiction_level  STRING,
@@ -77,26 +77,26 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_jurisdictions (
     base_tax_rate       DECIMAL(5,4),
     standard_deduction  DECIMAL(10,2),
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/filing/raw_jurisdictions';
+) LOCATION 'tax/bronze/filing/raw_jurisdictions';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_jurisdictions TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.bronze.raw_jurisdictions TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_preparers (
+CREATE DELTA TABLE IF NOT EXISTS tax.bronze.raw_preparers (
     preparer_id         STRING      NOT NULL,
     preparer_name       STRING      NOT NULL,
     firm                STRING,
     certification       STRING,
     years_experience    INT,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/filing/raw_preparers';
+) LOCATION 'tax/bronze/filing/raw_preparers';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_preparers TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.bronze.raw_preparers TO USER admin;
 
 -- ===================== SILVER TABLES =====================
 
 -- Append-only: original filings are NEVER updated or deleted.
 -- CDF enabled so every INSERT is captured for the audit_trail.
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.filings_immutable (
+CREATE DELTA TABLE IF NOT EXISTS tax.silver.filings_immutable (
     filing_id           STRING      NOT NULL,
     taxpayer_id         STRING      NOT NULL,
     jurisdiction_id     STRING      NOT NULL,
@@ -116,14 +116,14 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.filings_immutable (
     audit_flag          BOOLEAN,
     income_bracket      STRING,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/filing/filings_immutable'
+) LOCATION 'tax/silver/filing/filings_immutable'
 PARTITIONED BY (fiscal_year)
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.filings_immutable TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.silver.filings_immutable TO USER admin;
 
 -- Amendments linked to originals with computed deltas
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.amendments_applied (
+CREATE DELTA TABLE IF NOT EXISTS tax.silver.amendments_applied (
     amendment_id            STRING      NOT NULL,
     original_filing_id      STRING      NOT NULL,
     taxpayer_id             STRING      NOT NULL,
@@ -139,13 +139,13 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.amendments_applied (
     large_delta_flag        BOOLEAN,
     preparer_id             STRING,
     loaded_at               TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/filing/amendments_applied'
+) LOCATION 'tax/silver/filing/amendments_applied'
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.amendments_applied TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.silver.amendments_applied TO USER admin;
 
 -- Aggregated taxpayer profile from filings
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.taxpayer_profiles (
+CREATE DELTA TABLE IF NOT EXISTS tax.silver.taxpayer_profiles (
     taxpayer_id         STRING      NOT NULL,
     taxpayer_name       STRING,
     ssn                 STRING,
@@ -159,12 +159,12 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.taxpayer_profiles (
     latest_income_bracket   STRING,
     avg_deduction_pct       DECIMAL(5,2),
     ever_audited            BOOLEAN
-) LOCATION '{{data_path}}/silver/filing/taxpayer_profiles';
+) LOCATION 'tax/silver/filing/taxpayer_profiles';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.taxpayer_profiles TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.silver.taxpayer_profiles TO USER admin;
 
 -- CDF-driven audit trail — captures every change to filings_immutable and amendments
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.audit_trail (
+CREATE DELTA TABLE IF NOT EXISTS tax.silver.audit_trail (
     audit_id            INT         NOT NULL,
     table_name          STRING      NOT NULL,
     operation           STRING      NOT NULL,
@@ -173,13 +173,13 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.audit_trail (
     fiscal_year         INT,
     change_timestamp    TIMESTAMP   NOT NULL,
     details             STRING
-) LOCATION '{{data_path}}/silver/filing/audit_trail';
+) LOCATION 'tax/silver/filing/audit_trail';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.audit_trail TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.silver.audit_trail TO USER admin;
 
 -- ===================== GOLD TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_taxpayer (
+CREATE DELTA TABLE IF NOT EXISTS tax.gold.dim_taxpayer (
     taxpayer_key        INT         NOT NULL,
     taxpayer_id         STRING      NOT NULL,
     filing_type         STRING,
@@ -188,11 +188,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_taxpayer (
     dependent_count     INT,
     total_filings       INT,
     ever_audited        BOOLEAN
-) LOCATION '{{data_path}}/gold/filing/dim_taxpayer';
+) LOCATION 'tax/gold/filing/dim_taxpayer';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_taxpayer TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.gold.dim_taxpayer TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_jurisdiction (
+CREATE DELTA TABLE IF NOT EXISTS tax.gold.dim_jurisdiction (
     jurisdiction_key    INT         NOT NULL,
     jurisdiction_id     STRING      NOT NULL,
     jurisdiction_name   STRING      NOT NULL,
@@ -200,11 +200,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_jurisdiction (
     state               STRING,
     base_tax_rate       DECIMAL(5,4),
     standard_deduction  DECIMAL(10,2)
-) LOCATION '{{data_path}}/gold/filing/dim_jurisdiction';
+) LOCATION 'tax/gold/filing/dim_jurisdiction';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_jurisdiction TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.gold.dim_jurisdiction TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_preparer (
+CREATE DELTA TABLE IF NOT EXISTS tax.gold.dim_preparer (
     preparer_key        INT         NOT NULL,
     preparer_id         STRING      NOT NULL,
     preparer_name       STRING      NOT NULL,
@@ -213,23 +213,23 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_preparer (
     years_experience    INT,
     total_filings_prepared  INT,
     amendment_rate      DECIMAL(5,2)
-) LOCATION '{{data_path}}/gold/filing/dim_preparer';
+) LOCATION 'tax/gold/filing/dim_preparer';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_preparer TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.gold.dim_preparer TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_fiscal_year (
+CREATE DELTA TABLE IF NOT EXISTS tax.gold.dim_fiscal_year (
     fiscal_year_key     INT         NOT NULL,
     fiscal_year         INT         NOT NULL,
     filing_deadline     DATE,
     total_filings       INT,
     total_amendments    INT,
     audit_flag_count    INT
-) LOCATION '{{data_path}}/gold/filing/dim_fiscal_year';
+) LOCATION 'tax/gold/filing/dim_fiscal_year';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_fiscal_year TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.gold.dim_fiscal_year TO USER admin;
 
 -- Star-schema fact: joins originals + amendments via COALESCE
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_filings (
+CREATE DELTA TABLE IF NOT EXISTS tax.gold.fact_filings (
     filing_key              INT         NOT NULL,
     taxpayer_key            INT         NOT NULL,
     jurisdiction_key        INT         NOT NULL,
@@ -251,11 +251,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_filings (
     effective_tax_rate      DECIMAL(7,4),
     audit_flag              BOOLEAN,
     filing_status           STRING
-) LOCATION '{{data_path}}/gold/filing/fact_filings';
+) LOCATION 'tax/gold/filing/fact_filings';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_filings TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.gold.fact_filings TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_revenue_analysis (
+CREATE DELTA TABLE IF NOT EXISTS tax.gold.kpi_revenue_analysis (
     fiscal_year         INT         NOT NULL,
     jurisdiction_name   STRING      NOT NULL,
     total_filings       INT,
@@ -267,11 +267,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_revenue_analysis (
     compliance_rate     DECIMAL(5,2),
     amendment_count     INT,
     audit_yield_pct     DECIMAL(5,2)
-) LOCATION '{{data_path}}/gold/filing/kpi_revenue_analysis';
+) LOCATION 'tax/gold/filing/kpi_revenue_analysis';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_revenue_analysis TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.gold.kpi_revenue_analysis TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_preparer_quality (
+CREATE DELTA TABLE IF NOT EXISTS tax.gold.kpi_preparer_quality (
     preparer_name       STRING      NOT NULL,
     firm                STRING,
     certification       STRING,
@@ -283,13 +283,13 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_preparer_quality (
     avg_client_income   DECIMAL(14,2),
     avg_deduction_pct   DECIMAL(5,2),
     avg_effective_rate  DECIMAL(7,4)
-) LOCATION '{{data_path}}/gold/filing/kpi_preparer_quality';
+) LOCATION 'tax/gold/filing/kpi_preparer_quality';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_preparer_quality TO USER {{current_user}};
+GRANT ADMIN ON TABLE tax.gold.kpi_preparer_quality TO USER admin;
 
 -- ===================== BRONZE SEED DATA: JURISDICTIONS (6 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_jurisdictions VALUES
+INSERT INTO tax.bronze.raw_jurisdictions VALUES
     ('JUR-FED', 'Federal - IRS',           'Federal', NULL, 0.2200, 13850.00, '2025-01-01T00:00:00'),
     ('JUR-NY',  'New York State',          'State',   'NY', 0.0685, 8000.00,  '2025-01-01T00:00:00'),
     ('JUR-CA',  'California FTB',          'State',   'CA', 0.0930, 5202.00,  '2025-01-01T00:00:00'),
@@ -298,11 +298,11 @@ INSERT INTO {{zone_prefix}}.bronze.raw_jurisdictions VALUES
     ('JUR-IL',  'Illinois Dept of Revenue','State',   'IL', 0.0495, 2425.00,  '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 6
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_jurisdictions;
+SELECT COUNT(*) AS row_count FROM tax.bronze.raw_jurisdictions;
 
 -- ===================== BRONZE SEED DATA: PREPARERS (5 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_preparers VALUES
+INSERT INTO tax.bronze.raw_preparers VALUES
     ('PREP-01', 'Sarah Mitchell CPA',   'Mitchell & Associates',   'CPA',  12, '2025-01-01T00:00:00'),
     ('PREP-02', 'David Park EA',        'TaxPro Services',         'EA',    8, '2025-01-01T00:00:00'),
     ('PREP-03', 'Jennifer Wu CPA',      'Big Four Accounting LLP', 'CPA',  20, '2025-01-01T00:00:00'),
@@ -310,11 +310,11 @@ INSERT INTO {{zone_prefix}}.bronze.raw_preparers VALUES
     ('PREP-05', 'Angela Torres EA',     'Torres Tax Group',        'EA',   10, '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 5
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_preparers;
+SELECT COUNT(*) AS row_count FROM tax.bronze.raw_preparers;
 
 -- ===================== BRONZE SEED DATA: TAXPAYERS (20 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_taxpayers VALUES
+INSERT INTO tax.bronze.raw_taxpayers VALUES
     ('TP-1001', 'Margaret Henderson',   '111-22-3333', 'Individual', 'NY', 2, 98000.00,   '2025-01-01T00:00:00'),
     ('TP-1002', 'William Chang',        '222-33-4444', 'Individual', 'CA', 0, 155000.00,  '2025-01-01T00:00:00'),
     ('TP-1003', 'Patricia Kowalski',    '333-44-5555', 'Individual', 'TX', 3, 70000.00,   '2025-01-01T00:00:00'),
@@ -337,13 +337,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_taxpayers VALUES
     ('TP-1014', 'Anthony Russo',        '140-55-6677', 'Individual', 'FL', 0, 88000.00,   '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 20
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_taxpayers;
+SELECT COUNT(*) AS row_count FROM tax.bronze.raw_taxpayers;
 
 -- ===================== BRONZE SEED DATA: FILINGS (50 rows) =====================
 -- 20 FY2022, 18 FY2023, 12 FY2024.  filing_type: 1040/1120/1040X etc.
 -- 4 audit-flagged filings: deductions > 40% of gross (TP-1002, TP-1005, TP-1010, TP-1006)
 
-INSERT INTO {{zone_prefix}}.bronze.raw_filings VALUES
+INSERT INTO tax.bronze.raw_filings VALUES
     -- ===== FY 2022 (20 filings) =====
     ('FIL-2022-001', 'TP-1001', 'JUR-FED', 'PREP-01', 2022, '2023-03-15', 95000.00,  18500.00,  76500.00,  12870.00, 14200.00,  1330.00,  'Accepted', '1040',  NULL, '2025-01-01T00:00:00'),
     ('FIL-2022-002', 'TP-1001', 'JUR-NY',  'PREP-01', 2022, '2023-03-15', 95000.00,  8000.00,   87000.00,  5959.50,  6200.00,   240.50,   'Accepted', '1040',  NULL, '2025-01-01T00:00:00'),
@@ -399,12 +399,12 @@ INSERT INTO {{zone_prefix}}.bronze.raw_filings VALUES
     ('FIL-2024-012', 'TP-1012', 'JUR-FED', 'PREP-05', 2024, '2025-04-01', 150000.00, 65000.00,  85000.00,  14650.00, 15000.00,  350.00,   'Filed',    '1040',  'Deductions 43%', '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 50
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_filings;
+SELECT COUNT(*) AS row_count FROM tax.bronze.raw_filings;
 
 -- ===================== BRONZE SEED DATA: AMENDMENTS (12 rows) =====================
 -- Each amendment references an original filing_id. Includes 2 high-delta amendments.
 
-INSERT INTO {{zone_prefix}}.bronze.raw_amendments VALUES
+INSERT INTO tax.bronze.raw_amendments VALUES
     ('AMD-001', 'FIL-2022-003', 'TP-1002', '2023-09-10', 142000.00, 48000.00, 94000.00,  16920.00, 'Deductions reduced after audit inquiry',       'PREP-02', '2025-01-01T00:00:00'),
     ('AMD-002', 'FIL-2022-007', 'TP-1005', '2023-10-20', 210000.00, 78000.00, 132000.00, 29040.00, 'Post-audit amended return',                    'PREP-03', '2025-01-01T00:00:00'),
     ('AMD-003', 'FIL-2022-009', 'TP-1006', '2023-11-05', 78000.00,  28000.00, 50000.00,  6300.00,  'Charitable deductions partially disallowed',    'PREP-02', '2025-01-01T00:00:00'),
@@ -419,13 +419,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_amendments VALUES
     ('AMD-012', 'FIL-2023-016', 'TP-1012', '2025-01-10', 145000.00, 52000.00, 93000.00,  16120.00, 'Investment loss reclassified',                  'PREP-05', '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 12
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_amendments;
+SELECT COUNT(*) AS row_count FROM tax.bronze.raw_amendments;
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.taxpayer_profiles (ssn) TRANSFORM redact PARAMS (mask = '[REDACTED]');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.taxpayer_profiles (taxpayer_name) TRANSFORM mask PARAMS (show = 1);
+CREATE PSEUDONYMISATION RULE ON tax.silver.taxpayer_profiles (ssn) TRANSFORM redact PARAMS (mask = '[REDACTED]');
+CREATE PSEUDONYMISATION RULE ON tax.silver.taxpayer_profiles (taxpayer_name) TRANSFORM mask PARAMS (show = 1);
 
 -- ===================== BLOOM FILTER INDEX =====================
 
-CREATE BLOOMFILTER INDEX ON {{zone_prefix}}.silver.filings_immutable FOR COLUMNS (taxpayer_id);
+CREATE BLOOMFILTER INDEX ON tax.silver.filings_immutable FOR COLUMNS (taxpayer_id);

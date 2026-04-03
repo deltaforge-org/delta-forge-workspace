@@ -14,21 +14,21 @@
 -- ============================================================================
 
 -- Preview the generated filter condition:
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.claims_enriched, claim_id, incident_date, 7)}};
+PRINT {{INCREMENTAL_FILTER(ins.silver.claims_enriched, claim_id, incident_date, 7)}};
 
 -- ===================== Pre-load state capture =====================
 
-SELECT COUNT(*) AS pre_claim_count FROM {{zone_prefix}}.silver.claims_enriched;
-SELECT COUNT(*) AS pre_fact_count FROM {{zone_prefix}}.gold.fact_claims;
-SELECT COUNT(*) AS pre_scd2_count FROM {{zone_prefix}}.silver.policy_dim;
-SELECT MAX(processed_at) AS current_watermark FROM {{zone_prefix}}.silver.claims_enriched;
+SELECT COUNT(*) AS pre_claim_count FROM ins.silver.claims_enriched;
+SELECT COUNT(*) AS pre_fact_count FROM ins.gold.fact_claims;
+SELECT COUNT(*) AS pre_scd2_count FROM ins.silver.policy_dim;
+SELECT MAX(processed_at) AS current_watermark FROM ins.silver.claims_enriched;
 
 -- =============================================================================
 -- New SCD2 policy changes arriving (batch 4: 2 more changes)
 -- =============================================================================
 
 -- POL003 gets a premium increase, POL010 gets a coverage upgrade
-INSERT INTO {{zone_prefix}}.bronze.raw_policies VALUES
+INSERT INTO ins.bronze.raw_policies VALUES
     ('POL003', 'Chris Okafor', '345-67-8901', 'auto', 1150.00, 'South', 'TX', 3.1, '2024-01-15', 'premium_increase', '2024-02-01T00:00:00'),
     ('POL010', 'Julia Fernandez', '012-34-5678', 'auto_plus', 1200.00, 'West', 'CO', 2.2, '2024-01-15', 'coverage_upgrade', '2024-02-01T00:00:00');
 
@@ -36,7 +36,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_policies VALUES
 -- New claims arriving (5 new + 1 updated settlement)
 -- =============================================================================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_claims VALUES
+INSERT INTO ins.bronze.raw_claims VALUES
     ('C0046', 'POL003', 'CLM03', 'ADJ02', '2024-01-18', '2024-01-19',  4800.00,     NULL, 'filed',  NULL,         'Rear bumper damage parking lot',  '2024-02-01T00:00:00'),
     ('C0047', 'POL010', 'CLM10', 'ADJ02', '2024-01-20', '2024-01-21',  8200.00,     NULL, 'filed',  NULL,         'Collision at intersection',       '2024-02-01T00:00:00'),
     ('C0048', 'POL004', 'CLM04', 'ADJ04', '2024-01-15', '2024-01-16', 12500.00,     NULL, 'under_review', NULL,   'MRI and specialist referral',     '2024-02-01T00:00:00'),
@@ -44,7 +44,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_claims VALUES
     ('C0050', 'POL005', 'CLM05', 'ADJ03', '2024-01-16', '2024-01-18', 55000.00,     NULL, 'filed',  NULL,         'Major liability incident',        '2024-02-01T00:00:00');
 
 -- Update C0025 to settled (was under_review)
-INSERT INTO {{zone_prefix}}.bronze.raw_claims VALUES
+INSERT INTO ins.bronze.raw_claims VALUES
     ('C0025', 'POL001', 'CLM01', 'ADJ02', '2023-12-10', '2023-12-12', 11000.00,  9200.00, 'settled', '2024-01-18', 'Multi-vehicle accident - SETTLED', '2024-02-01T00:00:00');
 
 -- =============================================================================
@@ -52,7 +52,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_claims VALUES
 -- =============================================================================
 
 -- PASS 1: Expire old versions
-MERGE INTO {{zone_prefix}}.silver.policy_dim AS target
+MERGE INTO ins.silver.policy_dim AS target
 USING (
     WITH ranked AS (
         SELECT
@@ -60,7 +60,7 @@ USING (
             region, state, risk_score, effective_date,
             LEAD(effective_date) OVER (PARTITION BY policy_id ORDER BY effective_date) AS next_effective_date,
             ROW_NUMBER() OVER (ORDER BY policy_id, effective_date) AS surrogate_key
-        FROM {{zone_prefix}}.bronze.raw_policies
+        FROM ins.bronze.raw_policies
     )
     SELECT
         surrogate_key, policy_id, holder_name, coverage_type, annual_premium,
@@ -88,13 +88,13 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- PASS 2: Ensure current versions are up to date
-MERGE INTO {{zone_prefix}}.silver.policy_dim AS target
+MERGE INTO ins.silver.policy_dim AS target
 USING (
     WITH latest AS (
         SELECT policy_id, holder_name, coverage_type, annual_premium,
                region, state, risk_score, effective_date AS valid_from,
                ROW_NUMBER() OVER (PARTITION BY policy_id ORDER BY effective_date DESC) AS rn
-        FROM {{zone_prefix}}.bronze.raw_policies
+        FROM ins.bronze.raw_policies
     )
     SELECT * FROM latest WHERE rn = 1
 ) AS source
@@ -111,7 +111,7 @@ WHEN MATCHED THEN UPDATE SET
 -- Incremental claims enrichment using INCREMENTAL_FILTER
 -- =============================================================================
 
-MERGE INTO {{zone_prefix}}.silver.claims_enriched AS target
+MERGE INTO ins.silver.claims_enriched AS target
 USING (
     WITH claim_with_policy AS (
         SELECT
@@ -122,12 +122,12 @@ USING (
             DATEDIFF(c.reported_date, c.incident_date) AS days_to_report,
             p.coverage_type, p.annual_premium AS annual_premium_at_incident,
             p.region, p.risk_score AS risk_score_at_incident
-        FROM {{zone_prefix}}.bronze.raw_claims c
-        JOIN {{zone_prefix}}.silver.policy_dim p
+        FROM ins.bronze.raw_claims c
+        JOIN ins.silver.policy_dim p
             ON c.policy_id = p.policy_id
             AND c.incident_date >= p.valid_from
             AND (p.valid_to IS NULL OR c.incident_date < p.valid_to)
-        WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.claims_enriched, claim_id, incident_date, 7)}}
+        WHERE {{INCREMENTAL_FILTER(ins.silver.claims_enriched, claim_id, incident_date, 7)}}
     ),
     coverage_stats AS (
         SELECT coverage_type, AVG(claim_amount) AS avg_claim, STDDEV(claim_amount) AS stddev_claim
@@ -180,7 +180,7 @@ WHEN NOT MATCHED THEN INSERT (
 -- Capture actuarial snapshot for new claims via CDF
 -- =============================================================================
 
-MERGE INTO {{zone_prefix}}.silver.actuarial_snapshots AS tgt
+MERGE INTO ins.silver.actuarial_snapshots AS tgt
 USING (
     SELECT
         claim_id || '-' || status || '-INC' AS snapshot_id,
@@ -191,8 +191,8 @@ USING (
         approved_amount,
         coverage_type,
         'incremental_load' AS change_type
-    FROM {{zone_prefix}}.silver.claims_enriched
-    WHERE processed_at >= (SELECT MAX(processed_at) FROM {{zone_prefix}}.silver.claims_enriched)
+    FROM ins.silver.claims_enriched
+    WHERE processed_at >= (SELECT MAX(processed_at) FROM ins.silver.claims_enriched)
 ) AS src
 ON tgt.snapshot_id = src.snapshot_id
 WHEN NOT MATCHED THEN INSERT (
@@ -208,17 +208,17 @@ WHEN NOT MATCHED THEN INSERT (
 -- =============================================================================
 
 -- Claims should have grown by 5 (C0025 updated, not added)
-SELECT COUNT(*) AS post_claim_count FROM {{zone_prefix}}.silver.claims_enriched;
+SELECT COUNT(*) AS post_claim_count FROM ins.silver.claims_enriched;
 
 ASSERT VALUE post_claim_count = 50
 SELECT 'Incremental claims: 45 -> 50 (5 new)' AS status;
 
 -- Verify C0025 was updated to settled
-SELECT status AS c0025_status FROM {{zone_prefix}}.silver.claims_enriched WHERE claim_id = 'C0025';
+SELECT status AS c0025_status FROM ins.silver.claims_enriched WHERE claim_id = 'C0025';
 ASSERT VALUE c0025_status = 'settled'
 
 -- Verify SCD2 grew by 2 (POL003 premium_increase + POL010 coverage_upgrade)
-SELECT COUNT(*) AS post_scd2_count FROM {{zone_prefix}}.silver.policy_dim;
+SELECT COUNT(*) AS post_scd2_count FROM ins.silver.policy_dim;
 ASSERT VALUE post_scd2_count = 25
 SELECT 'SCD2 grew: 23 -> 25 (2 new changes)' AS status;
 
@@ -226,7 +226,7 @@ SELECT 'SCD2 grew: 23 -> 25 (2 new changes)' AS status;
 SELECT COUNT(*) AS dup_check
 FROM (
     SELECT claim_id, COUNT(*) AS cnt
-    FROM {{zone_prefix}}.silver.claims_enriched
+    FROM ins.silver.claims_enriched
     GROUP BY claim_id
     HAVING COUNT(*) > 1
 );

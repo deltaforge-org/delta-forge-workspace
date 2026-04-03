@@ -9,29 +9,29 @@
 -- Incremental purchase orders: only process rows ingested after last watermark
 CREATE OR REPLACE TEMPORARY VIEW incremental_purchase_orders AS
 SELECT *
-FROM {{zone_prefix}}.bronze.purchase_orders
+FROM sc.bronze.purchase_orders
 WHERE INCREMENTAL_FILTER(ingested_at);
 
 -- Incremental warehouse movements
 CREATE OR REPLACE TEMPORARY VIEW incremental_warehouse_movements AS
 SELECT *
-FROM {{zone_prefix}}.bronze.warehouse_movements
+FROM sc.bronze.warehouse_movements
 WHERE INCREMENTAL_FILTER(ingested_at);
 
 -- Incremental transport shipments
 CREATE OR REPLACE TEMPORARY VIEW incremental_transport_shipments AS
 SELECT *
-FROM {{zone_prefix}}.bronze.transport_shipments
+FROM sc.bronze.transport_shipments
 WHERE INCREMENTAL_FILTER(ingested_at);
 
 -- Incremental POS demand
 CREATE OR REPLACE TEMPORARY VIEW incremental_pos_demand AS
 SELECT *
-FROM {{zone_prefix}}.bronze.pos_demand
+FROM sc.bronze.pos_demand
 WHERE INCREMENTAL_FILTER(ingested_at);
 
 -- Refresh inventory positions from incremental movements only
-MERGE INTO {{zone_prefix}}.silver.inventory_positions AS tgt
+MERGE INTO sc.silver.inventory_positions AS tgt
 USING (
   SELECT
     warehouse_id,
@@ -63,7 +63,7 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- Refresh order fulfillment from incremental POs
-MERGE INTO {{zone_prefix}}.silver.order_fulfillment AS tgt
+MERGE INTO sc.silver.order_fulfillment AS tgt
 USING (
   SELECT
     po.po_id,
@@ -82,7 +82,7 @@ USING (
   FROM incremental_purchase_orders po
   LEFT JOIN (
     SELECT reference_id, SUM(quantity) AS qty_received
-    FROM {{zone_prefix}}.bronze.warehouse_movements
+    FROM sc.bronze.warehouse_movements
     WHERE movement_type = 'receipt' AND reference_id IS NOT NULL
     GROUP BY reference_id
   ) wm ON wm.reference_id = po.po_id

@@ -7,17 +7,17 @@
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS ehr TYPE EXTERNAL
     COMMENT 'Healthcare EHR pipeline zone';
 
 -- ===================== SCHEMAS =====================
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw electronic health records and reference data';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'SCD2 patient dimension, cleaned admissions, CDF audit log';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold COMMENT 'Admissions star schema with point-in-time joins and KPIs';
+CREATE SCHEMA IF NOT EXISTS ehr.bronze COMMENT 'Raw electronic health records and reference data';
+CREATE SCHEMA IF NOT EXISTS ehr.silver COMMENT 'SCD2 patient dimension, cleaned admissions, CDF audit log';
+CREATE SCHEMA IF NOT EXISTS ehr.gold COMMENT 'Admissions star schema with point-in-time joins and KPIs';
 
 -- ===================== BRONZE TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_admissions (
+CREATE DELTA TABLE IF NOT EXISTS ehr.bronze.raw_admissions (
     record_id           STRING      NOT NULL,
     patient_id          STRING      NOT NULL,
     department_code     STRING,
@@ -28,11 +28,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_admissions (
     attending_physician STRING,
     notes               STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/ehr/raw_admissions';
+) LOCATION 'ehr/bronze/ehr/raw_admissions';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_admissions TO USER {{current_user}};
+GRANT ADMIN ON TABLE ehr.bronze.raw_admissions TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_patients (
+CREATE DELTA TABLE IF NOT EXISTS ehr.bronze.raw_patients (
     patient_id          STRING      NOT NULL,
     patient_name        STRING,
     ssn                 STRING,
@@ -44,33 +44,33 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_patients (
     insurance_id        STRING,
     insurance_name      STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/ehr/raw_patients';
+) LOCATION 'ehr/bronze/ehr/raw_patients';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_patients TO USER {{current_user}};
+GRANT ADMIN ON TABLE ehr.bronze.raw_patients TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_departments (
+CREATE DELTA TABLE IF NOT EXISTS ehr.bronze.raw_departments (
     department_code     STRING      NOT NULL,
     department_name     STRING      NOT NULL,
     floor               INT,
     wing                STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/ehr/raw_departments';
+) LOCATION 'ehr/bronze/ehr/raw_departments';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_departments TO USER {{current_user}};
+GRANT ADMIN ON TABLE ehr.bronze.raw_departments TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_diagnoses (
+CREATE DELTA TABLE IF NOT EXISTS ehr.bronze.raw_diagnoses (
     diagnosis_code      STRING      NOT NULL,
     description         STRING      NOT NULL,
     category            STRING,
     severity            STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/ehr/raw_diagnoses';
+) LOCATION 'ehr/bronze/ehr/raw_diagnoses';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_diagnoses TO USER {{current_user}};
+GRANT ADMIN ON TABLE ehr.bronze.raw_diagnoses TO USER admin;
 
 -- ===================== BRONZE SEED DATA: DEPARTMENTS (9 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_departments VALUES
+INSERT INTO ehr.bronze.raw_departments VALUES
     ('CARD', 'Cardiology', 3, 'East', '2024-01-01T00:00:00'),
     ('ORTH', 'Orthopedics', 2, 'West', '2024-01-01T00:00:00'),
     ('NEUR', 'Neurology', 4, 'East', '2024-01-01T00:00:00'),
@@ -82,11 +82,11 @@ INSERT INTO {{zone_prefix}}.bronze.raw_departments VALUES
     ('EMER', 'Emergency Medicine', 1, 'South', '2024-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 9
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_departments;
+SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_departments;
 
 -- ===================== BRONZE SEED DATA: DIAGNOSES (16 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_diagnoses VALUES
+INSERT INTO ehr.bronze.raw_diagnoses VALUES
     ('I21.0', 'Acute ST-elevation myocardial infarction of anterior wall', 'Cardiac', 'Critical', '2024-01-01T00:00:00'),
     ('I25.10', 'Atherosclerotic heart disease of native coronary artery', 'Cardiac', 'High', '2024-01-01T00:00:00'),
     ('I50.9', 'Heart failure, unspecified', 'Cardiac', 'High', '2024-01-01T00:00:00'),
@@ -105,13 +105,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_diagnoses VALUES
     ('I48.91', 'Unspecified atrial fibrillation', 'Cardiac', 'Medium', '2024-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 16
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_diagnoses;
+SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_diagnoses;
 
 -- ===================== BRONZE SEED DATA: RAW PATIENTS (25 rows) =====================
 -- 3 patients (P1001, P1004, P1008) have address changes that will drive SCD2 versioning
 -- Each appears twice: original row + updated row with new address/insurance
 
-INSERT INTO {{zone_prefix}}.bronze.raw_patients VALUES
+INSERT INTO ehr.bronze.raw_patients VALUES
     ('P1001', '  John Smith  ', '123-45-6789', '1965-03-12', 'john.smith@email.com', '100 Oak Lane', 'Hartford', 'CT', 'INS-BC-001', 'BlueCross Shield', '2024-01-15T08:00:00'),
     ('P1002', 'Maria Garcia  ', '234-56-7890', '1978-07-25', 'maria.garcia@mail.com', '245 Pine Street', 'New Haven', 'CT', 'INS-AE-002', 'Aetna Health', '2024-01-15T08:00:00'),
     ('P1003', 'Robert Johnson', '345-67-8901', '1982-11-03', 'r.johnson@email.com', '78 Maple Drive', 'Stamford', 'CT', 'INS-UH-003', 'UnitedHealth', '2024-01-15T08:00:00'),
@@ -141,14 +141,14 @@ INSERT INTO {{zone_prefix}}.bronze.raw_patients VALUES
     ('P1022', 'Thomas Baker', '300-40-5060', '1977-07-30', 'tbaker@mail.com', '446 Summit Circle', 'New London', 'CT', 'INS-CI-022', 'Cigna Health', '2024-01-15T08:00:00');
 
 ASSERT ROW_COUNT = 25
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_patients;
+SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_patients;
 
 
 -- ===================== BRONZE SEED DATA: RAW ADMISSIONS (55 rows) =====================
 -- 8 duplicates (record_ids A001,A003,A008 appear twice + A009,A016 appear twice), 5 readmissions within 30 days
 -- Spans Jan 2023 - Jan 2024
 
-INSERT INTO {{zone_prefix}}.bronze.raw_admissions VALUES
+INSERT INTO ehr.bronze.raw_admissions VALUES
     ('A001', 'P1001', 'CARD', 'I21.0', '2023-03-15', '2023-03-22', 45200.00, 'Dr. Rivera', 'STEMI anterior wall', '2024-01-15T08:00:00'),
     ('A002', 'P1001', 'CARD', 'I25.10', '2023-04-10', '2023-04-14', 12800.00, 'Dr. Rivera', 'Follow-up readmission within 30d', '2024-01-15T08:00:00'),
     ('A003', 'P1002', 'ORTH', 'S72.001A', '2023-02-20', '2023-03-05', 67500.00, 'Dr. Chen', 'Hip fracture surgical repair', '2024-01-15T08:00:00'),
@@ -206,13 +206,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_admissions VALUES
     ('A050', 'P1019', 'NEPH', 'N18.6', '2024-01-05', '2024-01-12', 46500.00, 'Dr. Okafor', 'ESRD dialysis session', '2024-01-15T08:00:00');
 
 ASSERT ROW_COUNT = 55
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_admissions;
+SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_admissions;
 
 
 -- ===================== SILVER TABLES =====================
 
 -- SCD2 patient dimension with CDF enabled for audit trail
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.patient_dim (
+CREATE DELTA TABLE IF NOT EXISTS ehr.silver.patient_dim (
     patient_id          STRING      NOT NULL,
     patient_name        STRING,
     ssn                 STRING,
@@ -227,12 +227,12 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.patient_dim (
     valid_to            DATE,
     is_current          BOOLEAN     NOT NULL,
     updated_at          TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/ehr/patient_dim'
+) LOCATION 'ehr/silver/ehr/patient_dim'
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.patient_dim TO USER {{current_user}};
+GRANT ADMIN ON TABLE ehr.silver.patient_dim TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.admissions_cleaned (
+CREATE DELTA TABLE IF NOT EXISTS ehr.silver.admissions_cleaned (
     record_id           STRING      NOT NULL,
     patient_id          STRING      NOT NULL,
     department_code     STRING      NOT NULL,
@@ -248,12 +248,12 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.admissions_cleaned (
     los_percentile      INT,
     ingested_at         TIMESTAMP   NOT NULL,
     processed_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/ehr/admissions_cleaned';
+) LOCATION 'ehr/silver/ehr/admissions_cleaned';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.admissions_cleaned TO USER {{current_user}};
+GRANT ADMIN ON TABLE ehr.silver.admissions_cleaned TO USER admin;
 
 -- CDF-driven audit log capturing every change to patient_dim
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.audit_log (
+CREATE DELTA TABLE IF NOT EXISTS ehr.silver.audit_log (
     audit_id            BIGINT      NOT NULL,
     table_name          STRING      NOT NULL,
     patient_id          STRING      NOT NULL,
@@ -262,35 +262,35 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.audit_log (
     old_values          STRING,
     new_values          STRING,
     change_timestamp    TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/ehr/audit_log';
+) LOCATION 'ehr/silver/ehr/audit_log';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.audit_log TO USER {{current_user}};
+GRANT ADMIN ON TABLE ehr.silver.audit_log TO USER admin;
 
 -- ===================== GOLD TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_department (
+CREATE DELTA TABLE IF NOT EXISTS ehr.gold.dim_department (
     department_key      INT         NOT NULL,
     department_code     STRING      NOT NULL,
     department_name     STRING      NOT NULL,
     floor               INT,
     wing                STRING,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/ehr/dim_department';
+) LOCATION 'ehr/gold/ehr/dim_department';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_department TO USER {{current_user}};
+GRANT ADMIN ON TABLE ehr.gold.dim_department TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_diagnosis (
+CREATE DELTA TABLE IF NOT EXISTS ehr.gold.dim_diagnosis (
     diagnosis_key       INT         NOT NULL,
     diagnosis_code      STRING      NOT NULL,
     description         STRING      NOT NULL,
     category            STRING,
     severity            STRING,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/ehr/dim_diagnosis';
+) LOCATION 'ehr/gold/ehr/dim_diagnosis';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_diagnosis TO USER {{current_user}};
+GRANT ADMIN ON TABLE ehr.gold.dim_diagnosis TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_admissions (
+CREATE DELTA TABLE IF NOT EXISTS ehr.gold.fact_admissions (
     admission_key       INT         NOT NULL,
     patient_id          STRING      NOT NULL,
     patient_name_hash   STRING,
@@ -306,11 +306,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_admissions (
     patient_valid_from  DATE,
     patient_valid_to    DATE,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/ehr/fact_admissions';
+) LOCATION 'ehr/gold/ehr/fact_admissions';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_admissions TO USER {{current_user}};
+GRANT ADMIN ON TABLE ehr.gold.fact_admissions TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_readmission_rates (
+CREATE DELTA TABLE IF NOT EXISTS ehr.gold.kpi_readmission_rates (
     department_name     STRING      NOT NULL,
     period              STRING      NOT NULL,
     total_admissions    INT         NOT NULL,
@@ -320,16 +320,16 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_readmission_rates (
     avg_charges         DECIMAL(12,2),
     max_los             INT,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/ehr/kpi_readmission_rates';
+) LOCATION 'ehr/gold/ehr/kpi_readmission_rates';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_readmission_rates TO USER {{current_user}};
+GRANT ADMIN ON TABLE ehr.gold.kpi_readmission_rates TO USER admin;
 
 -- ===================== PSEUDONYMISATION RULES (ALL 4 TRANSFORMS) =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patient_dim (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
+CREATE PSEUDONYMISATION RULE ON ehr.silver.patient_dim (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patient_dim (email) TRANSFORM mask PARAMS (show = 3);
+CREATE PSEUDONYMISATION RULE ON ehr.silver.patient_dim (email) TRANSFORM mask PARAMS (show = 3);
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patient_dim (patient_name) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'hipaa_salt_2024');
+CREATE PSEUDONYMISATION RULE ON ehr.silver.patient_dim (patient_name) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'hipaa_salt_2024');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patient_dim (date_of_birth) TRANSFORM generalize PARAMS (range = 10);
+CREATE PSEUDONYMISATION RULE ON ehr.silver.patient_dim (date_of_birth) TRANSFORM generalize PARAMS (range = 10);

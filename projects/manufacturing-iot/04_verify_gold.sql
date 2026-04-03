@@ -6,7 +6,7 @@
 -- 1. Verify fact table row count (90 readings)
 -- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS fact_readings_count
-FROM {{zone_prefix}}.gold.fact_readings;
+FROM mfg.gold.fact_readings;
 
 ASSERT VALUE fact_readings_count >= 90
 
@@ -14,7 +14,7 @@ ASSERT VALUE fact_readings_count >= 90
 -- 2. Verify all 16 sensors in dimension
 -- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS sensor_count
-FROM {{zone_prefix}}.gold.dim_sensor;
+FROM mfg.gold.dim_sensor;
 
 ASSERT VALUE sensor_count = 16
 
@@ -22,7 +22,7 @@ ASSERT VALUE sensor_count = 16
 -- 3. Verify 12 production lines in dimension
 -- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS line_count
-FROM {{zone_prefix}}.gold.dim_line;
+FROM mfg.gold.dim_line;
 
 ASSERT VALUE line_count = 12
 
@@ -30,7 +30,7 @@ ASSERT VALUE line_count = 12
 -- 4. Verify 3 shifts in dimension
 -- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS shift_count
-FROM {{zone_prefix}}.gold.dim_shift;
+FROM mfg.gold.dim_shift;
 
 ASSERT VALUE shift_count = 3
 
@@ -44,8 +44,8 @@ SELECT
     CAST(
         COUNT(CASE WHEN f.anomaly_flag = true THEN 1 END) * 100.0 / COUNT(*)
     AS DECIMAL(5,2)) AS anomaly_pct
-FROM {{zone_prefix}}.gold.fact_readings f
-JOIN {{zone_prefix}}.gold.dim_sensor ds ON f.sensor_key = ds.sensor_key
+FROM mfg.gold.fact_readings f
+JOIN mfg.gold.dim_sensor ds ON f.sensor_key = ds.sensor_key
 GROUP BY ds.sensor_type
 ORDER BY anomaly_pct DESC;
 
@@ -68,7 +68,7 @@ SELECT
     total_units,
     quality_pct,
     oee_pct
-FROM {{zone_prefix}}.gold.kpi_oee
+FROM mfg.gold.kpi_oee
 ORDER BY oee_pct DESC;
 
 ASSERT VALUE oee_pct > 0
@@ -85,7 +85,7 @@ SELECT
     anomaly_rate_pct,
     avg_deviation,
     max_deviation
-FROM {{zone_prefix}}.gold.kpi_anomaly_trends
+FROM mfg.gold.kpi_anomaly_trends
 WHERE anomaly_count > 0
 ORDER BY anomaly_rate_pct DESC;
 
@@ -104,7 +104,7 @@ SELECT
     uptime_minutes,
     unplanned_stops,
     status
-FROM {{zone_prefix}}.silver.equipment_status
+FROM mfg.silver.equipment_status
 WHERE unplanned_stops > 0
 ORDER BY downtime_minutes DESC;
 
@@ -125,7 +125,7 @@ SELECT
     LEAD(sm.value) OVER (PARTITION BY sm.sensor_id ORDER BY sm.reading_time) AS next_value,
     sm.anomaly_flag,
     sm.anomaly_reason
-FROM {{zone_prefix}}.silver.readings_smoothed sm
+FROM mfg.silver.readings_smoothed sm
 WHERE sm.anomaly_flag = true
 ORDER BY sm.reading_time;
 
@@ -141,8 +141,8 @@ SELECT
     CAST(AVG(f.quality_score) AS DECIMAL(5,2)) AS avg_quality,
     CAST(MIN(f.quality_score) AS DECIMAL(5,2)) AS min_quality,
     CAST(MAX(f.quality_score) AS DECIMAL(5,2)) AS max_quality
-FROM {{zone_prefix}}.gold.fact_readings f
-JOIN {{zone_prefix}}.gold.dim_shift dsh ON f.shift_key = dsh.shift_key
+FROM mfg.gold.fact_readings f
+JOIN mfg.gold.dim_shift dsh ON f.shift_key = dsh.shift_key
 GROUP BY dsh.shift_name, dsh.supervisor
 ORDER BY avg_quality DESC;
 
@@ -158,7 +158,7 @@ SELECT
     CAST(AVG(sm.value) AS DECIMAL(10,2)) AS avg_value,
     CAST(AVG(sm.moving_avg) AS DECIMAL(10,2)) AS avg_smoothed,
     SUM(CASE WHEN sm.anomaly_flag = true THEN 1 ELSE 0 END) AS anomaly_count
-FROM {{zone_prefix}}.silver.readings_smoothed sm
+FROM mfg.silver.readings_smoothed sm
 GROUP BY sm.plant_id, sm.line_name, CAST(sm.reading_time AS DATE)
 ORDER BY sm.plant_id, reading_date;
 
@@ -168,8 +168,8 @@ ASSERT VALUE avg_value > 0
 -- 12. CHECK constraint validation: no readings outside absolute physical limits
 -- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS out_of_range
-FROM {{zone_prefix}}.bronze.raw_readings r
-JOIN {{zone_prefix}}.bronze.raw_sensors s ON r.sensor_id = s.sensor_id
+FROM mfg.bronze.raw_readings r
+JOIN mfg.bronze.raw_sensors s ON r.sensor_id = s.sensor_id
 WHERE (s.sensor_type = 'temperature' AND r.value NOT BETWEEN -50 AND 500)
    OR (s.sensor_type = 'pressure'    AND r.value NOT BETWEEN 0 AND 200)
    OR (s.sensor_type = 'vibration'   AND r.value NOT BETWEEN 0 AND 50000)

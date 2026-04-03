@@ -7,17 +7,17 @@
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS bank TYPE EXTERNAL
     COMMENT 'Banking transactions pipeline zone';
 
 -- ===================== SCHEMAS =====================
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw transaction feeds, accounts, and merchant reference data';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'SCD2 customer dimension, enriched transactions, CDF balance snapshots';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold COMMENT 'Transaction analytics star schema with fraud scoring and tier migration KPIs';
+CREATE SCHEMA IF NOT EXISTS bank.bronze COMMENT 'Raw transaction feeds, accounts, and merchant reference data';
+CREATE SCHEMA IF NOT EXISTS bank.silver COMMENT 'SCD2 customer dimension, enriched transactions, CDF balance snapshots';
+CREATE SCHEMA IF NOT EXISTS bank.gold COMMENT 'Transaction analytics star schema with fraud scoring and tier migration KPIs';
 
 -- ===================== BRONZE TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_accounts (
+CREATE DELTA TABLE IF NOT EXISTS bank.bronze.raw_accounts (
     account_id          STRING      NOT NULL,
     account_number      STRING      NOT NULL,
     account_type        STRING      NOT NULL,
@@ -28,11 +28,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_accounts (
     current_balance     DECIMAL(14,2),
     customer_tier       STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/txn/raw_accounts';
+) LOCATION 'bank/bronze/txn/raw_accounts';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_accounts TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.bronze.raw_accounts TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_merchants (
+CREATE DELTA TABLE IF NOT EXISTS bank.bronze.raw_merchants (
     merchant_id         STRING      NOT NULL,
     merchant_name       STRING      NOT NULL,
     category            STRING,
@@ -40,11 +40,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_merchants (
     country             STRING,
     risk_level          STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/txn/raw_merchants';
+) LOCATION 'bank/bronze/txn/raw_merchants';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_merchants TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.bronze.raw_merchants TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_transactions (
+CREATE DELTA TABLE IF NOT EXISTS bank.bronze.raw_transactions (
     transaction_id      STRING      NOT NULL,
     account_id          STRING      NOT NULL,
     merchant_id         STRING,
@@ -54,14 +54,14 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_transactions (
     channel             STRING,
     is_suspicious       BOOLEAN,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/txn/raw_transactions';
+) LOCATION 'bank/bronze/txn/raw_transactions';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_transactions TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.bronze.raw_transactions TO USER admin;
 
 -- ===================== BRONZE SEED: ACCOUNTS (12 rows) =====================
 -- 3 customers (ACC002, ACC005, ACC008) have tier upgrades from bronze->silver during the period
 
-INSERT INTO {{zone_prefix}}.bronze.raw_accounts VALUES
+INSERT INTO bank.bronze.raw_accounts VALUES
     ('ACC001', '4521-0001-8834-2210', 'checking', 'Alice Whitmore', 'Downtown', '2021-03-15', 'active', 12450.75, 'silver', '2024-01-15T00:00:00'),
     ('ACC002', '4521-0002-7712-3301', 'checking', 'Brian Kowalski', 'Midtown', '2020-08-22', 'active', 8920.30, 'bronze', '2024-01-15T00:00:00'),
     ('ACC003', '4521-0003-6698-4402', 'savings', 'Catherine Zhao', 'Westside', '2019-11-10', 'active', 45600.00, 'gold', '2024-01-15T00:00:00'),
@@ -76,11 +76,11 @@ INSERT INTO {{zone_prefix}}.bronze.raw_accounts VALUES
     ('ACC012', '4521-0012-3322-7711', 'savings', 'Luis Ramirez', 'Eastside', '2023-08-01', 'active', 18750.00, 'bronze', '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 12
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_accounts;
+SELECT COUNT(*) AS row_count FROM bank.bronze.raw_accounts;
 
 -- Tier upgrade records for SCD2 (3 customers upgraded bronze->silver)
 -- These will be ingested later to simulate the upgrade event
-INSERT INTO {{zone_prefix}}.bronze.raw_accounts VALUES
+INSERT INTO bank.bronze.raw_accounts VALUES
     ('ACC002', '4521-0002-7712-3301', 'checking', 'Brian Kowalski', 'Midtown', '2020-08-22', 'active', 12450.00, 'silver', '2024-02-01T00:00:00'),
     ('ACC005', '4521-0005-4421-6604', 'savings', 'Elena Petrova', 'Downtown', '2020-06-18', 'active', 85000.00, 'silver', '2024-02-01T00:00:00'),
     ('ACC008', '4521-0008-1165-9907', 'checking', 'Hassan Al-Rashid', 'Southside', '2023-02-28', 'active', 11200.00, 'silver', '2024-02-01T00:00:00');
@@ -88,7 +88,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_accounts VALUES
 
 -- ===================== BRONZE SEED: MERCHANTS (15 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_merchants VALUES
+INSERT INTO bank.bronze.raw_merchants VALUES
     ('M001', 'FreshMart Groceries', 'groceries', 'New York', 'US', 'low', '2024-01-15T00:00:00'),
     ('M002', 'Bistro Roma', 'dining', 'New York', 'US', 'low', '2024-01-15T00:00:00'),
     ('M003', 'JetBlue Airways', 'travel', 'Boston', 'US', 'medium', '2024-01-15T00:00:00'),
@@ -106,14 +106,14 @@ INSERT INTO {{zone_prefix}}.bronze.raw_merchants VALUES
     ('M015', 'Target Retail', 'retail', 'Minneapolis', 'US', 'low', '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 15
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_merchants;
+SELECT COUNT(*) AS row_count FROM bank.bronze.raw_merchants;
 
 
 -- ===================== BRONZE SEED: TRANSACTIONS (70 rows) =====================
 -- Spans 2024-01-02 through 2024-01-31 (3 months of data)
 -- Includes: 5 high-fraud-score transactions, 3 velocity clusters, 2 late-night transactions
 
-INSERT INTO {{zone_prefix}}.bronze.raw_transactions VALUES
+INSERT INTO bank.bronze.raw_transactions VALUES
     -- Day 1: Jan 2 (7 txns)
     ('TXN00001', 'ACC001', 'M001', '2024-01-02T09:15:00', 87.42, 'debit', 'pos', false, '2024-01-15T00:00:00'),
     ('TXN00002', 'ACC001', 'M002', '2024-01-02T12:30:00', 45.80, 'debit', 'pos', false, '2024-01-15T00:00:00'),
@@ -202,13 +202,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_transactions VALUES
     ('TXN00070', 'ACC002', 'M009', '2024-01-14T07:30:00', 2100.00, 'debit', 'online', false, '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 70
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_transactions;
+SELECT COUNT(*) AS row_count FROM bank.bronze.raw_transactions;
 
 
 -- ===================== SILVER TABLES =====================
 
 -- SCD2 customer dimension with CDF for tier change tracking
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.customer_dim (
+CREATE DELTA TABLE IF NOT EXISTS bank.silver.customer_dim (
     customer_id         BIGINT      NOT NULL,
     account_id          STRING      NOT NULL,
     account_number      STRING      NOT NULL,
@@ -222,12 +222,12 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.customer_dim (
     valid_to            DATE,
     is_current          BOOLEAN     NOT NULL,
     updated_at          TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/txn/customer_dim'
+) LOCATION 'bank/silver/txn/customer_dim'
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.customer_dim TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.silver.customer_dim TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.transactions_enriched (
+CREATE DELTA TABLE IF NOT EXISTS bank.silver.transactions_enriched (
     transaction_id      STRING          NOT NULL,
     account_id          STRING          NOT NULL,
     merchant_id         STRING,
@@ -245,12 +245,12 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.transactions_enriched (
     txn_velocity_5      INT,
     ingested_at         TIMESTAMP       NOT NULL,
     processed_at        TIMESTAMP       NOT NULL
-) LOCATION '{{data_path}}/silver/txn/transactions_enriched';
+) LOCATION 'bank/silver/txn/transactions_enriched';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.transactions_enriched TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.silver.transactions_enriched TO USER admin;
 
 -- CDF-driven balance snapshots: materialized from customer_dim changes
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.balance_snapshots (
+CREATE DELTA TABLE IF NOT EXISTS bank.silver.balance_snapshots (
     snapshot_id         BIGINT      NOT NULL,
     account_id          STRING      NOT NULL,
     customer_name       STRING,
@@ -258,13 +258,13 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.balance_snapshots (
     new_tier            STRING,
     change_type         STRING      NOT NULL,
     snapshot_timestamp  TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/txn/balance_snapshots';
+) LOCATION 'bank/silver/txn/balance_snapshots';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.balance_snapshots TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.silver.balance_snapshots TO USER admin;
 
 -- ===================== GOLD TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_account (
+CREATE DELTA TABLE IF NOT EXISTS bank.gold.dim_account (
     account_key         INT             NOT NULL,
     account_id          STRING          NOT NULL,
     account_number      STRING          NOT NULL,
@@ -275,11 +275,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_account (
     status              STRING,
     customer_tier       STRING,
     loaded_at           TIMESTAMP       NOT NULL
-) LOCATION '{{data_path}}/gold/txn/dim_account';
+) LOCATION 'bank/gold/txn/dim_account';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_account TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.gold.dim_account TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_merchant (
+CREATE DELTA TABLE IF NOT EXISTS bank.gold.dim_merchant (
     merchant_key        INT             NOT NULL,
     merchant_id         STRING          NOT NULL,
     merchant_name       STRING          NOT NULL,
@@ -288,11 +288,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_merchant (
     country             STRING,
     risk_level          STRING,
     loaded_at           TIMESTAMP       NOT NULL
-) LOCATION '{{data_path}}/gold/txn/dim_merchant';
+) LOCATION 'bank/gold/txn/dim_merchant';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_merchant TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.gold.dim_merchant TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_date (
+CREATE DELTA TABLE IF NOT EXISTS bank.gold.dim_date (
     date_key            INT             NOT NULL,
     full_date           DATE            NOT NULL,
     day_of_week         INT,
@@ -303,11 +303,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_date (
     year                INT,
     is_weekend          BOOLEAN,
     loaded_at           TIMESTAMP       NOT NULL
-) LOCATION '{{data_path}}/gold/txn/dim_date';
+) LOCATION 'bank/gold/txn/dim_date';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_date TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.gold.dim_date TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_transactions (
+CREATE DELTA TABLE IF NOT EXISTS bank.gold.fact_transactions (
     transaction_key     INT             NOT NULL,
     account_key         INT             NOT NULL,
     merchant_key        INT,
@@ -319,11 +319,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_transactions (
     fraud_score         INT,
     channel             STRING,
     loaded_at           TIMESTAMP       NOT NULL
-) LOCATION '{{data_path}}/gold/txn/fact_transactions';
+) LOCATION 'bank/gold/txn/fact_transactions';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_transactions TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.gold.fact_transactions TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_daily_volumes (
+CREATE DELTA TABLE IF NOT EXISTS bank.gold.kpi_daily_volumes (
     transaction_date    DATE            NOT NULL,
     total_txns          INT             NOT NULL,
     total_amount        DECIMAL(14,2),
@@ -333,27 +333,27 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_daily_volumes (
     running_7d_avg_txns DECIMAL(10,2),
     running_7d_avg_amount DECIMAL(14,2),
     loaded_at           TIMESTAMP       NOT NULL
-) LOCATION '{{data_path}}/gold/txn/kpi_daily_volumes';
+) LOCATION 'bank/gold/txn/kpi_daily_volumes';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_daily_volumes TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.gold.kpi_daily_volumes TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_customer_health (
+CREATE DELTA TABLE IF NOT EXISTS bank.gold.kpi_customer_health (
     from_tier           STRING          NOT NULL,
     to_tier             STRING          NOT NULL,
     migration_count     INT             NOT NULL,
     period              STRING          NOT NULL,
     avg_balance         DECIMAL(14,2),
     loaded_at           TIMESTAMP       NOT NULL
-) LOCATION '{{data_path}}/gold/txn/kpi_customer_health';
+) LOCATION 'bank/gold/txn/kpi_customer_health';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_customer_health TO USER {{current_user}};
+GRANT ADMIN ON TABLE bank.gold.kpi_customer_health TO USER admin;
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.customer_dim (account_number) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'bank_pii_salt_2024');
+CREATE PSEUDONYMISATION RULE ON bank.silver.customer_dim (account_number) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'bank_pii_salt_2024');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.customer_dim (customer_name) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'bank_pii_salt_2024');
+CREATE PSEUDONYMISATION RULE ON bank.silver.customer_dim (customer_name) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'bank_pii_salt_2024');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_account (account_number) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'bank_pii_salt_2024');
+CREATE PSEUDONYMISATION RULE ON bank.gold.dim_account (account_number) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'bank_pii_salt_2024');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_account (customer_name) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'bank_pii_salt_2024');
+CREATE PSEUDONYMISATION RULE ON bank.gold.dim_account (customer_name) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'bank_pii_salt_2024');

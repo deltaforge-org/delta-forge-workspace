@@ -15,38 +15,38 @@ PIPELINE banking_transactions_cleanup
 
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
-DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.customer_dim (account_number);
-DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.customer_dim (customer_name);
-DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_account (account_number);
-DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_account (customer_name);
+DROP PSEUDONYMISATION RULE ON bank.silver.customer_dim (account_number);
+DROP PSEUDONYMISATION RULE ON bank.silver.customer_dim (customer_name);
+DROP PSEUDONYMISATION RULE ON bank.gold.dim_account (account_number);
+DROP PSEUDONYMISATION RULE ON bank.gold.dim_account (customer_name);
 
 -- ===================== DROP GOLD TABLES =====================
 
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_customer_health WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_daily_volumes WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.fact_transactions WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_date WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_merchant WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_account WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.gold.kpi_customer_health WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.gold.kpi_daily_volumes WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.gold.fact_transactions WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.gold.dim_date WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.gold.dim_merchant WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.gold.dim_account WITH FILES;
 
 -- ===================== DROP SILVER TABLES =====================
 
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.balance_snapshots WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.transactions_enriched WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.customer_dim WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.silver.balance_snapshots WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.silver.transactions_enriched WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.silver.customer_dim WITH FILES;
 
 -- ===================== DROP BRONZE TABLES =====================
 
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_transactions WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_merchants WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_accounts WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.bronze.raw_transactions WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.bronze.raw_merchants WITH FILES;
+DROP DELTA TABLE IF EXISTS bank.bronze.raw_accounts WITH FILES;
 
 -- ===================== DROP SCHEMAS =====================
 
-DROP SCHEMA IF EXISTS {{zone_prefix}}.gold;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.silver;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.bronze;
+DROP SCHEMA IF EXISTS bank.gold;
+DROP SCHEMA IF EXISTS bank.silver;
+DROP SCHEMA IF EXISTS bank.bronze;
 
 -- ===================== DROP ZONES =====================
 
-DROP ZONE IF EXISTS {{zone_prefix}};
+DROP ZONE IF EXISTS bank;

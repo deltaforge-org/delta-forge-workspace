@@ -6,48 +6,48 @@
 -- =============================================================================
 
 -- Verify purchase orders loaded
-ASSERT (SELECT COUNT(*) FROM {{zone_prefix}}.bronze.purchase_orders) >= 40
+ASSERT (SELECT COUNT(*) FROM sc.bronze.purchase_orders) >= 40
   MESSAGE 'Bronze purchase_orders must have at least 40 rows';
 
 -- Verify warehouse movements loaded
-ASSERT (SELECT COUNT(*) FROM {{zone_prefix}}.bronze.warehouse_movements) >= 50
+ASSERT (SELECT COUNT(*) FROM sc.bronze.warehouse_movements) >= 50
   MESSAGE 'Bronze warehouse_movements must have at least 50 rows';
 
 -- Verify transport shipments loaded
-ASSERT (SELECT COUNT(*) FROM {{zone_prefix}}.bronze.transport_shipments) >= 35
+ASSERT (SELECT COUNT(*) FROM sc.bronze.transport_shipments) >= 35
   MESSAGE 'Bronze transport_shipments must have at least 35 rows';
 
 -- Verify POS demand loaded
-ASSERT (SELECT COUNT(*) FROM {{zone_prefix}}.bronze.pos_demand) >= 45
+ASSERT (SELECT COUNT(*) FROM sc.bronze.pos_demand) >= 45
   MESSAGE 'Bronze pos_demand must have at least 45 rows';
 
 -- Verify reference data loaded
-ASSERT (SELECT COUNT(*) FROM {{zone_prefix}}.bronze.suppliers) >= 6
+ASSERT (SELECT COUNT(*) FROM sc.bronze.suppliers) >= 6
   MESSAGE 'Bronze suppliers must have at least 6 rows';
 
-ASSERT (SELECT COUNT(*) FROM {{zone_prefix}}.bronze.warehouses) >= 4
+ASSERT (SELECT COUNT(*) FROM sc.bronze.warehouses) >= 4
   MESSAGE 'Bronze warehouses must have at least 4 rows';
 
-ASSERT (SELECT COUNT(*) FROM {{zone_prefix}}.bronze.products) >= 15
+ASSERT (SELECT COUNT(*) FROM sc.bronze.products) >= 15
   MESSAGE 'Bronze products must have at least 15 rows';
 
-ASSERT (SELECT COUNT(*) FROM {{zone_prefix}}.bronze.stores) >= 8
+ASSERT (SELECT COUNT(*) FROM sc.bronze.stores) >= 8
   MESSAGE 'Bronze stores must have at least 8 rows';
 
 -- Data quality: no NULL primary keys
-ASSERT (SELECT COUNT(*) FROM {{zone_prefix}}.bronze.purchase_orders WHERE po_id IS NULL) = 0
+ASSERT (SELECT COUNT(*) FROM sc.bronze.purchase_orders WHERE po_id IS NULL) = 0
   MESSAGE 'purchase_orders must not have NULL po_id';
 
-ASSERT (SELECT COUNT(*) FROM {{zone_prefix}}.bronze.warehouse_movements WHERE movement_id IS NULL) = 0
+ASSERT (SELECT COUNT(*) FROM sc.bronze.warehouse_movements WHERE movement_id IS NULL) = 0
   MESSAGE 'warehouse_movements must not have NULL movement_id';
 
-ASSERT (SELECT COUNT(*) FROM {{zone_prefix}}.bronze.transport_shipments WHERE event_id IS NULL) = 0
+ASSERT (SELECT COUNT(*) FROM sc.bronze.transport_shipments WHERE event_id IS NULL) = 0
   MESSAGE 'transport_shipments must not have NULL event_id';
 
 -- Data quality: valid movement types
 ASSERT (
   SELECT COUNT(*)
-  FROM {{zone_prefix}}.bronze.warehouse_movements
+  FROM sc.bronze.warehouse_movements
   WHERE movement_type NOT IN ('receipt', 'pick', 'ship', 'cycle_count', 'adjustment')
 ) = 0
   MESSAGE 'warehouse_movements contains invalid movement_type values';
@@ -55,7 +55,7 @@ ASSERT (
 -- Data quality: positive quantities on POs
 ASSERT (
   SELECT COUNT(*)
-  FROM {{zone_prefix}}.bronze.purchase_orders
+  FROM sc.bronze.purchase_orders
   WHERE qty_ordered <= 0
 ) = 0
   MESSAGE 'purchase_orders must not have non-positive qty_ordered';

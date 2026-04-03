@@ -30,19 +30,19 @@ STEP validate_bronze
   TIMEOUT '2m'
 AS
   ASSERT ROW_COUNT = 8
-  SELECT COUNT(*) AS carrier_count FROM {{zone_prefix}}.bronze.raw_carriers;
+  SELECT COUNT(*) AS carrier_count FROM logi.bronze.raw_carriers;
 
   ASSERT ROW_COUNT = 15
-  SELECT COUNT(*) AS location_count FROM {{zone_prefix}}.bronze.raw_locations;
+  SELECT COUNT(*) AS location_count FROM logi.bronze.raw_locations;
 
   ASSERT ROW_COUNT = 20
-  SELECT COUNT(*) AS customer_count FROM {{zone_prefix}}.bronze.raw_customers;
+  SELECT COUNT(*) AS customer_count FROM logi.bronze.raw_customers;
 
   ASSERT ROW_COUNT = 8
-  SELECT COUNT(*) AS sla_count FROM {{zone_prefix}}.bronze.raw_sla_contracts;
+  SELECT COUNT(*) AS sla_count FROM logi.bronze.raw_sla_contracts;
 
   ASSERT ROW_COUNT = 80
-  SELECT COUNT(*) AS event_count FROM {{zone_prefix}}.bronze.raw_tracking_events;
+  SELECT COUNT(*) AS event_count FROM logi.bronze.raw_tracking_events;
 
 -- ===================== STEP 2: dedup_events =====================
 -- Idempotent composite-key MERGE: same (shipment_id + event_type +
@@ -54,7 +54,7 @@ STEP dedup_events
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.events_deduped AS target
+  MERGE INTO logi.silver.events_deduped AS target
   USING (
       SELECT
           event_id,
@@ -73,7 +73,7 @@ AS
           volume_m3,
           cost,
           revenue
-      FROM {{zone_prefix}}.bronze.raw_tracking_events
+      FROM logi.bronze.raw_tracking_events
   ) AS source
   ON  target.shipment_id     = source.shipment_id
   AND target.event_type      = source.event_type
@@ -101,7 +101,7 @@ STEP reconstruct_timelines
   DEPENDS ON (dedup_events)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.shipment_status AS tgt
+  MERGE INTO logi.silver.shipment_status AS tgt
   USING (
       WITH ordered_events AS (
           SELECT
@@ -136,7 +136,7 @@ AS
               MIN(event_timestamp) OVER (PARTITION BY shipment_id) AS first_event_time,
               MAX(event_timestamp) OVER (PARTITION BY shipment_id) AS last_event_time,
               MAX(delivery_date) OVER (PARTITION BY shipment_id) AS final_delivery_date
-          FROM {{zone_prefix}}.silver.events_deduped
+          FROM logi.silver.events_deduped
       ),
       latest AS (
           SELECT
@@ -210,7 +210,7 @@ STEP detect_sla_violations
   DEPENDS ON (dedup_events)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.sla_violations AS tgt
+  MERGE INTO logi.silver.sla_violations AS tgt
   USING (
       WITH shipment_transit AS (
           SELECT
@@ -227,7 +227,7 @@ AS
                   THEN CAST(DATEDIFF(MAX(delivery_date), ship_date) AS INT)
                   ELSE NULL
               END AS actual_transit_days
-          FROM {{zone_prefix}}.silver.events_deduped
+          FROM logi.silver.events_deduped
           GROUP BY shipment_id, customer_id, carrier_id, origin_id,
                    destination_id, service_level, ship_date
       )
@@ -256,7 +256,7 @@ AS
               ELSE false
           END AS sla_violated
       FROM shipment_transit st
-      JOIN {{zone_prefix}}.bronze.raw_sla_contracts sla
+      JOIN logi.bronze.raw_sla_contracts sla
           ON st.carrier_id = sla.carrier_id
           AND st.service_level = sla.service_level
       WHERE st.actual_transit_days IS NOT NULL
@@ -284,7 +284,7 @@ AS
 STEP build_dim_carrier
   DEPENDS ON (reconstruct_timelines, detect_sla_violations)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_carrier AS tgt
+  MERGE INTO logi.gold.dim_carrier AS tgt
   USING (
       SELECT
           carrier_id     AS carrier_key,
@@ -294,7 +294,7 @@ AS
           headquarters,
           on_time_rating,
           cost_per_kg
-      FROM {{zone_prefix}}.bronze.raw_carriers
+      FROM logi.bronze.raw_carriers
   ) AS src
   ON tgt.carrier_key = src.carrier_key
   WHEN MATCHED THEN UPDATE SET
@@ -315,7 +315,7 @@ AS
 STEP build_dim_location
   DEPENDS ON (reconstruct_timelines, detect_sla_violations)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_location AS tgt
+  MERGE INTO logi.gold.dim_location AS tgt
   USING (
       SELECT
           location_id    AS location_key,
@@ -327,7 +327,7 @@ AS
           hub_type,
           latitude,
           longitude
-      FROM {{zone_prefix}}.bronze.raw_locations
+      FROM logi.bronze.raw_locations
   ) AS src
   ON tgt.location_key = src.location_key
   WHEN MATCHED THEN UPDATE SET
@@ -347,7 +347,7 @@ AS
 STEP build_dim_customer
   DEPENDS ON (reconstruct_timelines, detect_sla_violations)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_customer AS tgt
+  MERGE INTO logi.gold.dim_customer AS tgt
   USING (
       SELECT
           customer_id    AS customer_key,
@@ -357,7 +357,7 @@ AS
           city,
           country,
           account_manager
-      FROM {{zone_prefix}}.bronze.raw_customers
+      FROM logi.bronze.raw_customers
   ) AS src
   ON tgt.customer_key = src.customer_key
   WHEN MATCHED THEN UPDATE SET
@@ -380,7 +380,7 @@ STEP build_dim_route
   DEPENDS ON (build_dim_location)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_route AS tgt
+  MERGE INTO logi.gold.dim_route AS tgt
   USING (
       SELECT
           s.origin_id || '->' || s.destination_id AS route_key,
@@ -402,10 +402,10 @@ AS
               WHEN c.carrier_type = 'Rail' THEN 'Rail'
               ELSE 'Road'
           END AS primary_mode
-      FROM {{zone_prefix}}.silver.shipment_status s
-      JOIN {{zone_prefix}}.bronze.raw_locations ol ON s.origin_id = ol.location_id
-      JOIN {{zone_prefix}}.bronze.raw_locations dl ON s.destination_id = dl.location_id
-      JOIN {{zone_prefix}}.bronze.raw_carriers c ON s.carrier_id = c.carrier_id
+      FROM logi.silver.shipment_status s
+      JOIN logi.bronze.raw_locations ol ON s.origin_id = ol.location_id
+      JOIN logi.bronze.raw_locations dl ON s.destination_id = dl.location_id
+      JOIN logi.bronze.raw_carriers c ON s.carrier_id = c.carrier_id
       WHERE s.transit_days IS NOT NULL
       GROUP BY s.origin_id || '->' || s.destination_id,
                ol.hub_name, ol.city, dl.hub_name, dl.city,
@@ -435,7 +435,7 @@ STEP build_fact_shipments
   DEPENDS ON (build_dim_carrier, build_dim_location, build_dim_customer, build_dim_route)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_shipments AS tgt
+  MERGE INTO logi.gold.fact_shipments AS tgt
   USING (
       SELECT
           ss.shipment_id     AS shipment_key,
@@ -458,8 +458,8 @@ AS
           ss.event_count,
           COALESCE(sv.sla_violated, false) AS sla_violated,
           COALESCE(sv.penalty_amount, 0) AS penalty_amount
-      FROM {{zone_prefix}}.silver.shipment_status ss
-      LEFT JOIN {{zone_prefix}}.silver.sla_violations sv
+      FROM logi.silver.shipment_status ss
+      LEFT JOIN logi.silver.sla_violations sv
           ON ss.shipment_id = sv.shipment_id
       WHERE ss.latest_status = 'delivered'
   ) AS src
@@ -492,7 +492,7 @@ AS
 STEP kpi_delivery_performance
   DEPENDS ON (build_fact_shipments)
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_delivery_performance AS tgt
+  MERGE INTO logi.gold.kpi_delivery_performance AS tgt
   USING (
       SELECT
           dc.carrier_name,
@@ -508,10 +508,10 @@ AS
           SUM(f.weight_kg) AS total_weight,
           SUM(f.revenue) AS total_revenue,
           SUM(f.margin) AS total_margin
-      FROM {{zone_prefix}}.gold.fact_shipments f
-      JOIN {{zone_prefix}}.gold.dim_carrier dc ON f.carrier_key = dc.carrier_key
-      JOIN {{zone_prefix}}.gold.dim_location ol ON f.origin_key = ol.location_key
-      JOIN {{zone_prefix}}.gold.dim_location dl ON f.destination_key = dl.location_key
+      FROM logi.gold.fact_shipments f
+      JOIN logi.gold.dim_carrier dc ON f.carrier_key = dc.carrier_key
+      JOIN logi.gold.dim_location ol ON f.origin_key = ol.location_key
+      JOIN logi.gold.dim_location dl ON f.destination_key = dl.location_key
       GROUP BY dc.carrier_name, ol.city || ' -> ' || dl.city,
                DATE_FORMAT(f.ship_date, 'yyyy-MM')
   ) AS src
@@ -542,7 +542,7 @@ AS
 STEP kpi_sla_compliance
   DEPENDS ON (build_fact_shipments)
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_sla_compliance AS tgt
+  MERGE INTO logi.gold.kpi_sla_compliance AS tgt
   USING (
       SELECT
           dc.carrier_name,
@@ -558,9 +558,9 @@ AS
               THEN f.transit_days - sv.sla_max_days ELSE NULL END) AS DECIMAL(5,1)) AS avg_days_over,
           MAX(CASE WHEN f.sla_violated = true
               THEN f.transit_days - sv.sla_max_days ELSE 0 END) AS worst_violation
-      FROM {{zone_prefix}}.gold.fact_shipments f
-      JOIN {{zone_prefix}}.gold.dim_carrier dc ON f.carrier_key = dc.carrier_key
-      LEFT JOIN {{zone_prefix}}.silver.sla_violations sv ON f.shipment_key = sv.shipment_id
+      FROM logi.gold.fact_shipments f
+      JOIN logi.gold.dim_carrier dc ON f.carrier_key = dc.carrier_key
+      LEFT JOIN logi.silver.sla_violations sv ON f.shipment_key = sv.shipment_id
       GROUP BY dc.carrier_name, f.service_level, DATE_FORMAT(f.ship_date, 'yyyy-MM')
   ) AS src
   ON tgt.carrier_name = src.carrier_name AND tgt.service_level = src.service_level AND tgt.month = src.month
@@ -590,7 +590,7 @@ STEP optimize_zorder
   DEPENDS ON (kpi_delivery_performance, kpi_sla_compliance)
   CONTINUE ON FAILURE
 AS
-  OPTIMIZE {{zone_prefix}}.silver.events_deduped;
-  OPTIMIZE {{zone_prefix}}.silver.shipment_status;
-  OPTIMIZE {{zone_prefix}}.gold.fact_shipments
+  OPTIMIZE logi.silver.events_deduped;
+  OPTIMIZE logi.silver.shipment_status;
+  OPTIMIZE logi.gold.fact_shipments
       ZORDER BY (origin_key, destination_key);

@@ -17,66 +17,66 @@
 --         or "1=1" if the target is empty (first run = full load)
 -- ============================================================================
 
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.alerts_deduped, alert_id, deduped_at, 0)}};
+PRINT {{INCREMENTAL_FILTER(cyber.silver.alerts_deduped, alert_id, deduped_at, 0)}};
 
 -- ===================== Capture Current State =====================
 
-SELECT MAX(deduped_at) AS current_dedup_watermark FROM {{zone_prefix}}.silver.alerts_deduped;
-SELECT MAX(correlated_at) AS current_correlation_watermark FROM {{zone_prefix}}.silver.incidents_correlated;
+SELECT MAX(deduped_at) AS current_dedup_watermark FROM cyber.silver.alerts_deduped;
+SELECT MAX(correlated_at) AS current_correlation_watermark FROM cyber.silver.incidents_correlated;
 
-SELECT 'alerts_deduped' AS table_name, COUNT(*) AS row_count FROM {{zone_prefix}}.silver.alerts_deduped
-UNION ALL SELECT 'incidents_correlated', COUNT(*) FROM {{zone_prefix}}.silver.incidents_correlated
-UNION ALL SELECT 'threat_enriched', COUNT(*) FROM {{zone_prefix}}.silver.threat_enriched
-UNION ALL SELECT 'fact_incidents', COUNT(*) FROM {{zone_prefix}}.gold.fact_incidents;
+SELECT 'alerts_deduped' AS table_name, COUNT(*) AS row_count FROM cyber.silver.alerts_deduped
+UNION ALL SELECT 'incidents_correlated', COUNT(*) FROM cyber.silver.incidents_correlated
+UNION ALL SELECT 'threat_enriched', COUNT(*) FROM cyber.silver.threat_enriched
+UNION ALL SELECT 'fact_incidents', COUNT(*) FROM cyber.gold.fact_incidents;
 
 -- ===================== Insert New Bronze Alerts (10 across 3 sources) =====================
 
 -- Firewall: 3 new alerts (1 duplicate within 5-min window)
-INSERT INTO {{zone_prefix}}.bronze.raw_firewall_alerts VALUES
+INSERT INTO cyber.bronze.raw_firewall_alerts VALUES
 ('FW-031', '185.220.101.34', 'web-prod-01', 'R-SQL-INJ',   '2024-01-16T06:00:00', 8, 'high',     51000,  'TCP', 'Morning SQL injection probe from Russia',               '2024-01-16T06:00:30'),
 ('FW-032', '185.220.101.34', 'web-prod-01', 'R-SQL-INJ',   '2024-01-16T06:02:00', 8, 'high',     48000,  'TCP', 'SQL injection DUPLICATE',                               '2024-01-16T06:02:30'),
 ('FW-033', '5.188.86.22',    'db-prod-01',  'R-EXFIL',     '2024-01-16T06:30:00', 9, 'critical', 310000, 'TCP', 'Massive exfiltration from APT source',                   '2024-01-16T06:30:30');
 
 -- IDS: 4 new alerts (1 duplicate)
-INSERT INTO {{zone_prefix}}.bronze.raw_ids_alerts VALUES
+INSERT INTO cyber.bronze.raw_ids_alerts VALUES
 ('IDS-026', '112.85.42.187', 'db-prod-01',  'R-CRED-DUMP', '2024-01-16T07:00:00', 9, 'critical', 'SIG-7001', 'TCP', 'New credential dump from Shanghai',                '2024-01-16T07:00:30'),
 ('IDS-027', '112.85.42.187', 'db-prod-01',  'R-CRED-DUMP', '2024-01-16T07:03:00', 9, 'critical', 'SIG-7001', 'TCP', 'Credential dump DUPLICATE',                        '2024-01-16T07:03:30'),
 ('IDS-028', '91.215.85.102', 'jump-01',     'R-BRUTE-SSH', '2024-01-16T08:00:00', 8, 'high',     'SIG-3006', 'TCP', 'SSH brute force new day from Ukraine',             '2024-01-16T08:00:30'),
 ('IDS-029', '23.129.64.201', 'api-prod-01', 'R-PORTSCAN',  '2024-01-16T08:30:00', 4, 'medium',   'SIG-1009', 'TCP', 'API server port scan from Tor',                    '2024-01-16T08:30:30');
 
 -- Endpoint: 3 new alerts
-INSERT INTO {{zone_prefix}}.bronze.raw_endpoint_alerts VALUES
+INSERT INTO cyber.bronze.raw_endpoint_alerts VALUES
 ('EP-021', '46.166.139.111', 'web-prod-02', 'R-MALWARE',   '2024-01-16T07:30:00', 9, 'critical',  'dropper.exe',  's1t2u3v4w5', 'New malware dropper from Romania',           '2024-01-16T07:30:30'),
 ('EP-022', '10.0.1.50',      'api-prod-01', 'R-DNS-TUN',   '2024-01-16T09:00:00', 9, 'critical',  'dns.exe',      'x6y7z8a9b0', 'DNS tunneling exfiltration continued',       '2024-01-16T09:00:30'),
 ('EP-023', '94.102.49.193',  'web-prod-01', 'R-REV-SHELL', '2024-01-16T09:30:00', 9, 'critical',  'bash',         'c1d2e3f4g5', 'Reverse shell from botnet C2',               '2024-01-16T09:30:30');
 
 -- ===================== Incremental MERGE: 3 sources -> alerts_deduped =====================
 
-MERGE INTO {{zone_prefix}}.silver.alerts_deduped AS target
+MERGE INTO cyber.silver.alerts_deduped AS target
 USING (
     SELECT alert_id, 'firewall' AS source, source_ip, target_host, rule_id,
            detected_at, severity_score, severity, protocol, raw_log,
            CONCAT(source_ip, '|', target_host, '|', rule_id, '|',
                   DATE_FORMAT(DATE_TRUNC('hour', detected_at), 'yyyyMMddHH'), '|',
                   CAST(FLOOR(EXTRACT(MINUTE FROM detected_at) / 5) AS STRING)) AS dedup_bucket
-    FROM {{zone_prefix}}.bronze.raw_firewall_alerts
-    WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.alerts_deduped, alert_id, deduped_at, 0)}}
+    FROM cyber.bronze.raw_firewall_alerts
+    WHERE {{INCREMENTAL_FILTER(cyber.silver.alerts_deduped, alert_id, deduped_at, 0)}}
     UNION ALL
     SELECT alert_id, 'ids' AS source, source_ip, target_host, rule_id,
            detected_at, severity_score, severity, protocol, raw_log,
            CONCAT(source_ip, '|', target_host, '|', rule_id, '|',
                   DATE_FORMAT(DATE_TRUNC('hour', detected_at), 'yyyyMMddHH'), '|',
                   CAST(FLOOR(EXTRACT(MINUTE FROM detected_at) / 5) AS STRING)) AS dedup_bucket
-    FROM {{zone_prefix}}.bronze.raw_ids_alerts
-    WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.alerts_deduped, alert_id, deduped_at, 0)}}
+    FROM cyber.bronze.raw_ids_alerts
+    WHERE {{INCREMENTAL_FILTER(cyber.silver.alerts_deduped, alert_id, deduped_at, 0)}}
     UNION ALL
     SELECT alert_id, 'endpoint' AS source, source_ip, target_host, rule_id,
            detected_at, severity_score, severity, NULL AS protocol, raw_log,
            CONCAT(source_ip, '|', target_host, '|', rule_id, '|',
                   DATE_FORMAT(DATE_TRUNC('hour', detected_at), 'yyyyMMddHH'), '|',
                   CAST(FLOOR(EXTRACT(MINUTE FROM detected_at) / 5) AS STRING)) AS dedup_bucket
-    FROM {{zone_prefix}}.bronze.raw_endpoint_alerts
-    WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.alerts_deduped, alert_id, deduped_at, 0)}}
+    FROM cyber.bronze.raw_endpoint_alerts
+    WHERE {{INCREMENTAL_FILTER(cyber.silver.alerts_deduped, alert_id, deduped_at, 0)}}
 ) AS source
 ON target.alert_id = source.alert_id AND target.source = source.source
 WHEN NOT MATCHED THEN INSERT (
@@ -90,7 +90,7 @@ WHEN NOT MATCHED THEN INSERT (
 
 -- ===================== Incremental Correlation =====================
 
-MERGE INTO {{zone_prefix}}.silver.incidents_correlated AS target
+MERGE INTO cyber.silver.incidents_correlated AS target
 USING (
     WITH deduped AS (
         SELECT *,
@@ -98,7 +98,7 @@ USING (
                 PARTITION BY source_ip, target_host, rule_id, dedup_bucket
                 ORDER BY detected_at ASC
             ) AS rn
-        FROM {{zone_prefix}}.silver.alerts_deduped
+        FROM cyber.silver.alerts_deduped
     ),
     clean_alerts AS (SELECT * FROM deduped WHERE rn = 1),
     gap_detect AS (
@@ -163,14 +163,14 @@ WHEN NOT MATCHED THEN INSERT (
 
 -- ===================== Verify Incremental Results =====================
 
-SELECT COUNT(*) AS post_alert_count FROM {{zone_prefix}}.silver.alerts_deduped;
-SELECT COUNT(*) AS post_incident_count FROM {{zone_prefix}}.silver.incidents_correlated;
+SELECT COUNT(*) AS post_alert_count FROM cyber.silver.alerts_deduped;
+SELECT COUNT(*) AS post_incident_count FROM cyber.silver.incidents_correlated;
 
 -- No duplicate incident_ids
 SELECT COUNT(*) AS dup_check
 FROM (
     SELECT incident_id, COUNT(*) AS cnt
-    FROM {{zone_prefix}}.silver.incidents_correlated
+    FROM cyber.silver.incidents_correlated
     GROUP BY incident_id
     HAVING COUNT(*) > 1
 );
@@ -180,14 +180,14 @@ SELECT 'No duplicate incidents detected' AS status;
 
 -- Multi-alert incidents (5+ alerts from same source)
 SELECT incident_id, source_ip, alert_count, distinct_targets, distinct_rules, duration_minutes
-FROM {{zone_prefix}}.silver.incidents_correlated
+FROM cyber.silver.incidents_correlated
 WHERE alert_count >= 5
 ORDER BY alert_count DESC;
 
 -- ===================== Refresh Gold Layer =====================
 
 -- Re-run enrichment for new/updated incidents
-MERGE INTO {{zone_prefix}}.silver.threat_enriched AS target
+MERGE INTO cyber.silver.threat_enriched AS target
 USING (
     SELECT
         ic.incident_id, ic.source_ip, ic.primary_target, ic.primary_rule_id,
@@ -197,24 +197,24 @@ USING (
         COALESCE(ti.is_known_bad, false) AS is_known_bad,
         mt.tactic AS mitre_tactic, mt.technique_id AS mitre_technique, mt.technique_name,
         (ic.max_severity_score * 10) + COALESCE(ti.threat_score, 0) AS combined_risk_score
-    FROM {{zone_prefix}}.silver.incidents_correlated ic
-    LEFT JOIN {{zone_prefix}}.bronze.raw_threat_intel ti ON ic.source_ip = ti.ip_address
+    FROM cyber.silver.incidents_correlated ic
+    LEFT JOIN cyber.bronze.raw_threat_intel ti ON ic.source_ip = ti.ip_address
     LEFT JOIN (
-        SELECT 'R-SQL-INJ' AS rule_pattern, technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1190'
-        UNION ALL SELECT 'R-BRUTE-SSH', technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1110.001'
-        UNION ALL SELECT 'R-POWERSHELL', technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1059.001'
-        UNION ALL SELECT 'R-REV-SHELL', technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1059.004'
-        UNION ALL SELECT 'R-MALWARE', technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1204.002'
-        UNION ALL SELECT 'R-PERSIST', technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1547.001'
-        UNION ALL SELECT 'R-PRIV-ESC', technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1068'
-        UNION ALL SELECT 'R-CRED-DUMP', technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1003.001'
-        UNION ALL SELECT 'R-LAT-MOV', technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1021.002'
-        UNION ALL SELECT 'R-PORTSCAN', technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1046'
-        UNION ALL SELECT 'R-DNS-TUN', technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1048.001'
-        UNION ALL SELECT 'R-EXFIL', technique_id, technique_name, tactic FROM {{zone_prefix}}.bronze.raw_mitre_techniques WHERE technique_id = 'T1041'
+        SELECT 'R-SQL-INJ' AS rule_pattern, technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1190'
+        UNION ALL SELECT 'R-BRUTE-SSH', technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1110.001'
+        UNION ALL SELECT 'R-POWERSHELL', technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1059.001'
+        UNION ALL SELECT 'R-REV-SHELL', technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1059.004'
+        UNION ALL SELECT 'R-MALWARE', technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1204.002'
+        UNION ALL SELECT 'R-PERSIST', technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1547.001'
+        UNION ALL SELECT 'R-PRIV-ESC', technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1068'
+        UNION ALL SELECT 'R-CRED-DUMP', technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1003.001'
+        UNION ALL SELECT 'R-LAT-MOV', technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1021.002'
+        UNION ALL SELECT 'R-PORTSCAN', technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1046'
+        UNION ALL SELECT 'R-DNS-TUN', technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1048.001'
+        UNION ALL SELECT 'R-EXFIL', technique_id, technique_name, tactic FROM cyber.bronze.raw_mitre_techniques WHERE technique_id = 'T1041'
     ) mt ON ic.primary_rule_id = mt.rule_pattern
-    WHERE ic.correlated_at > (SELECT COALESCE(MAX(enriched_at), '1970-01-01T00:00:00') FROM {{zone_prefix}}.silver.threat_enriched)
-       OR ic.incident_id IN (SELECT incident_id FROM {{zone_prefix}}.silver.threat_enriched)
+    WHERE ic.correlated_at > (SELECT COALESCE(MAX(enriched_at), '1970-01-01T00:00:00') FROM cyber.silver.threat_enriched)
+       OR ic.incident_id IN (SELECT incident_id FROM cyber.silver.threat_enriched)
 ) AS source
 ON target.incident_id = source.incident_id
 WHEN MATCHED THEN UPDATE SET
@@ -237,7 +237,7 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- Refresh fact_incidents
-MERGE INTO {{zone_prefix}}.gold.fact_incidents AS target
+MERGE INTO cyber.gold.fact_incidents AS target
 USING (
     SELECT
         ROW_NUMBER() OVER (ORDER BY te.first_detected_at, te.incident_id) AS incident_key,
@@ -246,12 +246,12 @@ USING (
         te.max_severity_score AS severity_score, ic.alert_count,
         ic.distinct_targets, ic.distinct_rules, ic.duration_minutes,
         te.threat_score, te.combined_risk_score, te.mitre_tactic, ic.status
-    FROM {{zone_prefix}}.silver.threat_enriched te
-    JOIN {{zone_prefix}}.silver.incidents_correlated ic ON te.incident_id = ic.incident_id
-    JOIN {{zone_prefix}}.gold.dim_source_ip dip ON te.source_ip = dip.ip_address
-    JOIN {{zone_prefix}}.gold.dim_target dt ON te.primary_target = dt.hostname
-    JOIN {{zone_prefix}}.gold.dim_rule dr ON te.primary_rule_id = dr.rule_id
-    LEFT JOIN {{zone_prefix}}.gold.dim_mitre dm ON te.mitre_technique = dm.technique_id
+    FROM cyber.silver.threat_enriched te
+    JOIN cyber.silver.incidents_correlated ic ON te.incident_id = ic.incident_id
+    JOIN cyber.gold.dim_source_ip dip ON te.source_ip = dip.ip_address
+    JOIN cyber.gold.dim_target dt ON te.primary_target = dt.hostname
+    JOIN cyber.gold.dim_rule dr ON te.primary_rule_id = dr.rule_id
+    LEFT JOIN cyber.gold.dim_mitre dm ON te.mitre_technique = dm.technique_id
 ) AS source
 ON target.source_ip_key = source.source_ip_key
    AND target.target_key = source.target_key
@@ -275,7 +275,7 @@ WHEN NOT MATCHED THEN INSERT (
     CURRENT_TIMESTAMP
 );
 
-SELECT COUNT(*) AS post_fact_count FROM {{zone_prefix}}.gold.fact_incidents;
+SELECT COUNT(*) AS post_fact_count FROM cyber.gold.fact_incidents;
 
 -- Verify watermark advanced
-SELECT MAX(deduped_at) AS new_dedup_watermark FROM {{zone_prefix}}.silver.alerts_deduped;
+SELECT MAX(deduped_at) AS new_dedup_watermark FROM cyber.silver.alerts_deduped;

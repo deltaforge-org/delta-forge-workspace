@@ -15,7 +15,7 @@
 -- Usage: {{INCREMENTAL_FILTER(target_table, key_col, date_col, overlap_days)}}
 -- ============================================================================
 
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.transactions_enriched, transaction_id, transaction_date, 7)}};
+PRINT {{INCREMENTAL_FILTER(realty.silver.transactions_enriched, transaction_id, transaction_date, 7)}};
 
 -- ===================== SCHEDULE & PIPELINE =====================
 
@@ -29,10 +29,10 @@ STEP check_watermark
   TIMEOUT '1m'
 AS
   SELECT MAX(transaction_date) AS last_transaction_watermark
-  FROM {{zone_prefix}}.silver.transactions_enriched;
+  FROM realty.silver.transactions_enriched;
 
   SELECT MAX(valid_from) AS last_assessment_watermark
-  FROM {{zone_prefix}}.silver.property_dim;
+  FROM realty.silver.property_dim;
 
 -- ===================== STEP 2: ingest_new_bronze =====================
 -- Simulate 3 new transactions arriving in 2025.
@@ -41,7 +41,7 @@ STEP ingest_new_bronze
   DEPENDS ON (check_watermark)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.bronze.raw_transactions VALUES
+  INSERT INTO realty.bronze.raw_transactions VALUES
       ('TXN-026', 'PRC-011', 'Ryan Patel',       'William Taylor', 'AGT-01', '2025-01-15', 845000.00, 'Jumbo',        21000.00, 18, '2025-01-15T09:00:00'),
       ('TXN-027', 'PRC-008', 'Sophia Anderson',  'James Wilson',   'AGT-04', '2025-02-01', 505000.00, 'Conventional', 12200.00, 25, '2025-02-01T09:00:00'),
       ('TXN-028', 'PRC-014', 'Olivia Robinson',  'Emily Garcia',   'AGT-02', '2025-02-20', 445000.00, 'Conventional', 10800.00, 30, '2025-02-20T09:00:00');
@@ -52,7 +52,7 @@ STEP enrich_new_transactions
   DEPENDS ON (ingest_new_bronze)
   TIMEOUT '5m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.transactions_enriched
+  INSERT INTO realty.silver.transactions_enriched
   SELECT
       t.transaction_id,
       t.parcel_id,
@@ -72,12 +72,12 @@ AS
       END                                                           AS assessment_outlier,
       t.financing_type,
       t.closing_costs
-  FROM {{zone_prefix}}.bronze.raw_transactions t
-  JOIN {{zone_prefix}}.silver.property_dim pd
+  FROM realty.bronze.raw_transactions t
+  JOIN realty.silver.property_dim pd
       ON t.parcel_id = pd.parcel_id
       AND pd.valid_from <= CAST(t.transaction_date AS DATE)
       AND (pd.valid_to IS NULL OR pd.valid_to > CAST(t.transaction_date AS DATE))
-  WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.transactions_enriched, transaction_id, transaction_date, 7)}};
+  WHERE {{INCREMENTAL_FILTER(realty.silver.transactions_enriched, transaction_id, transaction_date, 7)}};
 
 -- ===================== STEP 4: merge_fact_transactions =====================
 
@@ -85,10 +85,10 @@ STEP merge_fact_transactions
   DEPENDS ON (enrich_new_transactions)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_transactions AS tgt
+  MERGE INTO realty.gold.fact_transactions AS tgt
   USING (
       SELECT
-          (SELECT COALESCE(MAX(transaction_key), 0) FROM {{zone_prefix}}.gold.fact_transactions)
+          (SELECT COALESCE(MAX(transaction_key), 0) FROM realty.gold.fact_transactions)
               + ROW_NUMBER() OVER (ORDER BY te.transaction_id)     AS transaction_key,
           te.parcel_id,
           dn.neighborhood_key,
@@ -104,14 +104,14 @@ AS
           te.assessment_outlier,
           te.financing_type,
           te.closing_costs
-      FROM {{zone_prefix}}.silver.transactions_enriched te
-      JOIN {{zone_prefix}}.silver.property_dim pd
+      FROM realty.silver.transactions_enriched te
+      JOIN realty.silver.property_dim pd
           ON te.parcel_id = pd.parcel_id AND pd.is_current = true
-      JOIN {{zone_prefix}}.gold.dim_neighborhood dn
+      JOIN realty.gold.dim_neighborhood dn
           ON pd.neighborhood_id = dn.neighborhood_id
-      JOIN {{zone_prefix}}.gold.dim_agent da
+      JOIN realty.gold.dim_agent da
           ON te.agent_id = da.agent_id
-      JOIN {{zone_prefix}}.gold.dim_property_type dpt
+      JOIN realty.gold.dim_property_type dpt
           ON pd.property_type = dpt.property_type
       WHERE te.transaction_date > '2024-12-31'
   ) AS src
@@ -134,9 +134,9 @@ STEP rebuild_kpi_market
   DEPENDS ON (merge_fact_transactions)
   TIMEOUT '3m'
 AS
-  DELETE FROM {{zone_prefix}}.gold.kpi_market_trends WHERE 1=1;
+  DELETE FROM realty.gold.kpi_market_trends WHERE 1=1;
 
-  INSERT INTO {{zone_prefix}}.gold.kpi_market_trends
+  INSERT INTO realty.gold.kpi_market_trends
   SELECT
       pd.city,
       dpt.property_type,
@@ -159,9 +159,9 @@ AS
       ROUND(AVG(ft.over_asking_pct), 2),
       ROUND(18.0 / NULLIF(COUNT(*) / 3.0, 0), 1),
       0.00
-  FROM {{zone_prefix}}.gold.fact_transactions ft
-  JOIN {{zone_prefix}}.silver.property_dim pd ON ft.parcel_id = pd.parcel_id AND pd.is_current = true
-  JOIN {{zone_prefix}}.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
+  FROM realty.gold.fact_transactions ft
+  JOIN realty.silver.property_dim pd ON ft.parcel_id = pd.parcel_id AND pd.is_current = true
+  JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
   GROUP BY pd.city, dpt.property_type,
       CONCAT(
           CAST(EXTRACT(YEAR FROM ft.transaction_date) AS STRING),
@@ -182,9 +182,9 @@ STEP rebuild_kpi_assessment
   DEPENDS ON (merge_fact_transactions)
   TIMEOUT '3m'
 AS
-  DELETE FROM {{zone_prefix}}.gold.kpi_assessment_accuracy WHERE 1=1;
+  DELETE FROM realty.gold.kpi_assessment_accuracy WHERE 1=1;
 
-  INSERT INTO {{zone_prefix}}.gold.kpi_assessment_accuracy
+  INSERT INTO realty.gold.kpi_assessment_accuracy
   SELECT
       pd.county,
       dpt.property_type,
@@ -202,12 +202,12 @@ AS
           / NULLIF(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.assessed_vs_sale_ratio), 0),
           2
       )
-  FROM {{zone_prefix}}.gold.fact_transactions ft
-  JOIN {{zone_prefix}}.silver.property_dim pd
+  FROM realty.gold.fact_transactions ft
+  JOIN realty.silver.property_dim pd
       ON ft.parcel_id = pd.parcel_id
       AND pd.valid_from <= ft.transaction_date
       AND (pd.valid_to IS NULL OR pd.valid_to > ft.transaction_date)
-  JOIN {{zone_prefix}}.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
+  JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
   GROUP BY pd.county, dpt.property_type, pd.assessment_year;
 
 -- ===================== STEP 7: scd2_incremental_assessment =====================
@@ -221,7 +221,7 @@ AS
   -- Verify SCD2 integrity: all parcels should have exactly one is_current = true record
   ASSERT ROW_COUNT = 18
   SELECT COUNT(*) AS row_count
-  FROM {{zone_prefix}}.silver.property_dim
+  FROM realty.silver.property_dim
   WHERE is_current = true;
 
 -- ===================== STEP 8: incremental_optimize =====================
@@ -231,7 +231,7 @@ STEP incremental_optimize
   TIMEOUT '5m'
   CONTINUE ON FAILURE
 AS
-  OPTIMIZE {{zone_prefix}}.silver.transactions_enriched;
-  OPTIMIZE {{zone_prefix}}.gold.fact_transactions;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_market_trends;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_assessment_accuracy;
+  OPTIMIZE realty.silver.transactions_enriched;
+  OPTIMIZE realty.gold.fact_transactions;
+  OPTIMIZE realty.gold.kpi_market_trends;
+  OPTIMIZE realty.gold.kpi_assessment_accuracy;

@@ -14,32 +14,32 @@
 -- ============================================================================
 
 -- Preview the generated filter condition:
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.orders_unified, order_id, order_date, 3)}};
+PRINT {{INCREMENTAL_FILTER(ecom.silver.orders_unified, order_id, order_date, 3)}};
 
 -- Show current watermark and row counts before incremental load
-SELECT MAX(updated_at) AS current_watermark FROM {{zone_prefix}}.silver.orders_unified;
+SELECT MAX(updated_at) AS current_watermark FROM ecom.silver.orders_unified;
 
 SELECT 'silver.orders_unified' AS table_name, COUNT(*) AS row_count
-FROM {{zone_prefix}}.silver.orders_unified
+FROM ecom.silver.orders_unified
 UNION ALL
 SELECT 'gold.fact_order_lines', COUNT(*)
-FROM {{zone_prefix}}.gold.fact_order_lines
+FROM ecom.gold.fact_order_lines
 UNION ALL
 SELECT 'silver.inventory_adjustments', COUNT(*)
-FROM {{zone_prefix}}.silver.inventory_adjustments;
+FROM ecom.silver.inventory_adjustments;
 
 -- =============================================================================
 -- SCHEMA EVOLUTION: Add loyalty_points column to orders_unified
 -- =============================================================================
 -- This simulates a business requirement to track loyalty points earned per order.
 
-ALTER TABLE {{zone_prefix}}.silver.orders_unified ADD COLUMN loyalty_points INT;
+ALTER TABLE ecom.silver.orders_unified ADD COLUMN loyalty_points INT;
 
 -- =============================================================================
 -- Insert 10 new web orders (July 2024 batch) — with loyalty_points populated
 -- =============================================================================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_web_orders VALUES
+INSERT INTO ecom.bronze.raw_web_orders VALUES
 ('WEB-031', 'C001', 'P002', 1, 129.99,  0.05,  6.99, '2024-07-01', 'delivered',  'WS-A001-04', 'Chrome',  '2024-07-02T00:00:00'),
 ('WEB-032', 'C003', 'P004', 2,  89.99,  0.00,  5.99, '2024-07-03', 'delivered',  'WS-A003-04', 'Firefox', '2024-07-04T00:00:00'),
 ('WEB-033', 'C005', 'P013', 5,  18.99,  0.00,  3.99, '2024-07-05', 'delivered',  'WS-A005-04', 'Chrome',  '2024-07-06T00:00:00'),
@@ -47,7 +47,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_web_orders VALUES
 ('WEB-035', 'C007', 'P001', 3,  79.99,  0.00,  5.99, '2024-07-10', 'cancelled',  'WS-A007-03', 'Firefox', '2024-07-11T00:00:00');
 
 -- Insert 5 new mobile orders
-INSERT INTO {{zone_prefix}}.bronze.raw_mobile_orders VALUES
+INSERT INTO ecom.bronze.raw_mobile_orders VALUES
 ('MOB-021', 'C012', 'P006', 1, 149.99,  0.00,  8.99, '2024-07-02', 'delivered',  'MS-B012-02', 'v3.5.0', '2024-07-03T00:00:00'),
 ('MOB-022', 'C014', 'P009', 2,  49.99,  0.10,  4.99, '2024-07-06', 'delivered',  'MS-B014-02', 'v3.5.0', '2024-07-07T00:00:00'),
 ('MOB-023', 'C017', 'P011', 1,  29.99,  0.00,  3.99, '2024-07-09', 'delivered',  'MS-B017-02', 'v3.5.0', '2024-07-10T00:00:00'),
@@ -61,7 +61,7 @@ SELECT 'incremental batch inserted' AS status;
 -- Incremental MERGE: process only new rows via INCREMENTAL_FILTER
 -- =============================================================================
 
-MERGE INTO {{zone_prefix}}.silver.orders_unified AS tgt
+MERGE INTO ecom.silver.orders_unified AS tgt
 USING (
     SELECT
         order_id, customer_id, product_id,
@@ -75,8 +75,8 @@ USING (
         session_id,
         ingested_at AS updated_at,
         CAST(CAST(quantity * unit_price * (1.0 - discount_pct) AS DECIMAL(12,2)) / 10 AS INT) AS loyalty_points
-    FROM {{zone_prefix}}.bronze.raw_web_orders
-    WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.orders_unified, order_id, order_date, 3)}}
+    FROM ecom.bronze.raw_web_orders
+    WHERE {{INCREMENTAL_FILTER(ecom.silver.orders_unified, order_id, order_date, 3)}}
     UNION ALL
     SELECT
         order_id, customer_id, product_id,
@@ -90,8 +90,8 @@ USING (
         session_id,
         ingested_at AS updated_at,
         CAST(CAST(quantity * unit_price * (1.0 - discount_pct) AS DECIMAL(12,2)) / 10 AS INT) AS loyalty_points
-    FROM {{zone_prefix}}.bronze.raw_mobile_orders
-    WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.orders_unified, order_id, order_date, 3)}}
+    FROM ecom.bronze.raw_mobile_orders
+    WHERE {{INCREMENTAL_FILTER(ecom.silver.orders_unified, order_id, order_date, 3)}}
 ) AS src
 ON tgt.order_id = src.order_id AND tgt.product_id = src.product_id
 WHEN MATCHED AND src.status = 'cancelled' THEN UPDATE SET
@@ -121,7 +121,7 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- Refresh gold fact for new records
-MERGE INTO {{zone_prefix}}.gold.fact_order_lines AS tgt
+MERGE INTO ecom.gold.fact_order_lines AS tgt
 USING (
     SELECT
         o.order_id || '-' || o.product_id AS order_line_key,
@@ -139,7 +139,7 @@ USING (
         o.line_total,
         o.shipping_cost,
         o.status
-    FROM {{zone_prefix}}.silver.orders_unified o
+    FROM ecom.silver.orders_unified o
     WHERE o.is_deleted = false
       AND o.order_date >= '2024-07-01'
 ) AS src
@@ -162,14 +162,14 @@ WHEN NOT MATCHED THEN INSERT (
 -- =============================================================================
 
 -- Silver should have grown by the incremental batch
-SELECT COUNT(*) AS silver_total FROM {{zone_prefix}}.silver.orders_unified;
+SELECT COUNT(*) AS silver_total FROM ecom.silver.orders_unified;
 
 -- Verify new watermark advanced
-SELECT MAX(updated_at) AS new_watermark FROM {{zone_prefix}}.silver.orders_unified;
+SELECT MAX(updated_at) AS new_watermark FROM ecom.silver.orders_unified;
 
 -- Verify loyalty_points populated on new rows (schema evolution proof)
 SELECT COUNT(*) AS rows_with_loyalty
-FROM {{zone_prefix}}.silver.orders_unified
+FROM ecom.silver.orders_unified
 WHERE loyalty_points IS NOT NULL AND loyalty_points > 0;
 
 ASSERT VALUE rows_with_loyalty > 0
@@ -177,13 +177,13 @@ SELECT 'Schema evolution verified: loyalty_points populated' AS status;
 
 -- Verify CDF captured the incremental changes
 SELECT COUNT(*) AS cdf_changes
-FROM table_changes('{{zone_prefix}}.silver.orders_unified', 1);
+FROM table_changes('ecom.silver.orders_unified', 1);
 
 -- Verify no duplicate order-product combinations
 SELECT COUNT(*) AS dup_check
 FROM (
     SELECT order_id, product_id, COUNT(*) AS cnt
-    FROM {{zone_prefix}}.silver.orders_unified
+    FROM ecom.silver.orders_unified
     GROUP BY order_id, product_id
     HAVING COUNT(*) > 1
 );

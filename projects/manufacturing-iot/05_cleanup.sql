@@ -16,21 +16,21 @@ PIPELINE manufacturing_iot_cleanup
 
 
 -- Gold tables
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_anomaly_trends WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_oee WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.fact_readings WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_shift WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_line WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_sensor WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.gold.kpi_anomaly_trends WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.gold.kpi_oee WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.gold.fact_readings WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.gold.dim_shift WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.gold.dim_line WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.gold.dim_sensor WITH FILES;
 
 -- Silver tables
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.equipment_status WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.readings_smoothed WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.readings_validated WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.silver.equipment_status WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.silver.readings_smoothed WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.silver.readings_validated WITH FILES;
 
 -- Bronze tables
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_readings WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_production_targets WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_shifts WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_production_lines WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_sensors WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.bronze.raw_readings WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.bronze.raw_production_targets WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.bronze.raw_shifts WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.bronze.raw_production_lines WITH FILES;
+DROP DELTA TABLE IF EXISTS mfg.bronze.raw_sensors WITH FILES;

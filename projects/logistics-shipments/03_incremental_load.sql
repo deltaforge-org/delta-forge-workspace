@@ -21,24 +21,24 @@
 -- ============================================================================
 
 -- Preview the generated filter condition:
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.events_deduped, shipment_id, deduped_at, 3)}};
+PRINT {{INCREMENTAL_FILTER(logi.silver.events_deduped, shipment_id, deduped_at, 3)}};
 
 -- Show current watermark state:
-SELECT MAX(deduped_at) AS dedup_watermark FROM {{zone_prefix}}.silver.events_deduped;
-SELECT MAX(reconstructed_at) AS timeline_watermark FROM {{zone_prefix}}.silver.shipment_status;
+SELECT MAX(deduped_at) AS dedup_watermark FROM logi.silver.events_deduped;
+SELECT MAX(reconstructed_at) AS timeline_watermark FROM logi.silver.shipment_status;
 
 -- Current counts before incremental:
 SELECT 'events_deduped' AS table_name, COUNT(*) AS row_count
-FROM {{zone_prefix}}.silver.events_deduped
+FROM logi.silver.events_deduped
 UNION ALL
 SELECT 'shipment_status', COUNT(*)
-FROM {{zone_prefix}}.silver.shipment_status
+FROM logi.silver.shipment_status
 UNION ALL
 SELECT 'sla_violations', COUNT(*)
-FROM {{zone_prefix}}.silver.sla_violations
+FROM logi.silver.sla_violations
 UNION ALL
 SELECT 'fact_shipments', COUNT(*)
-FROM {{zone_prefix}}.gold.fact_shipments;
+FROM logi.gold.fact_shipments;
 
 -- =============================================================================
 -- Schema Evolution: Add customs_cleared to raw_tracking_events
@@ -46,14 +46,14 @@ FROM {{zone_prefix}}.gold.fact_shipments;
 -- In real operations, customs clearance fields are added mid-lifecycle
 -- as the company expands to cross-border shipments.
 
-ALTER TABLE {{zone_prefix}}.bronze.raw_tracking_events ADD COLUMN customs_cleared BOOLEAN;
+ALTER TABLE logi.bronze.raw_tracking_events ADD COLUMN customs_cleared BOOLEAN;
 
 -- =============================================================================
 -- Insert 12 new events: updates to existing shipments + new shipments
 -- Includes customs_cleared field (schema evolution in action)
 -- =============================================================================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_tracking_events (
+INSERT INTO logi.bronze.raw_tracking_events (
     event_id, shipment_id, customer_id, carrier_id, origin_id, destination_id,
     service_level, event_type, event_timestamp, ship_date, promised_date,
     delivery_date, weight_kg, volume_m3, cost, revenue, ingested_at, customs_cleared
@@ -84,15 +84,15 @@ INSERT INTO {{zone_prefix}}.bronze.raw_tracking_events (
 -- The composite key (shipment_id + event_type + event_timestamp) ensures
 -- duplicates are silently skipped.
 
-MERGE INTO {{zone_prefix}}.silver.events_deduped AS target
+MERGE INTO logi.silver.events_deduped AS target
 USING (
     SELECT
         event_id, shipment_id, customer_id, carrier_id, origin_id,
         destination_id, service_level, event_type, event_timestamp,
         ship_date, promised_date, delivery_date, weight_kg, volume_m3,
         cost, revenue
-    FROM {{zone_prefix}}.bronze.raw_tracking_events
-    WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.events_deduped, shipment_id, deduped_at, 3)}}
+    FROM logi.bronze.raw_tracking_events
+    WHERE {{INCREMENTAL_FILTER(logi.silver.events_deduped, shipment_id, deduped_at, 3)}}
 ) AS source
 ON  target.shipment_id     = source.shipment_id
 AND target.event_type      = source.event_type
@@ -115,7 +115,7 @@ WHEN NOT MATCHED THEN INSERT (
 -- Incremental timeline reconstruction
 -- =============================================================================
 
-MERGE INTO {{zone_prefix}}.silver.shipment_status AS tgt
+MERGE INTO logi.silver.shipment_status AS tgt
 USING (
     WITH ordered_events AS (
         SELECT
@@ -129,10 +129,10 @@ USING (
             MIN(event_timestamp) OVER (PARTITION BY shipment_id) AS first_event_time,
             MAX(event_timestamp) OVER (PARTITION BY shipment_id) AS last_event_time,
             MAX(delivery_date) OVER (PARTITION BY shipment_id) AS final_delivery_date
-        FROM {{zone_prefix}}.silver.events_deduped
+        FROM logi.silver.events_deduped
         WHERE shipment_id IN (
-            SELECT DISTINCT shipment_id FROM {{zone_prefix}}.silver.events_deduped
-            WHERE deduped_at > (SELECT COALESCE(MAX(reconstructed_at), '1970-01-01T00:00:00') FROM {{zone_prefix}}.silver.shipment_status)
+            SELECT DISTINCT shipment_id FROM logi.silver.events_deduped
+            WHERE deduped_at > (SELECT COALESCE(MAX(reconstructed_at), '1970-01-01T00:00:00') FROM logi.silver.shipment_status)
         )
     )
     SELECT
@@ -186,29 +186,29 @@ WHEN NOT MATCHED THEN INSERT (
 -- S019 should now be delivered (was lost exception)
 ASSERT VALUE latest_status = 'delivered'
 SELECT shipment_id, latest_status, delivery_date, on_time_flag, transit_days
-FROM {{zone_prefix}}.silver.shipment_status
+FROM logi.silver.shipment_status
 WHERE shipment_id = 'S019';
 
 -- S024 should now be delivered (was damaged exception)
 ASSERT VALUE latest_status = 'delivered'
 SELECT shipment_id, latest_status, delivery_date, on_time_flag
-FROM {{zone_prefix}}.silver.shipment_status
+FROM logi.silver.shipment_status
 WHERE shipment_id = 'S024';
 
 -- New shipments S026, S027 should exist
 ASSERT VALUE total_shipments = 27
 SELECT COUNT(*) AS total_shipments
-FROM {{zone_prefix}}.silver.shipment_status;
+FROM logi.silver.shipment_status;
 
 -- Verify watermark advanced
 SELECT MAX(reconstructed_at) AS new_watermark
-FROM {{zone_prefix}}.silver.shipment_status;
+FROM logi.silver.shipment_status;
 
 -- =============================================================================
 -- Time travel: show S019 dispute resolution history via CDF
 -- =============================================================================
 
 SELECT shipment_id, event_type, event_timestamp, deduped_at
-FROM {{zone_prefix}}.silver.events_deduped
+FROM logi.silver.events_deduped
 WHERE shipment_id = 'S019'
 ORDER BY event_timestamp;

@@ -9,7 +9,7 @@
 -- 1. Verify fact table has non-deleted orders only (no cancelled/soft-deleted)
 -- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS fact_count
-FROM {{zone_prefix}}.gold.fact_order_lines;
+FROM ecom.gold.fact_order_lines;
 
 ASSERT VALUE fact_count > 60
 SELECT 'Fact table row count validated' AS status;
@@ -18,7 +18,7 @@ SELECT 'Fact table row count validated' AS status;
 -- 2. Verify all 20 products loaded into dim_product
 -- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS product_count
-FROM {{zone_prefix}}.gold.dim_product;
+FROM ecom.gold.dim_product;
 
 ASSERT ROW_COUNT = 20
 SELECT 'All 20 products present in dim_product' AS status;
@@ -27,7 +27,7 @@ SELECT 'All 20 products present in dim_product' AS status;
 -- 3. Verify all 18 customers loaded into dim_customer with RFM segments
 -- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS customer_count
-FROM {{zone_prefix}}.gold.dim_customer;
+FROM ecom.gold.dim_customer;
 
 ASSERT ROW_COUNT = 18
 SELECT 'All 18 customers present in dim_customer' AS status;
@@ -36,7 +36,7 @@ SELECT 'All 18 customers present in dim_customer' AS status;
 -- 4. Verify all 3 channels present in dim_channel (web, mobile, pos)
 -- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS channel_count
-FROM {{zone_prefix}}.gold.dim_channel;
+FROM ecom.gold.dim_channel;
 
 ASSERT ROW_COUNT = 3
 SELECT 'All 3 channels present in dim_channel' AS status;
@@ -49,8 +49,8 @@ SELECT
     COUNT(DISTINCT f.order_key) AS orders,
     SUM(f.line_total) AS total_revenue,
     CAST(AVG(f.line_total) AS DECIMAL(10,2)) AS avg_line_value
-FROM {{zone_prefix}}.gold.fact_order_lines f
-JOIN {{zone_prefix}}.gold.dim_channel dc ON f.channel_key = dc.channel_key
+FROM ecom.gold.fact_order_lines f
+JOIN ecom.gold.dim_channel dc ON f.channel_key = dc.channel_key
 GROUP BY dc.channel_name
 ORDER BY total_revenue DESC;
 
@@ -70,8 +70,8 @@ SELECT
     CAST(
         (SUM(f.line_total) - SUM(f.quantity * dp.unit_cost)) * 100.0 / NULLIF(SUM(f.line_total), 0)
     AS DECIMAL(5,2)) AS margin_pct
-FROM {{zone_prefix}}.gold.fact_order_lines f
-JOIN {{zone_prefix}}.gold.dim_product dp ON f.product_key = dp.product_key
+FROM ecom.gold.fact_order_lines f
+JOIN ecom.gold.dim_product dp ON f.product_key = dp.product_key
 GROUP BY dp.product_name, dp.category, dp.brand
 ORDER BY total_revenue DESC
 LIMIT 5;
@@ -87,7 +87,7 @@ SELECT
     COUNT(*) AS customer_count,
     CAST(AVG(lifetime_orders) AS DECIMAL(5,1)) AS avg_lifetime_orders,
     CAST(AVG(lifetime_revenue) AS DECIMAL(10,2)) AS avg_lifetime_revenue
-FROM {{zone_prefix}}.gold.dim_customer
+FROM ecom.gold.dim_customer
 GROUP BY rfm_segment
 ORDER BY customer_count DESC;
 
@@ -104,8 +104,8 @@ SELECT
     COUNT(DISTINCT f.order_key) AS monthly_orders,
     SUM(f.line_total) AS monthly_revenue,
     SUM(SUM(f.line_total)) OVER (ORDER BY dd.year, dd.month) AS cumulative_revenue
-FROM {{zone_prefix}}.gold.fact_order_lines f
-JOIN {{zone_prefix}}.gold.dim_date dd ON f.date_key = dd.date_key
+FROM ecom.gold.fact_order_lines f
+JOIN ecom.gold.dim_date dd ON f.date_key = dd.date_key
 GROUP BY dd.month_name, dd.year, dd.month
 ORDER BY dd.year, dd.month;
 
@@ -122,7 +122,7 @@ SELECT
     CAST(AVG(cancellation_rate) AS DECIMAL(5,4)) AS avg_cancellation_rate,
     SUM(total_revenue) AS total_revenue,
     CAST(AVG(repeat_rate_pct) AS DECIMAL(5,2)) AS avg_repeat_rate
-FROM {{zone_prefix}}.gold.kpi_sales_dashboard
+FROM ecom.gold.kpi_sales_dashboard
 GROUP BY channel
 ORDER BY total_revenue DESC;
 
@@ -143,7 +143,7 @@ SELECT
     cart_to_checkout_pct,
     checkout_to_purchase_pct,
     overall_conversion_pct
-FROM {{zone_prefix}}.gold.kpi_funnel_analysis
+FROM ecom.gold.kpi_funnel_analysis
 ORDER BY report_month;
 
 ASSERT VALUE total_sessions > 0
@@ -153,20 +153,20 @@ SELECT 'Funnel conversion analysis validated' AS status;
 -- 11. Referential integrity: all fact FKs exist in dimensions
 -- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS orphaned_customers
-FROM {{zone_prefix}}.gold.fact_order_lines f
-LEFT JOIN {{zone_prefix}}.gold.dim_customer dc ON f.customer_key = dc.customer_key
+FROM ecom.gold.fact_order_lines f
+LEFT JOIN ecom.gold.dim_customer dc ON f.customer_key = dc.customer_key
 WHERE dc.customer_key IS NULL;
 
 ASSERT VALUE orphaned_customers = 0
 SELECT COUNT(*) AS orphaned_products
-FROM {{zone_prefix}}.gold.fact_order_lines f
-LEFT JOIN {{zone_prefix}}.gold.dim_product dp ON f.product_key = dp.product_key
+FROM ecom.gold.fact_order_lines f
+LEFT JOIN ecom.gold.dim_product dp ON f.product_key = dp.product_key
 WHERE dp.product_key IS NULL;
 
 ASSERT VALUE orphaned_products = 0
 SELECT COUNT(*) AS orphaned_channels
-FROM {{zone_prefix}}.gold.fact_order_lines f
-LEFT JOIN {{zone_prefix}}.gold.dim_channel dc ON f.channel_key = dc.channel_key
+FROM ecom.gold.fact_order_lines f
+LEFT JOIN ecom.gold.dim_channel dc ON f.channel_key = dc.channel_key
 WHERE dc.channel_key IS NULL;
 
 ASSERT VALUE orphaned_channels = 0
@@ -176,8 +176,8 @@ SELECT 'Referential integrity: zero orphans across all dimensions' AS status;
 -- 12. Soft-delete verification: cancelled orders NOT in fact table
 -- -----------------------------------------------------------------------------
 SELECT COUNT(*) AS deleted_in_fact
-FROM {{zone_prefix}}.gold.fact_order_lines f
-JOIN {{zone_prefix}}.silver.orders_unified o
+FROM ecom.gold.fact_order_lines f
+JOIN ecom.silver.orders_unified o
     ON f.order_key = o.order_id AND f.product_key = o.product_id
 WHERE o.is_deleted = true;
 
@@ -191,7 +191,7 @@ SELECT
     change_type,
     COUNT(*) AS adjustment_count,
     SUM(quantity_delta) AS total_quantity_delta
-FROM {{zone_prefix}}.silver.inventory_adjustments
+FROM ecom.silver.inventory_adjustments
 GROUP BY change_type
 ORDER BY adjustment_count DESC;
 
@@ -206,8 +206,8 @@ SELECT
     SUM(f.line_total) AS category_revenue,
     RANK() OVER (ORDER BY SUM(f.line_total) DESC) AS revenue_rank,
     CAST(SUM(f.line_total) * 100.0 / SUM(SUM(f.line_total)) OVER () AS DECIMAL(5,2)) AS pct_of_total
-FROM {{zone_prefix}}.gold.fact_order_lines f
-JOIN {{zone_prefix}}.gold.dim_product dp ON f.product_key = dp.product_key
+FROM ecom.gold.fact_order_lines f
+JOIN ecom.gold.dim_product dp ON f.product_key = dp.product_key
 GROUP BY dp.category
 ORDER BY category_revenue DESC;
 

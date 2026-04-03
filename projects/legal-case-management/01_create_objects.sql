@@ -7,17 +7,17 @@
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS legal TYPE EXTERNAL
     COMMENT 'Litigation analytics pipeline zone';
 
 -- ===================== SCHEMAS =====================
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw cases, parties, attorneys, billings, and relationship edges';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'Enriched cases with complexity scores, validated billings, party profiles';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold COMMENT 'Star schema, firm KPIs, and legal network property graph';
+CREATE SCHEMA IF NOT EXISTS legal.bronze COMMENT 'Raw cases, parties, attorneys, billings, and relationship edges';
+CREATE SCHEMA IF NOT EXISTS legal.silver COMMENT 'Enriched cases with complexity scores, validated billings, party profiles';
+CREATE SCHEMA IF NOT EXISTS legal.gold COMMENT 'Star schema, firm KPIs, and legal network property graph';
 
 -- ===================== BRONZE TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cases (
+CREATE DELTA TABLE IF NOT EXISTS legal.bronze.raw_cases (
     case_id             STRING      NOT NULL,
     case_number         STRING      NOT NULL,
     case_type           STRING      NOT NULL,
@@ -27,11 +27,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cases (
     status              STRING,
     priority            STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/legal/raw_cases';
+) LOCATION 'legal/bronze/legal/raw_cases';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_cases TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.bronze.raw_cases TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_parties (
+CREATE DELTA TABLE IF NOT EXISTS legal.bronze.raw_parties (
     party_id            STRING      NOT NULL,
     party_name          STRING      NOT NULL,
     party_type          STRING      NOT NULL,
@@ -41,11 +41,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_parties (
     organization        STRING,
     jurisdiction        STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/legal/raw_parties';
+) LOCATION 'legal/bronze/legal/raw_parties';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_parties TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.bronze.raw_parties TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_attorneys (
+CREATE DELTA TABLE IF NOT EXISTS legal.bronze.raw_attorneys (
     attorney_id         STRING      NOT NULL,
     attorney_name       STRING      NOT NULL,
     bar_number          STRING      NOT NULL,
@@ -54,11 +54,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_attorneys (
     years_experience    INT,
     hourly_rate         DECIMAL(8,2),
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/legal/raw_attorneys';
+) LOCATION 'legal/bronze/legal/raw_attorneys';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_attorneys TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.bronze.raw_attorneys TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_billings (
+CREATE DELTA TABLE IF NOT EXISTS legal.bronze.raw_billings (
     billing_id          STRING      NOT NULL,
     case_id             STRING      NOT NULL,
     attorney_id         STRING      NOT NULL,
@@ -70,11 +70,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_billings (
     billing_type        STRING,
     description         STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/legal/raw_billings';
+) LOCATION 'legal/bronze/legal/raw_billings';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_billings TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.bronze.raw_billings TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_relationships (
+CREATE DELTA TABLE IF NOT EXISTS legal.bronze.raw_relationships (
     relationship_id     STRING      NOT NULL,
     source_id           STRING      NOT NULL,
     target_id           STRING      NOT NULL,
@@ -84,14 +84,14 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_relationships (
     weight              DECIMAL(5,2),
     effective_date      DATE,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/legal/raw_relationships';
+) LOCATION 'legal/bronze/legal/raw_relationships';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_relationships TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.bronze.raw_relationships TO USER admin;
 
 -- ===================== BRONZE SEED: CASES (15 rows) =====================
 -- 5 civil, 3 criminal, 3 corporate, 2 IP, 2 employment
 
-INSERT INTO {{zone_prefix}}.bronze.raw_cases VALUES
+INSERT INTO legal.bronze.raw_cases VALUES
     ('C001', 'CV-2023-001', 'civil',      'NY Supreme',        '2023-01-10', NULL,         'active',   'high',   '2024-01-15T00:00:00'),
     ('C002', 'CV-2023-002', 'civil',      'CA Superior',       '2023-02-18', '2024-03-01', 'settled',  'medium', '2024-01-15T00:00:00'),
     ('C003', 'CV-2023-003', 'civil',      'IL Circuit',        '2023-03-22', NULL,         'active',   'high',   '2024-01-15T00:00:00'),
@@ -109,13 +109,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_cases VALUES
     ('C015', 'EM-2024-015', 'employment', 'CA Superior',       '2024-01-05', NULL,         'active',   'medium', '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 15
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cases;
+SELECT COUNT(*) AS row_count FROM legal.bronze.raw_cases;
 
 
 -- ===================== BRONZE SEED: PARTIES (25 rows) =====================
 -- plaintiffs, defendants, witnesses, experts
 
-INSERT INTO {{zone_prefix}}.bronze.raw_parties VALUES
+INSERT INTO legal.bronze.raw_parties VALUES
     ('P001', 'James Whitfield',       'plaintiff',  '111-22-3333', 'j.whitfield@email.com',   '212-555-0101', NULL,                       'NY', '2024-01-15T00:00:00'),
     ('P002', 'Apex Technologies Inc', 'plaintiff',  NULL,          'legal@apextech.com',       '415-555-0201', 'Apex Technologies Inc',    'CA', '2024-01-15T00:00:00'),
     ('P003', 'Maria Santos',          'defendant',  '222-33-4444', 'm.santos@email.com',       '312-555-0301', NULL,                       'IL', '2024-01-15T00:00:00'),
@@ -143,13 +143,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_parties VALUES
     ('P025', 'Frank Morales',         'witness',    '600-66-7777', 'f.morales@email.com',       '305-555-2501', NULL,                       'FL', '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 25
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_parties;
+SELECT COUNT(*) AS row_count FROM legal.bronze.raw_parties;
 
 
 -- ===================== BRONZE SEED: ATTORNEYS (10 rows) =====================
 -- 3 practice groups: litigation, corporate, ip
 
-INSERT INTO {{zone_prefix}}.bronze.raw_attorneys VALUES
+INSERT INTO legal.bronze.raw_attorneys VALUES
     ('A001', 'Victoria Sterling',  'BAR-2008-4521', 'litigation', true,  16, 650.00, '2024-01-15T00:00:00'),
     ('A002', 'Marcus Chen',        'BAR-2012-7834', 'litigation', false, 12, 475.00, '2024-01-15T00:00:00'),
     ('A003', 'Sophia Ramirez',     'BAR-2010-3267', 'ip',         true,  14, 580.00, '2024-01-15T00:00:00'),
@@ -162,13 +162,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_attorneys VALUES
     ('A010', 'Thomas Grant',       'BAR-2017-2345', 'litigation', false,  7, 350.00, '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 10
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_attorneys;
+SELECT COUNT(*) AS row_count FROM legal.bronze.raw_attorneys;
 
 
 -- ===================== BRONZE SEED: BILLINGS (70 rows) =====================
 -- Some non-billable: admin, pro-bono. 3 high-complexity cases (C001, C006, C009)
 
-INSERT INTO {{zone_prefix}}.bronze.raw_billings VALUES
+INSERT INTO legal.bronze.raw_billings VALUES
     ('B001', 'C001', 'A001', '2023-01-15', 6.5,  650.00, 4225.00,  true,  'billable',  'Complaint drafting and filing',          '2024-01-15T00:00:00'),
     ('B002', 'C001', 'A001', '2023-02-10', 8.0,  650.00, 5200.00,  true,  'billable',  'Motion for preliminary injunction',      '2024-01-15T00:00:00'),
     ('B003', 'C001', 'A002', '2023-02-10', 5.0,  475.00, 2375.00,  true,  'billable',  'Legal research re: standing',            '2024-01-15T00:00:00'),
@@ -241,7 +241,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_billings VALUES
     ('B070', 'C006', 'A002', '2023-09-25', 3.0,  475.00, 0.00,     false, 'admin',     'Team coordination call',                 '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 70
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_billings;
+SELECT COUNT(*) AS row_count FROM legal.bronze.raw_billings;
 
 
 -- ===================== BRONZE SEED: RELATIONSHIPS (40 rows) =====================
@@ -249,7 +249,7 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_billings;
 -- Includes: 2 attorneys who co-counsel frequently (A001-A002, A005-A007)
 -- Includes: 1 potential conflict (A009 connected to opposing parties via referral chain)
 
-INSERT INTO {{zone_prefix}}.bronze.raw_relationships VALUES
+INSERT INTO legal.bronze.raw_relationships VALUES
     -- represents (attorney->party)
     ('R001', 'A001', 'P001', 'attorney', 'party', 'represents',    1.00, '2023-01-10', '2024-01-15T00:00:00'),
     ('R002', 'A002', 'P002', 'attorney', 'party', 'represents',    1.00, '2023-02-18', '2024-01-15T00:00:00'),
@@ -299,12 +299,12 @@ INSERT INTO {{zone_prefix}}.bronze.raw_relationships VALUES
     ('R040', 'A003', 'P010', 'attorney', 'party', 'referral',      0.50, '2023-09-01', '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 40
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_relationships;
+SELECT COUNT(*) AS row_count FROM legal.bronze.raw_relationships;
 
 
 -- ===================== SILVER TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.cases_enriched (
+CREATE DELTA TABLE IF NOT EXISTS legal.silver.cases_enriched (
     case_id             STRING      NOT NULL,
     case_number         STRING      NOT NULL,
     case_type           STRING      NOT NULL,
@@ -320,11 +320,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.cases_enriched (
     total_billed_amount DECIMAL(12,2),
     complexity_score    DECIMAL(5,2),
     processed_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/legal/cases_enriched';
+) LOCATION 'legal/silver/legal/cases_enriched';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.cases_enriched TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.silver.cases_enriched TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.billings_validated (
+CREATE DELTA TABLE IF NOT EXISTS legal.silver.billings_validated (
     billing_id          STRING      NOT NULL,
     case_id             STRING      NOT NULL,
     attorney_id         STRING      NOT NULL,
@@ -339,11 +339,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.billings_validated (
     partner_flag        BOOLEAN,
     complexity_score    DECIMAL(5,2),
     processed_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/legal/billings_validated';
+) LOCATION 'legal/silver/legal/billings_validated';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.billings_validated TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.silver.billings_validated TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.party_profiles (
+CREATE DELTA TABLE IF NOT EXISTS legal.silver.party_profiles (
     party_id            STRING      NOT NULL,
     party_name          STRING      NOT NULL,
     party_type          STRING      NOT NULL,
@@ -353,13 +353,13 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.party_profiles (
     cases_as_expert     INT,
     total_involvement   INT,
     processed_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/legal/party_profiles';
+) LOCATION 'legal/silver/legal/party_profiles';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.party_profiles TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.silver.party_profiles TO USER admin;
 
 -- ===================== GOLD TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_case (
+CREATE DELTA TABLE IF NOT EXISTS legal.gold.dim_case (
     case_key            INT         NOT NULL,
     case_id             STRING      NOT NULL,
     case_number         STRING      NOT NULL,
@@ -371,11 +371,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_case (
     priority            STRING,
     complexity_score    DECIMAL(5,2),
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/legal/dim_case';
+) LOCATION 'legal/gold/legal/dim_case';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_case TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.gold.dim_case TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_attorney (
+CREATE DELTA TABLE IF NOT EXISTS legal.gold.dim_attorney (
     attorney_key        INT         NOT NULL,
     attorney_id         STRING      NOT NULL,
     attorney_name       STRING      NOT NULL,
@@ -385,11 +385,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_attorney (
     years_experience    INT,
     hourly_rate         DECIMAL(8,2),
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/legal/dim_attorney';
+) LOCATION 'legal/gold/legal/dim_attorney';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_attorney TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.gold.dim_attorney TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_party (
+CREATE DELTA TABLE IF NOT EXISTS legal.gold.dim_party (
     party_key           INT         NOT NULL,
     party_id            STRING      NOT NULL,
     party_name          STRING      NOT NULL,
@@ -397,11 +397,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_party (
     organization        STRING,
     jurisdiction        STRING,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/legal/dim_party';
+) LOCATION 'legal/gold/legal/dim_party';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_party TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.gold.dim_party TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_billings (
+CREATE DELTA TABLE IF NOT EXISTS legal.gold.fact_billings (
     billing_key         INT         NOT NULL,
     case_key            INT         NOT NULL,
     attorney_key        INT         NOT NULL,
@@ -412,11 +412,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_billings (
     billable_flag       BOOLEAN     NOT NULL,
     case_complexity     DECIMAL(5,2),
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/legal/fact_billings';
+) LOCATION 'legal/gold/legal/fact_billings';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_billings TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.gold.fact_billings TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_firm_performance (
+CREATE DELTA TABLE IF NOT EXISTS legal.gold.kpi_firm_performance (
     attorney_id         STRING      NOT NULL,
     attorney_name       STRING      NOT NULL,
     practice_group      STRING,
@@ -429,16 +429,16 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_firm_performance (
     avg_case_complexity DECIMAL(5,2),
     revenue_per_hour    DECIMAL(8,2),
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/legal/kpi_firm_performance';
+) LOCATION 'legal/gold/legal/kpi_firm_performance';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_firm_performance TO USER {{current_user}};
+GRANT ADMIN ON TABLE legal.gold.kpi_firm_performance TO USER admin;
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_parties (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
+CREATE PSEUDONYMISATION RULE ON legal.bronze.raw_parties (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_parties (party_name) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'legal_pii_salt_2024');
+CREATE PSEUDONYMISATION RULE ON legal.bronze.raw_parties (party_name) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'legal_pii_salt_2024');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_parties (contact_email) TRANSFORM mask PARAMS (show = 3);
+CREATE PSEUDONYMISATION RULE ON legal.bronze.raw_parties (contact_email) TRANSFORM mask PARAMS (show = 3);
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_parties (contact_phone) TRANSFORM mask PARAMS (show = 4);
+CREATE PSEUDONYMISATION RULE ON legal.bronze.raw_parties (contact_phone) TRANSFORM mask PARAMS (show = 4);

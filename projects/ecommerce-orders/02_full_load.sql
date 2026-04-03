@@ -50,22 +50,22 @@ PIPELINE ecommerce_orders_pipeline
 STEP validate_bronze
   TIMEOUT '2m'
 AS
-  SELECT COUNT(*) AS web_count FROM {{zone_prefix}}.bronze.raw_web_orders;
+  SELECT COUNT(*) AS web_count FROM ecom.bronze.raw_web_orders;
   ASSERT VALUE web_count >= 30
 
-  SELECT COUNT(*) AS mobile_count FROM {{zone_prefix}}.bronze.raw_mobile_orders;
+  SELECT COUNT(*) AS mobile_count FROM ecom.bronze.raw_mobile_orders;
   ASSERT VALUE mobile_count >= 20
 
-  SELECT COUNT(*) AS pos_count FROM {{zone_prefix}}.bronze.raw_pos_orders;
+  SELECT COUNT(*) AS pos_count FROM ecom.bronze.raw_pos_orders;
   ASSERT VALUE pos_count >= 25
 
-  SELECT COUNT(*) AS product_count FROM {{zone_prefix}}.bronze.raw_products;
+  SELECT COUNT(*) AS product_count FROM ecom.bronze.raw_products;
   ASSERT VALUE product_count = 20
 
-  SELECT COUNT(*) AS customer_count FROM {{zone_prefix}}.bronze.raw_customers;
+  SELECT COUNT(*) AS customer_count FROM ecom.bronze.raw_customers;
   ASSERT VALUE customer_count = 18
 
-  SELECT COUNT(*) AS event_count FROM {{zone_prefix}}.bronze.raw_browsing_events;
+  SELECT COUNT(*) AS event_count FROM ecom.bronze.raw_browsing_events;
   ASSERT VALUE event_count >= 40
   SELECT 'Bronze validation passed' AS status;
 
@@ -77,7 +77,7 @@ STEP merge_multi_source_orders
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.orders_unified AS tgt
+  MERGE INTO ecom.silver.orders_unified AS tgt
   USING (
       SELECT
           order_id, customer_id, product_id,
@@ -90,7 +90,7 @@ AS
           NULL AS store_id,
           session_id,
           ingested_at AS updated_at
-      FROM {{zone_prefix}}.bronze.raw_web_orders
+      FROM ecom.bronze.raw_web_orders
       UNION ALL
       SELECT
           order_id, customer_id, product_id,
@@ -103,7 +103,7 @@ AS
           NULL AS store_id,
           session_id,
           ingested_at AS updated_at
-      FROM {{zone_prefix}}.bronze.raw_mobile_orders
+      FROM ecom.bronze.raw_mobile_orders
       UNION ALL
       SELECT
           order_id, customer_id, product_id,
@@ -116,7 +116,7 @@ AS
           store_id,
           NULL AS session_id,
           ingested_at AS updated_at
-      FROM {{zone_prefix}}.bronze.raw_pos_orders
+      FROM ecom.bronze.raw_pos_orders
   ) AS src
   ON tgt.order_id = src.order_id AND tgt.product_id = src.product_id
   WHEN MATCHED AND src.status = 'cancelled' THEN UPDATE SET
@@ -149,7 +149,7 @@ STEP segment_customers
   DEPENDS ON (merge_multi_source_orders)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.customer_rfm AS tgt
+  MERGE INTO ecom.silver.customer_rfm AS tgt
   USING (
       WITH customer_metrics AS (
           SELECT
@@ -166,8 +166,8 @@ AS
               COALESCE(SUM(o.line_total), 0) AS total_revenue,
               MAX(o.order_date) AS last_order_date,
               DATEDIFF(CAST('2024-07-01' AS DATE), MAX(o.order_date)) AS recency_days
-          FROM {{zone_prefix}}.bronze.raw_customers c
-          LEFT JOIN {{zone_prefix}}.silver.orders_unified o
+          FROM ecom.bronze.raw_customers c
+          LEFT JOIN ecom.silver.orders_unified o
               ON c.customer_id = o.customer_id
               AND o.is_deleted = false
           GROUP BY c.customer_id, c.email, c.first_name, c.last_name, c.segment,
@@ -226,7 +226,7 @@ STEP build_sessions
   DEPENDS ON (merge_multi_source_orders)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.sessions AS tgt
+  MERGE INTO ecom.silver.sessions AS tgt
   USING (
       WITH event_gaps AS (
           SELECT
@@ -241,7 +241,7 @@ AS
                   WHEN DATEDIFF(event_ts, LAG(event_ts) OVER (PARTITION BY customer_id ORDER BY event_ts)) > 0 THEN 1
                   ELSE 0
               END AS new_session_flag
-          FROM {{zone_prefix}}.bronze.raw_browsing_events
+          FROM ecom.bronze.raw_browsing_events
       ),
       session_numbered AS (
           SELECT
@@ -294,12 +294,12 @@ AS
 STEP build_dim_product
   DEPENDS ON (merge_multi_source_orders)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_product AS tgt
+  MERGE INTO ecom.gold.dim_product AS tgt
   USING (
       SELECT
           product_id AS product_key, sku, product_name, category,
           subcategory, brand, unit_cost, list_price
-      FROM {{zone_prefix}}.bronze.raw_products
+      FROM ecom.bronze.raw_products
   ) AS src
   ON tgt.product_key = src.product_key
   WHEN MATCHED THEN UPDATE SET
@@ -318,7 +318,7 @@ AS
 STEP build_dim_channel
   DEPENDS ON (merge_multi_source_orders)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_channel AS tgt
+  MERGE INTO ecom.gold.dim_channel AS tgt
   USING (
       SELECT DISTINCT
           channel AS channel_key,
@@ -328,7 +328,7 @@ AS
               WHEN channel = 'mobile' THEN 'Mobile application'
               WHEN channel = 'pos' THEN 'In-store POS terminal'
           END AS channel_detail
-      FROM {{zone_prefix}}.silver.orders_unified
+      FROM ecom.silver.orders_unified
   ) AS src
   ON tgt.channel_key = src.channel_key
   WHEN NOT MATCHED THEN INSERT (channel_key, channel_name, channel_detail)
@@ -339,7 +339,7 @@ AS
 STEP build_dim_customer
   DEPENDS ON (segment_customers)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_customer AS tgt
+  MERGE INTO ecom.gold.dim_customer AS tgt
   USING (
       SELECT
           r.customer_id AS customer_key,
@@ -354,8 +354,8 @@ AS
           r.total_orders AS lifetime_orders,
           r.total_revenue AS lifetime_revenue,
           r.rfm_segment
-      FROM {{zone_prefix}}.silver.customer_rfm r
-      JOIN {{zone_prefix}}.bronze.raw_customers c ON r.customer_id = c.customer_id
+      FROM ecom.silver.customer_rfm r
+      JOIN ecom.bronze.raw_customers c ON r.customer_id = c.customer_id
   ) AS src
   ON tgt.customer_key = src.customer_key
   WHEN MATCHED THEN UPDATE SET
@@ -377,11 +377,11 @@ AS
 STEP build_dim_date
   DEPENDS ON (merge_multi_source_orders)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_date AS tgt
+  MERGE INTO ecom.gold.dim_date AS tgt
   USING (
       WITH date_spine AS (
           SELECT DISTINCT order_date AS full_date
-          FROM {{zone_prefix}}.silver.orders_unified
+          FROM ecom.silver.orders_unified
       )
       SELECT
           CAST(EXTRACT(YEAR FROM full_date) * 10000
@@ -416,7 +416,7 @@ STEP build_fact_order_lines
   DEPENDS ON (build_dim_product, build_dim_channel, build_dim_customer, build_dim_date)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_order_lines AS tgt
+  MERGE INTO ecom.gold.fact_order_lines AS tgt
   USING (
       SELECT
           o.order_id || '-' || o.product_id AS order_line_key,
@@ -434,7 +434,7 @@ AS
           o.line_total,
           o.shipping_cost,
           o.status
-      FROM {{zone_prefix}}.silver.orders_unified o
+      FROM ecom.silver.orders_unified o
       WHERE o.is_deleted = false
   ) AS src
   ON tgt.order_line_key = src.order_line_key
@@ -459,7 +459,7 @@ AS
 STEP compute_sales_kpi
   DEPENDS ON (build_fact_order_lines)
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_sales_dashboard AS tgt
+  MERGE INTO ecom.gold.kpi_sales_dashboard AS tgt
   USING (
       WITH monthly_orders AS (
           SELECT
@@ -470,7 +470,7 @@ AS
               o.line_total,
               o.is_deleted,
               o.status
-          FROM {{zone_prefix}}.silver.orders_unified o
+          FROM ecom.silver.orders_unified o
       ),
       repeat_cust AS (
           SELECT customer_id
@@ -539,7 +539,7 @@ AS
 STEP compute_funnel_kpi
   DEPENDS ON (build_sessions)
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_funnel_analysis AS tgt
+  MERGE INTO ecom.gold.kpi_funnel_analysis AS tgt
   USING (
       SELECT
           DATE_TRUNC('month', session_start) AS report_month,
@@ -564,7 +564,7 @@ AS
               THEN CAST(COUNT(CASE WHEN purchase_count > 0 THEN 1 END) * 100.0
                    / COUNT(*) AS DECIMAL(5,2))
               ELSE 0 END AS overall_conversion_pct
-      FROM {{zone_prefix}}.silver.sessions
+      FROM ecom.silver.sessions
       GROUP BY DATE_TRUNC('month', session_start)
   ) AS src
   ON tgt.report_month = src.report_month
@@ -594,7 +594,7 @@ AS
 STEP materialize_inventory_cdf
   DEPENDS ON (compute_sales_kpi)
 AS
-  MERGE INTO {{zone_prefix}}.silver.inventory_adjustments AS tgt
+  MERGE INTO ecom.silver.inventory_adjustments AS tgt
   USING (
       SELECT
           order_id || '-' || product_id || '-INV' AS adjustment_id,
@@ -611,7 +611,7 @@ AS
               ELSE -1 * quantity
           END AS quantity_delta,
           'CDF from orders_unified: status=' || status AS reason
-      FROM {{zone_prefix}}.silver.orders_unified
+      FROM ecom.silver.orders_unified
   ) AS src
   ON tgt.adjustment_id = src.adjustment_id
   WHEN MATCHED THEN UPDATE SET
@@ -632,6 +632,6 @@ STEP optimize_zorder
   DEPENDS ON (materialize_inventory_cdf, compute_funnel_kpi)
   CONTINUE ON FAILURE
 AS
-  OPTIMIZE {{zone_prefix}}.silver.orders_unified ZORDER BY (customer_id, order_date);
-  OPTIMIZE {{zone_prefix}}.gold.fact_order_lines ZORDER BY (customer_key, order_date);
-  OPTIMIZE {{zone_prefix}}.gold.kpi_sales_dashboard;
+  OPTIMIZE ecom.silver.orders_unified ZORDER BY (customer_id, order_date);
+  OPTIMIZE ecom.gold.fact_order_lines ZORDER BY (customer_key, order_date);
+  OPTIMIZE ecom.gold.kpi_sales_dashboard;

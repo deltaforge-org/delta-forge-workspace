@@ -6,7 +6,7 @@
 -- Movement types: receipt, pick, ship, cycle_count, adjustment
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS {{zone_prefix}}.bronze.warehouse_movements (
+CREATE TABLE IF NOT EXISTS sc.bronze.warehouse_movements (
   movement_id     STRING,
   warehouse_id    STRING,
   sku             STRING,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS {{zone_prefix}}.bronze.warehouse_movements (
   ingested_at     TIMESTAMP
 );
 
-INSERT INTO {{zone_prefix}}.bronze.warehouse_movements VALUES
+INSERT INTO sc.bronze.warehouse_movements VALUES
   -- Warehouse W001 (East Coast DC) — Receipts from POs
   ('WM-0001', 'W001', 'SKU-001', 'receipt',      500,  'PO-1001', '2026-03-07 08:30:00', '2026-03-07 09:00:00'),
   ('WM-0002', 'W001', 'SKU-003', 'receipt',      300,  'PO-1002', '2026-03-10 09:30:00', '2026-03-10 10:00:00'),

@@ -21,16 +21,16 @@ STEP validate_bronze
   TIMEOUT '2m'
 AS
   ASSERT ROW_COUNT = 20
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_employees;
+  SELECT COUNT(*) AS row_count FROM hr.bronze.raw_employees;
 
   ASSERT ROW_COUNT = 55
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_comp_events;
+  SELECT COUNT(*) AS row_count FROM hr.bronze.raw_comp_events;
 
   ASSERT ROW_COUNT = 6
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_departments;
+  SELECT COUNT(*) AS row_count FROM hr.bronze.raw_departments;
 
   ASSERT ROW_COUNT = 10
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_positions;
+  SELECT COUNT(*) AS row_count FROM hr.bronze.raw_positions;
 
 -- ===================== STEP 2: build_employee_scd2_initial =====================
 -- Pass 1 of 3: Load initial hire records for each employee
@@ -39,7 +39,7 @@ STEP build_employee_scd2_initial
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.employee_dim
+  INSERT INTO hr.silver.employee_dim
   SELECT
       ROW_NUMBER() OVER (ORDER BY e.employee_id) AS surrogate_key,
       e.employee_id,
@@ -58,16 +58,16 @@ AS
       CAST(e.hire_date AS DATE) AS valid_from,
       CAST(NULL AS DATE) AS valid_to,
       true AS is_current
-  FROM {{zone_prefix}}.bronze.raw_employees e
+  FROM hr.bronze.raw_employees e
   JOIN (
       SELECT employee_id, base_salary,
              ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date) AS rn
-      FROM {{zone_prefix}}.bronze.raw_comp_events
+      FROM hr.bronze.raw_comp_events
       WHERE event_type = 'hire'
   ) ce ON e.employee_id = ce.employee_id AND ce.rn = 1;
 
   ASSERT ROW_COUNT = 20
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.silver.employee_dim;
+  SELECT COUNT(*) AS row_count FROM hr.silver.employee_dim;
 
 -- ===================== STEP 3: expire_scd2_records =====================
 -- Pass 2 of 3: Expire current records where a dimension-changing event occurred
@@ -77,7 +77,7 @@ STEP expire_scd2_records
   DEPENDS ON (build_employee_scd2_initial)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.employee_dim AS tgt
+  MERGE INTO hr.silver.employee_dim AS tgt
   USING (
       SELECT DISTINCT
           ce.employee_id,
@@ -85,7 +85,7 @@ AS
           ce.position_id   AS new_pos,
           ce.base_salary   AS new_salary,
           CAST(ce.event_date AS DATE) AS change_date
-      FROM {{zone_prefix}}.bronze.raw_comp_events ce
+      FROM hr.bronze.raw_comp_events ce
       WHERE ce.event_type IN ('promotion', 'salary_adjustment', 'transfer')
   ) AS changes
   ON tgt.employee_id = changes.employee_id
@@ -105,7 +105,7 @@ STEP insert_scd2_current
   DEPENDS ON (expire_scd2_records)
   TIMEOUT '5m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.employee_dim
+  INSERT INTO hr.silver.employee_dim
   SELECT
       20 + ROW_NUMBER() OVER (ORDER BY ce.employee_id, ce.event_date) AS surrogate_key,
       ce.employee_id,
@@ -127,15 +127,15 @@ AS
   FROM (
       SELECT employee_id, department_id, position_id, base_salary, event_date,
              ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date DESC) AS rn
-      FROM {{zone_prefix}}.bronze.raw_comp_events
+      FROM hr.bronze.raw_comp_events
       WHERE event_type IN ('promotion', 'salary_adjustment', 'transfer')
   ) ce
-  JOIN {{zone_prefix}}.bronze.raw_employees e ON ce.employee_id = e.employee_id
+  JOIN hr.bronze.raw_employees e ON ce.employee_id = e.employee_id
   WHERE ce.rn = 1;
 
   -- SCD2 should have 20 initial + dimension-change rows
   ASSERT ROW_COUNT >= 32
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.silver.employee_dim;
+  SELECT COUNT(*) AS row_count FROM hr.silver.employee_dim;
 
 -- ===================== STEP 5: enrich_comp_events =====================
 -- Calculate total comp, salary change pct, compa-ratio
@@ -144,7 +144,7 @@ STEP enrich_comp_events
   DEPENDS ON (insert_scd2_current)
   TIMEOUT '5m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.comp_events_enriched
+  INSERT INTO hr.silver.comp_events_enriched
   SELECT
       ce.event_id,
       ce.employee_id,
@@ -167,17 +167,17 @@ AS
           3
       ) AS compa_ratio,
       CURRENT_TIMESTAMP AS processed_at
-  FROM {{zone_prefix}}.bronze.raw_comp_events ce
+  FROM hr.bronze.raw_comp_events ce
   LEFT JOIN (
       SELECT employee_id, base_salary, event_date,
              LEAD(event_date) OVER (PARTITION BY employee_id ORDER BY event_date) AS next_event_date
-      FROM {{zone_prefix}}.bronze.raw_comp_events
+      FROM hr.bronze.raw_comp_events
   ) prev ON ce.employee_id = prev.employee_id
          AND ce.event_date = prev.next_event_date
-  JOIN {{zone_prefix}}.bronze.raw_positions p ON ce.position_id = p.position_id;
+  JOIN hr.bronze.raw_positions p ON ce.position_id = p.position_id;
 
   ASSERT ROW_COUNT = 55
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.silver.comp_events_enriched;
+  SELECT COUNT(*) AS row_count FROM hr.silver.comp_events_enriched;
 
 -- ===================== STEP 6: enable_cdf_org_log =====================
 -- Populate org change log from SCD2 dimension changes via CDF
@@ -186,7 +186,7 @@ STEP enable_cdf_org_log
   DEPENDS ON (enrich_comp_events)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.org_change_log
+  INSERT INTO hr.silver.org_change_log
   SELECT
       ROW_NUMBER() OVER (ORDER BY expired.employee_id, expired.valid_to) AS change_id,
       expired.employee_id,
@@ -209,21 +209,21 @@ AS
       END AS new_value,
       expired.valid_to AS effective_date,
       CURRENT_TIMESTAMP AS captured_at
-  FROM {{zone_prefix}}.silver.employee_dim expired
-  JOIN {{zone_prefix}}.silver.employee_dim current_row
+  FROM hr.silver.employee_dim expired
+  JOIN hr.silver.employee_dim current_row
       ON expired.employee_id = current_row.employee_id
       AND current_row.valid_from = expired.valid_to
   WHERE expired.is_current = false;
 
   ASSERT ROW_COUNT > 0
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.silver.org_change_log;
+  SELECT COUNT(*) AS row_count FROM hr.silver.org_change_log;
 
 -- ===================== STEP 7: dim_department =====================
 
 STEP dim_department
   DEPENDS ON (enable_cdf_org_log)
 AS
-  INSERT INTO {{zone_prefix}}.gold.dim_department
+  INSERT INTO hr.gold.dim_department
   SELECT
       ROW_NUMBER() OVER (ORDER BY d.department_id) AS department_key,
       d.department_id,
@@ -234,17 +234,17 @@ AS
       d.annual_budget,
       d.manager_name,
       CURRENT_TIMESTAMP AS loaded_at
-  FROM {{zone_prefix}}.bronze.raw_departments d;
+  FROM hr.bronze.raw_departments d;
 
   ASSERT ROW_COUNT = 6
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.gold.dim_department;
+  SELECT COUNT(*) AS row_count FROM hr.gold.dim_department;
 
 -- ===================== STEP 8: dim_position =====================
 
 STEP dim_position
   DEPENDS ON (enable_cdf_org_log)
 AS
-  INSERT INTO {{zone_prefix}}.gold.dim_position
+  INSERT INTO hr.gold.dim_position
   SELECT
       ROW_NUMBER() OVER (ORDER BY p.position_id) AS position_key,
       p.position_id,
@@ -256,10 +256,10 @@ AS
       (p.pay_grade_min + p.pay_grade_max) / 2 AS pay_grade_midpoint,
       p.exempt_flag,
       CURRENT_TIMESTAMP AS loaded_at
-  FROM {{zone_prefix}}.bronze.raw_positions p;
+  FROM hr.bronze.raw_positions p;
 
   ASSERT ROW_COUNT = 10
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.gold.dim_position;
+  SELECT COUNT(*) AS row_count FROM hr.gold.dim_position;
 
 -- ===================== STEP 9: build_fact_compensation =====================
 -- Star schema fact: joins enriched events with dimension keys
@@ -268,7 +268,7 @@ STEP build_fact_compensation
   DEPENDS ON (dim_department, dim_position)
   TIMEOUT '5m'
 AS
-  INSERT INTO {{zone_prefix}}.gold.fact_compensation
+  INSERT INTO hr.gold.fact_compensation
   SELECT
       ROW_NUMBER() OVER (ORDER BY ce.event_id) AS event_key,
       ed.surrogate_key AS employee_key,
@@ -283,17 +283,17 @@ AS
       ce.performance_rating,
       ce.compa_ratio,
       CURRENT_TIMESTAMP AS loaded_at
-  FROM {{zone_prefix}}.silver.comp_events_enriched ce
-  JOIN {{zone_prefix}}.silver.employee_dim ed
+  FROM hr.silver.comp_events_enriched ce
+  JOIN hr.silver.employee_dim ed
       ON ce.employee_id = ed.employee_id
       AND ed.is_current = true
-  JOIN {{zone_prefix}}.gold.dim_department dd
+  JOIN hr.gold.dim_department dd
       ON ce.department_id = dd.department_id
-  JOIN {{zone_prefix}}.gold.dim_position dp
+  JOIN hr.gold.dim_position dp
       ON ce.position_id = dp.position_id;
 
   ASSERT ROW_COUNT = 55
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.gold.fact_compensation;
+  SELECT COUNT(*) AS row_count FROM hr.gold.fact_compensation;
 
 -- ===================== STEP 10: kpi_workforce_analytics =====================
 -- Headcount, avg/median salary, turnover, promotion rate, gender pay gap, compa-ratio
@@ -302,7 +302,7 @@ STEP kpi_workforce_analytics
   DEPENDS ON (build_fact_compensation)
   TIMEOUT '5m'
 AS
-  INSERT INTO {{zone_prefix}}.gold.kpi_workforce_analytics
+  INSERT INTO hr.gold.kpi_workforce_analytics
   SELECT
       dd.department_name,
       CONCAT(
@@ -339,10 +339,10 @@ AS
       ) AS gender_pay_gap_pct,
       ROUND(AVG(fc.compa_ratio), 3) AS avg_compa_ratio,
       CURRENT_TIMESTAMP AS loaded_at
-  FROM {{zone_prefix}}.gold.fact_compensation fc
-  JOIN {{zone_prefix}}.silver.employee_dim ed ON fc.employee_key = ed.surrogate_key
-  JOIN {{zone_prefix}}.bronze.raw_employees e ON ed.employee_id = e.employee_id
-  JOIN {{zone_prefix}}.gold.dim_department dd ON fc.department_key = dd.department_key
+  FROM hr.gold.fact_compensation fc
+  JOIN hr.silver.employee_dim ed ON fc.employee_key = ed.surrogate_key
+  JOIN hr.bronze.raw_employees e ON ed.employee_id = e.employee_id
+  JOIN hr.gold.dim_department dd ON fc.department_key = dd.department_key
   GROUP BY
       dd.department_name,
       CONCAT(
@@ -352,7 +352,7 @@ AS
       );
 
   ASSERT ROW_COUNT > 0
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.gold.kpi_workforce_analytics;
+  SELECT COUNT(*) AS row_count FROM hr.gold.kpi_workforce_analytics;
 
 -- ===================== STEP 11: kpi_retention_risk =====================
 -- Risk scoring: tenure < 1yr (25pts) + salary_change < 3% (20pts) +
@@ -362,7 +362,7 @@ STEP kpi_retention_risk
   DEPENDS ON (build_fact_compensation)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.gold.kpi_retention_risk
+  INSERT INTO hr.gold.kpi_retention_risk
   SELECT
       ed.employee_id,
       ed.employee_name,
@@ -395,20 +395,20 @@ AS
           ELSE 'low'
       END AS risk_category,
       CURRENT_TIMESTAMP AS loaded_at
-  FROM {{zone_prefix}}.silver.employee_dim ed
-  JOIN {{zone_prefix}}.gold.dim_department dd
+  FROM hr.silver.employee_dim ed
+  JOIN hr.gold.dim_department dd
       ON ed.department_id = dd.department_id
-  JOIN {{zone_prefix}}.gold.dim_position dp
+  JOIN hr.gold.dim_position dp
       ON ed.position_id = dp.position_id
   LEFT JOIN (
       SELECT employee_id, salary_change_pct,
              ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date DESC) AS rn
-      FROM {{zone_prefix}}.silver.comp_events_enriched
+      FROM hr.silver.comp_events_enriched
       WHERE event_type IN ('salary_adjustment', 'promotion')
   ) latest_change ON ed.employee_id = latest_change.employee_id AND latest_change.rn = 1
   LEFT JOIN (
       SELECT employee_id, COUNT(*) AS promotions_in_3yr
-      FROM {{zone_prefix}}.silver.comp_events_enriched
+      FROM hr.silver.comp_events_enriched
       WHERE event_type = 'promotion'
         AND event_date >= CAST('2022-01-01' AS DATE)
       GROUP BY employee_id
@@ -416,13 +416,13 @@ AS
   LEFT JOIN (
       SELECT employee_id, compa_ratio,
              ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date DESC) AS rn
-      FROM {{zone_prefix}}.silver.comp_events_enriched
+      FROM hr.silver.comp_events_enriched
   ) latest_compa ON ed.employee_id = latest_compa.employee_id AND latest_compa.rn = 1
   WHERE ed.is_current = true
     AND ed.termination_date IS NULL;
 
   ASSERT ROW_COUNT > 0
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.gold.kpi_retention_risk;
+  SELECT COUNT(*) AS row_count FROM hr.gold.kpi_retention_risk;
 
 -- ===================== STEP 12: gdpr_erasure_demo =====================
 -- DELETE terminated employee EMP-005, VACUUM to prove physical deletion,
@@ -433,34 +433,34 @@ STEP gdpr_erasure_demo
   TIMEOUT '5m'
 AS
   -- Step A: Show employee exists before erasure
-  SELECT * FROM {{zone_prefix}}.silver.employee_dim
+  SELECT * FROM hr.silver.employee_dim
   WHERE employee_id = 'EMP-005';
 
   -- Step B: Delete all records for terminated employee EMP-005
-  DELETE FROM {{zone_prefix}}.silver.employee_dim
+  DELETE FROM hr.silver.employee_dim
   WHERE employee_id = 'EMP-005';
 
-  DELETE FROM {{zone_prefix}}.silver.comp_events_enriched
+  DELETE FROM hr.silver.comp_events_enriched
   WHERE employee_id = 'EMP-005';
 
   -- Step C: VACUUM to physically remove deleted data
-  VACUUM {{zone_prefix}}.silver.employee_dim;
-  VACUUM {{zone_prefix}}.silver.comp_events_enriched;
+  VACUUM hr.silver.employee_dim;
+  VACUUM hr.silver.comp_events_enriched;
 
   -- Step D: Verify deletion - should return 0 rows
   ASSERT ROW_COUNT = 0
-  SELECT * FROM {{zone_prefix}}.silver.employee_dim
+  SELECT * FROM hr.silver.employee_dim
   WHERE employee_id = 'EMP-005';
 
   -- Step E: VERSION AS OF - prove the employee existed before deletion
-  SELECT * FROM {{zone_prefix}}.silver.employee_dim VERSION AS OF 1
+  SELECT * FROM hr.silver.employee_dim VERSION AS OF 1
   WHERE employee_id = 'EMP-005';
 
   -- Step F: RESTORE to recover (demonstrates capability)
-  RESTORE {{zone_prefix}}.silver.employee_dim TO VERSION 1;
+  RESTORE hr.silver.employee_dim TO VERSION 1;
 
   -- Step G: Re-delete after demonstrating restore
-  DELETE FROM {{zone_prefix}}.silver.employee_dim
+  DELETE FROM hr.silver.employee_dim
   WHERE employee_id = 'EMP-005';
 
 -- ===================== STEP 13: optimize =====================
@@ -469,11 +469,11 @@ STEP optimize
   DEPENDS ON (gdpr_erasure_demo)
   CONTINUE ON FAILURE
 AS
-  OPTIMIZE {{zone_prefix}}.silver.employee_dim;
-  OPTIMIZE {{zone_prefix}}.silver.comp_events_enriched;
-  OPTIMIZE {{zone_prefix}}.silver.org_change_log;
-  OPTIMIZE {{zone_prefix}}.gold.dim_department;
-  OPTIMIZE {{zone_prefix}}.gold.dim_position;
-  OPTIMIZE {{zone_prefix}}.gold.fact_compensation;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_workforce_analytics;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_retention_risk;
+  OPTIMIZE hr.silver.employee_dim;
+  OPTIMIZE hr.silver.comp_events_enriched;
+  OPTIMIZE hr.silver.org_change_log;
+  OPTIMIZE hr.gold.dim_department;
+  OPTIMIZE hr.gold.dim_position;
+  OPTIMIZE hr.gold.fact_compensation;
+  OPTIMIZE hr.gold.kpi_workforce_analytics;
+  OPTIMIZE hr.gold.kpi_retention_risk;

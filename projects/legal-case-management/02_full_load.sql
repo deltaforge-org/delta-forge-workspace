@@ -19,19 +19,19 @@ STEP validate_bronze
   TIMEOUT '2m'
 AS
   ASSERT ROW_COUNT = 15
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cases;
+  SELECT COUNT(*) AS row_count FROM legal.bronze.raw_cases;
 
   ASSERT ROW_COUNT = 25
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_parties;
+  SELECT COUNT(*) AS row_count FROM legal.bronze.raw_parties;
 
   ASSERT ROW_COUNT = 10
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_attorneys;
+  SELECT COUNT(*) AS row_count FROM legal.bronze.raw_attorneys;
 
   ASSERT ROW_COUNT = 70
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_billings;
+  SELECT COUNT(*) AS row_count FROM legal.bronze.raw_billings;
 
   ASSERT ROW_COUNT = 40
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_relationships;
+  SELECT COUNT(*) AS row_count FROM legal.bronze.raw_relationships;
 
 -- ===================== STEP 2: enrich_cases =====================
 -- Compute duration, attorney count, party count, billing totals, complexity score
@@ -40,7 +40,7 @@ STEP enrich_cases
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.cases_enriched
+  INSERT INTO legal.silver.cases_enriched
   SELECT
       c.case_id,
       c.case_number,
@@ -63,7 +63,7 @@ AS
           / 2.0
       , 2))) AS complexity_score,
       CURRENT_TIMESTAMP AS processed_at
-  FROM {{zone_prefix}}.bronze.raw_cases c
+  FROM legal.bronze.raw_cases c
   LEFT JOIN (
       SELECT
           b.case_id,
@@ -72,18 +72,18 @@ AS
               + COUNT(DISTINCT r.target_id) AS party_count,
           SUM(b.hours)  AS total_billed_hours,
           SUM(CASE WHEN b.billable_flag = true THEN b.amount ELSE 0 END) AS total_billed_amount
-      FROM {{zone_prefix}}.bronze.raw_billings b
-      LEFT JOIN {{zone_prefix}}.bronze.raw_relationships r
+      FROM legal.bronze.raw_billings b
+      LEFT JOIN legal.bronze.raw_relationships r
           ON r.relationship_type = 'represents'
           AND r.target_id IN (
-              SELECT p.party_id FROM {{zone_prefix}}.bronze.raw_parties p
+              SELECT p.party_id FROM legal.bronze.raw_parties p
           )
           AND r.source_id = b.attorney_id
       GROUP BY b.case_id
   ) agg ON c.case_id = agg.case_id;
 
   ASSERT ROW_COUNT = 15
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.silver.cases_enriched;
+  SELECT COUNT(*) AS row_count FROM legal.silver.cases_enriched;
 
 -- ===================== STEP 3: validate_billings =====================
 -- Join billings with case/attorney metadata; enforce CHECK constraints via query
@@ -92,7 +92,7 @@ STEP validate_billings
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.billings_validated
+  INSERT INTO legal.silver.billings_validated
   SELECT
       b.billing_id,
       b.case_id,
@@ -108,15 +108,15 @@ AS
       a.partner_flag,
       ce.complexity_score,
       CURRENT_TIMESTAMP AS processed_at
-  FROM {{zone_prefix}}.bronze.raw_billings b
-  JOIN {{zone_prefix}}.bronze.raw_cases c ON b.case_id = c.case_id
-  JOIN {{zone_prefix}}.bronze.raw_attorneys a ON b.attorney_id = a.attorney_id
-  LEFT JOIN {{zone_prefix}}.silver.cases_enriched ce ON b.case_id = ce.case_id
+  FROM legal.bronze.raw_billings b
+  JOIN legal.bronze.raw_cases c ON b.case_id = c.case_id
+  JOIN legal.bronze.raw_attorneys a ON b.attorney_id = a.attorney_id
+  LEFT JOIN legal.silver.cases_enriched ce ON b.case_id = ce.case_id
   WHERE b.hours > 0
     AND b.hourly_rate > 0;
 
   ASSERT ROW_COUNT = 70
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.silver.billings_validated;
+  SELECT COUNT(*) AS row_count FROM legal.silver.billings_validated;
 
 -- ===================== STEP 4: build_party_profiles =====================
 
@@ -124,7 +124,7 @@ STEP build_party_profiles
   DEPENDS ON (enrich_cases, validate_billings)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.party_profiles
+  INSERT INTO legal.silver.party_profiles
   SELECT
       p.party_id,
       p.party_name,
@@ -135,13 +135,13 @@ AS
       COALESCE(SUM(CASE WHEN r.relationship_type = 'witnesses_for' AND p.party_type = 'expert' THEN 1 ELSE 0 END), 0) AS cases_as_expert,
       COUNT(DISTINCT r.relationship_id) AS total_involvement,
       CURRENT_TIMESTAMP AS processed_at
-  FROM {{zone_prefix}}.bronze.raw_parties p
-  LEFT JOIN {{zone_prefix}}.bronze.raw_relationships r
+  FROM legal.bronze.raw_parties p
+  LEFT JOIN legal.bronze.raw_relationships r
       ON (r.source_id = p.party_id OR r.target_id = p.party_id)
   GROUP BY p.party_id, p.party_name, p.party_type;
 
   ASSERT ROW_COUNT = 25
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.silver.party_profiles;
+  SELECT COUNT(*) AS row_count FROM legal.silver.party_profiles;
 
 -- ===================== STEP 5: dim_case =====================
 
@@ -149,7 +149,7 @@ STEP dim_case
   DEPENDS ON (build_party_profiles)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_case AS target
+  MERGE INTO legal.gold.dim_case AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY ce.case_id) AS case_key,
@@ -162,7 +162,7 @@ AS
           ce.status,
           ce.priority,
           ce.complexity_score
-      FROM {{zone_prefix}}.silver.cases_enriched ce
+      FROM legal.silver.cases_enriched ce
   ) AS source
   ON target.case_id = source.case_id
   WHEN MATCHED THEN UPDATE SET
@@ -185,7 +185,7 @@ AS
 STEP dim_attorney
   DEPENDS ON (build_party_profiles)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_attorney AS target
+  MERGE INTO legal.gold.dim_attorney AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY a.attorney_id) AS attorney_key,
@@ -196,7 +196,7 @@ AS
           a.partner_flag,
           a.years_experience,
           a.hourly_rate
-      FROM {{zone_prefix}}.bronze.raw_attorneys a
+      FROM legal.bronze.raw_attorneys a
   ) AS source
   ON target.attorney_id = source.attorney_id
   WHEN MATCHED THEN UPDATE SET
@@ -220,7 +220,7 @@ AS
 STEP dim_party
   DEPENDS ON (build_party_profiles)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_party AS target
+  MERGE INTO legal.gold.dim_party AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY p.party_id) AS party_key,
@@ -229,7 +229,7 @@ AS
           p.party_type,
           p.organization,
           p.jurisdiction
-      FROM {{zone_prefix}}.bronze.raw_parties p
+      FROM legal.bronze.raw_parties p
   ) AS source
   ON target.party_id = source.party_id
   WHEN MATCHED THEN UPDATE SET
@@ -251,7 +251,7 @@ STEP build_fact_billings
   DEPENDS ON (dim_case, dim_attorney, dim_party)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_billings AS target
+  MERGE INTO legal.gold.fact_billings AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY bv.billing_date, bv.billing_id) AS billing_key,
@@ -263,9 +263,9 @@ AS
           bv.amount,
           bv.billable_flag,
           bv.complexity_score AS case_complexity
-      FROM {{zone_prefix}}.silver.billings_validated bv
-      JOIN {{zone_prefix}}.gold.dim_case dc ON bv.case_id = dc.case_id
-      JOIN {{zone_prefix}}.gold.dim_attorney da ON bv.attorney_id = da.attorney_id
+      FROM legal.silver.billings_validated bv
+      JOIN legal.gold.dim_case dc ON bv.case_id = dc.case_id
+      JOIN legal.gold.dim_attorney da ON bv.attorney_id = da.attorney_id
   ) AS source
   ON target.case_key = source.case_key
      AND target.attorney_key = source.attorney_key
@@ -286,7 +286,7 @@ AS
   );
 
   ASSERT ROW_COUNT = 70
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.gold.fact_billings;
+  SELECT COUNT(*) AS row_count FROM legal.gold.fact_billings;
 
 -- ===================== STEP 9: compute_firm_kpi =====================
 -- Utilization rates, revenue per attorney, case profitability
@@ -295,7 +295,7 @@ STEP compute_firm_kpi
   DEPENDS ON (build_fact_billings)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.gold.kpi_firm_performance
+  INSERT INTO legal.gold.kpi_firm_performance
   SELECT
       da.attorney_id,
       da.attorney_name,
@@ -316,12 +316,12 @@ AS
           2
       ) AS revenue_per_hour,
       CURRENT_TIMESTAMP AS loaded_at
-  FROM {{zone_prefix}}.gold.fact_billings fb
-  JOIN {{zone_prefix}}.gold.dim_attorney da ON fb.attorney_key = da.attorney_key
+  FROM legal.gold.fact_billings fb
+  JOIN legal.gold.dim_attorney da ON fb.attorney_key = da.attorney_key
   GROUP BY da.attorney_id, da.attorney_name, da.practice_group, da.partner_flag;
 
   ASSERT ROW_COUNT = 10
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.gold.kpi_firm_performance;
+  SELECT COUNT(*) AS row_count FROM legal.gold.kpi_firm_performance;
 
 -- ===================== STEP 10: build_legal_graph =====================
 -- Property graph with parties as vertices, relationships as typed/weighted edges
@@ -329,12 +329,12 @@ AS
 STEP build_legal_graph
   DEPENDS ON (compute_firm_kpi)
 AS
-  CREATE GRAPH IF NOT EXISTS {{zone_prefix}}.gold.legal_network
-      VERTEX TABLE {{zone_prefix}}.bronze.raw_parties
+  CREATE GRAPH IF NOT EXISTS legal.gold.legal_network
+      VERTEX TABLE legal.bronze.raw_parties
           ID COLUMN party_id
           NODE TYPE COLUMN party_type
           NODE NAME COLUMN party_name
-      EDGE TABLE {{zone_prefix}}.bronze.raw_relationships
+      EDGE TABLE legal.bronze.raw_relationships
           SOURCE COLUMN source_id
           TARGET COLUMN target_id
           WEIGHT COLUMN weight
@@ -349,7 +349,7 @@ STEP run_graph_analytics
   TIMEOUT '5m'
 AS
   -- PageRank: most influential attorneys (connected across many cases/parties)
-  USE {{zone_prefix}}.gold.legal_network
+  USE legal.gold.legal_network
   CALL algo.pageRank({dampingFactor: 0.85, iterations: 20})
   YIELD node_id, score, rank
   RETURN node_id, score, rank
@@ -357,14 +357,14 @@ AS
   LIMIT 15;
 
   -- Community detection (Louvain): practice groups from co_counsel edges
-  USE {{zone_prefix}}.gold.legal_network
+  USE legal.gold.legal_network
   CALL algo.louvain({relationshipTypes: ['co_counsel'], maxIterations: 10})
   YIELD node_id, community_id
   RETURN community_id, COLLECT(node_id) AS members, COUNT(*) AS size
   ORDER BY size DESC;
 
   -- Multi-hop: all parties within 3 hops of P008 (conflict-of-interest check)
-  USE {{zone_prefix}}.gold.legal_network
+  USE legal.gold.legal_network
   MATCH path = (start {party_id: 'P008'})-[*1..3]-(connected)
   RETURN DISTINCT connected.party_id AS connected_party,
          connected.party_name AS name,
@@ -373,7 +373,7 @@ AS
   ORDER BY hops ASC, connected_party;
 
   -- Betweenness centrality: attorneys bridging practice groups
-  USE {{zone_prefix}}.gold.legal_network
+  USE legal.gold.legal_network
   CALL algo.betweennessCentrality({nodeLabels: ['attorney']})
   YIELD node_id, centrality
   RETURN node_id, centrality
@@ -381,7 +381,7 @@ AS
   LIMIT 10;
 
   -- Adversarial pattern: (attorney)-[:represents]->(party)-[:opposes]->(opponent)<-[:represents]-(opponent_attorney)
-  USE {{zone_prefix}}.gold.legal_network
+  USE legal.gold.legal_network
   MATCH (a1)-[:represents]->(p1)-[:opposes]->(p2)<-[:represents]-(a2)
   WHERE a1.party_id <> a2.party_id
   RETURN a1.party_name AS attorney_1,
@@ -396,8 +396,8 @@ STEP restore_demo
   DEPENDS ON (run_graph_analytics)
 AS
   -- Demonstrate RESTORE: revert dim_case to version 0 then back
-  RESTORE {{zone_prefix}}.gold.dim_case TO VERSION 0;
-  RESTORE {{zone_prefix}}.gold.dim_case TO VERSION 1;
+  RESTORE legal.gold.dim_case TO VERSION 0;
+  RESTORE legal.gold.dim_case TO VERSION 1;
 
 -- ===================== STEP 13: optimize =====================
 
@@ -405,11 +405,11 @@ STEP optimize
   DEPENDS ON (restore_demo)
   CONTINUE ON FAILURE
 AS
-  OPTIMIZE {{zone_prefix}}.silver.cases_enriched;
-  OPTIMIZE {{zone_prefix}}.silver.billings_validated;
-  OPTIMIZE {{zone_prefix}}.silver.party_profiles;
-  OPTIMIZE {{zone_prefix}}.gold.dim_case;
-  OPTIMIZE {{zone_prefix}}.gold.dim_attorney;
-  OPTIMIZE {{zone_prefix}}.gold.dim_party;
-  OPTIMIZE {{zone_prefix}}.gold.fact_billings;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_firm_performance;
+  OPTIMIZE legal.silver.cases_enriched;
+  OPTIMIZE legal.silver.billings_validated;
+  OPTIMIZE legal.silver.party_profiles;
+  OPTIMIZE legal.gold.dim_case;
+  OPTIMIZE legal.gold.dim_attorney;
+  OPTIMIZE legal.gold.dim_party;
+  OPTIMIZE legal.gold.fact_billings;
+  OPTIMIZE legal.gold.kpi_firm_performance;

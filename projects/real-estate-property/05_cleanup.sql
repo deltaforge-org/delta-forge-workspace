@@ -15,29 +15,29 @@ PIPELINE real_estate_property_cleanup
 ;
 
 -- ===================== GOLD TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.kpi_assessment_accuracy;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.kpi_market_trends;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.fact_transactions;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_property_type;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_agent;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_neighborhood;
+DROP TABLE IF EXISTS realty.gold.kpi_assessment_accuracy;
+DROP TABLE IF EXISTS realty.gold.kpi_market_trends;
+DROP TABLE IF EXISTS realty.gold.fact_transactions;
+DROP TABLE IF EXISTS realty.gold.dim_property_type;
+DROP TABLE IF EXISTS realty.gold.dim_agent;
+DROP TABLE IF EXISTS realty.gold.dim_neighborhood;
 
 -- ===================== SILVER TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.correction_log;
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.transactions_enriched;
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.property_dim;
+DROP TABLE IF EXISTS realty.silver.correction_log;
+DROP TABLE IF EXISTS realty.silver.transactions_enriched;
+DROP TABLE IF EXISTS realty.silver.property_dim;
 
 -- ===================== BRONZE TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_agents;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_neighborhoods;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_transactions;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_assessments;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_properties;
+DROP TABLE IF EXISTS realty.bronze.raw_agents;
+DROP TABLE IF EXISTS realty.bronze.raw_neighborhoods;
+DROP TABLE IF EXISTS realty.bronze.raw_transactions;
+DROP TABLE IF EXISTS realty.bronze.raw_assessments;
+DROP TABLE IF EXISTS realty.bronze.raw_properties;
 
 -- ===================== SCHEMAS =====================
-DROP SCHEMA IF EXISTS {{zone_prefix}}.gold;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.silver;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.bronze;
+DROP SCHEMA IF EXISTS realty.gold;
+DROP SCHEMA IF EXISTS realty.silver;
+DROP SCHEMA IF EXISTS realty.bronze;
 
 -- ===================== ZONES =====================
-DROP ZONE IF EXISTS {{zone_prefix}};
+DROP ZONE IF EXISTS realty;

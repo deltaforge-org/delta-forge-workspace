@@ -8,17 +8,17 @@
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS hr TYPE EXTERNAL
     COMMENT 'HR workforce analytics pipeline zone';
 
 -- ===================== SCHEMAS =====================
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw employee, compensation event, department, and position data';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'SCD2 employee dimension, enriched comp events, CDF org change log';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold COMMENT 'Compensation star schema, workforce KPIs, and retention risk scores';
+CREATE SCHEMA IF NOT EXISTS hr.bronze COMMENT 'Raw employee, compensation event, department, and position data';
+CREATE SCHEMA IF NOT EXISTS hr.silver COMMENT 'SCD2 employee dimension, enriched comp events, CDF org change log';
+CREATE SCHEMA IF NOT EXISTS hr.gold COMMENT 'Compensation star schema, workforce KPIs, and retention risk scores';
 
 -- ===================== BRONZE TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_employees (
+CREATE DELTA TABLE IF NOT EXISTS hr.bronze.raw_employees (
     employee_id         STRING      NOT NULL,
     employee_name       STRING      NOT NULL,
     ssn                 STRING,
@@ -32,11 +32,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_employees (
     education_level     STRING,
     status              STRING      NOT NULL,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/workforce/raw_employees';
+) LOCATION 'hr/bronze/workforce/raw_employees';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_employees TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.bronze.raw_employees TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_comp_events (
+CREATE DELTA TABLE IF NOT EXISTS hr.bronze.raw_comp_events (
     event_id            STRING      NOT NULL,
     employee_id         STRING      NOT NULL,
     department_id       STRING      NOT NULL,
@@ -48,11 +48,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_comp_events (
     performance_rating  DECIMAL(3,1),
     notes               STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/workforce/raw_comp_events';
+) LOCATION 'hr/bronze/workforce/raw_comp_events';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_comp_events TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.bronze.raw_comp_events TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_departments (
+CREATE DELTA TABLE IF NOT EXISTS hr.bronze.raw_departments (
     department_id       STRING      NOT NULL,
     department_name     STRING      NOT NULL,
     division            STRING,
@@ -61,11 +61,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_departments (
     annual_budget       DECIMAL(14,2),
     manager_name        STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/workforce/raw_departments';
+) LOCATION 'hr/bronze/workforce/raw_departments';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_departments TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.bronze.raw_departments TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_positions (
+CREATE DELTA TABLE IF NOT EXISTS hr.bronze.raw_positions (
     position_id         STRING      NOT NULL,
     title               STRING      NOT NULL,
     job_family          STRING,
@@ -74,13 +74,13 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_positions (
     pay_grade_max       DECIMAL(10,2),
     exempt_flag         BOOLEAN,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/workforce/raw_positions';
+) LOCATION 'hr/bronze/workforce/raw_positions';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_positions TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.bronze.raw_positions TO USER admin;
 
 -- ===================== BRONZE SEED: DEPARTMENTS (6 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_departments VALUES
+INSERT INTO hr.bronze.raw_departments VALUES
     ('DEPT-ENG',  'Engineering',      'Technology',  'CC-1001', 60,  9600000.00, 'Diana Torres',    '2025-01-01T00:00:00'),
     ('DEPT-MKT',  'Marketing',        'Revenue',     'CC-2001', 25,  3200000.00, 'Kevin Marshall',  '2025-01-01T00:00:00'),
     ('DEPT-FIN',  'Finance',          'Operations',  'CC-3001', 20,  2800000.00, 'Sandra Lee',      '2025-01-01T00:00:00'),
@@ -89,12 +89,12 @@ INSERT INTO {{zone_prefix}}.bronze.raw_departments VALUES
     ('DEPT-OPS',  'Operations',       'Operations',  'CC-6001', 18,  2200000.00, 'Patricia Dunn',   '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 6
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_departments;
+SELECT COUNT(*) AS row_count FROM hr.bronze.raw_departments;
 
 
 -- ===================== BRONZE SEED: POSITIONS (10 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_positions VALUES
+INSERT INTO hr.bronze.raw_positions VALUES
     ('POS-SE1',  'Software Engineer I',       'Engineering',     1, 75000.00,  105000.00, true,  '2025-01-01T00:00:00'),
     ('POS-SE2',  'Software Engineer II',      'Engineering',     2, 100000.00, 140000.00, true,  '2025-01-01T00:00:00'),
     ('POS-SSE',  'Senior Software Engineer',  'Engineering',     3, 130000.00, 180000.00, true,  '2025-01-01T00:00:00'),
@@ -107,7 +107,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_positions VALUES
     ('POS-OM1',  'Operations Manager',        'Operations',      3, 95000.00,  140000.00, true,  '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 10
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_positions;
+SELECT COUNT(*) AS row_count FROM hr.bronze.raw_positions;
 
 
 -- ===================== BRONZE SEED: EMPLOYEES (20 rows) =====================
@@ -115,7 +115,7 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_positions;
 -- Includes 3 underpaid (compa-ratio < 0.8), 1 overpaid (> 1.2)
 -- Measurable gender pay gap in Engineering and Sales
 
-INSERT INTO {{zone_prefix}}.bronze.raw_employees VALUES
+INSERT INTO hr.bronze.raw_employees VALUES
     ('EMP-001', 'Alexis Jordan',     '111-22-3333', 'ajordan@company.com',    '1995-06-12', 'Female', '2021-03-15', NULL,          'DEPT-ENG',  'POS-SE1',  'Bachelors',  'active',     '2025-01-01T00:00:00'),
     ('EMP-002', 'Brian Matthews',    '222-33-4444', 'bmatthews@company.com',  '1992-03-08', 'Male',   '2020-01-10', NULL,          'DEPT-ENG',  'POS-SE2',  'Masters',    'active',     '2025-01-01T00:00:00'),
     ('EMP-003', 'Catherine Zhao',    '333-44-5555', 'czhao@company.com',      '1988-11-22', 'Female', '2019-06-01', NULL,          'DEPT-ENG',  'POS-SSE',  'Masters',    'active',     '2025-01-01T00:00:00'),
@@ -138,7 +138,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_employees VALUES
     ('EMP-020', 'Thomas Kim',        '020-23-4567', 'tkim@company.com',       '1995-04-22', 'Male',   '2022-03-01', NULL,          'DEPT-OPS',  'POS-OA1',  'Masters',    'active',     '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 20
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_employees;
+SELECT COUNT(*) AS row_count FROM hr.bronze.raw_employees;
 
 
 -- ===================== BRONZE SEED: COMPENSATION EVENTS (55 rows) =====================
@@ -147,7 +147,7 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_employees;
 -- Result after SCD2: 20 initial + 5 promotions + 3 transfers + 4 salary adj = 32 rows
 -- 18 with is_current=1 (2 terminated: EMP-005, EMP-008; but EMP-017 terminated later)
 
-INSERT INTO {{zone_prefix}}.bronze.raw_comp_events VALUES
+INSERT INTO hr.bronze.raw_comp_events VALUES
     -- === 20 HIRE EVENTS ===
     ('CE-001', 'EMP-001', 'DEPT-ENG',  'POS-SE1',  '2021-03-15', 'hire',            82000.00,  0.00,     3.0, 'New hire',                      '2025-01-01T00:00:00'),
     ('CE-002', 'EMP-002', 'DEPT-ENG',  'POS-SE1',  '2020-01-10', 'hire',            85000.00,  0.00,     3.0, 'New hire',                      '2025-01-01T00:00:00'),
@@ -213,12 +213,12 @@ INSERT INTO {{zone_prefix}}.bronze.raw_comp_events VALUES
     ('CE-055', 'EMP-015', 'DEPT-SALE', 'POS-SR1',  '2024-11-30', 'termination',      60900.00,  0.00,     2.5, 'Voluntary resignation',        '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 55
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_comp_events;
+SELECT COUNT(*) AS row_count FROM hr.bronze.raw_comp_events;
 
 
 -- ===================== SILVER TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.employee_dim (
+CREATE DELTA TABLE IF NOT EXISTS hr.silver.employee_dim (
     surrogate_key       INT         NOT NULL,
     employee_id         STRING      NOT NULL,
     employee_name       STRING      NOT NULL,
@@ -236,12 +236,12 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.employee_dim (
     valid_from          DATE        NOT NULL,
     valid_to            DATE,
     is_current          BOOLEAN     NOT NULL
-) LOCATION '{{data_path}}/silver/workforce/employee_dim'
+) LOCATION 'hr/silver/workforce/employee_dim'
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.employee_dim TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.silver.employee_dim TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.comp_events_enriched (
+CREATE DELTA TABLE IF NOT EXISTS hr.silver.comp_events_enriched (
     event_id            STRING      NOT NULL,
     employee_id         STRING      NOT NULL,
     department_id       STRING      NOT NULL,
@@ -255,11 +255,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.comp_events_enriched (
     performance_rating  DECIMAL(3,1),
     compa_ratio         DECIMAL(5,3),
     processed_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/workforce/comp_events_enriched';
+) LOCATION 'hr/silver/workforce/comp_events_enriched';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.comp_events_enriched TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.silver.comp_events_enriched TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.org_change_log (
+CREATE DELTA TABLE IF NOT EXISTS hr.silver.org_change_log (
     change_id           INT         NOT NULL,
     employee_id         STRING      NOT NULL,
     employee_name       STRING,
@@ -268,14 +268,14 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.org_change_log (
     new_value           STRING,
     effective_date      DATE        NOT NULL,
     captured_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/silver/workforce/org_change_log'
+) LOCATION 'hr/silver/workforce/org_change_log'
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.org_change_log TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.silver.org_change_log TO USER admin;
 
 -- ===================== GOLD TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_department (
+CREATE DELTA TABLE IF NOT EXISTS hr.gold.dim_department (
     department_key      INT         NOT NULL,
     department_id       STRING      NOT NULL,
     department_name     STRING      NOT NULL,
@@ -285,11 +285,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_department (
     annual_budget       DECIMAL(14,2),
     manager_name        STRING,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/workforce/dim_department';
+) LOCATION 'hr/gold/workforce/dim_department';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_department TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.gold.dim_department TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_position (
+CREATE DELTA TABLE IF NOT EXISTS hr.gold.dim_position (
     position_key        INT         NOT NULL,
     position_id         STRING      NOT NULL,
     title               STRING      NOT NULL,
@@ -300,11 +300,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_position (
     pay_grade_midpoint  DECIMAL(10,2),
     exempt_flag         BOOLEAN,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/workforce/dim_position';
+) LOCATION 'hr/gold/workforce/dim_position';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_position TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.gold.dim_position TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_compensation (
+CREATE DELTA TABLE IF NOT EXISTS hr.gold.fact_compensation (
     event_key           INT         NOT NULL,
     employee_key        INT         NOT NULL,
     department_key      INT         NOT NULL,
@@ -318,11 +318,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_compensation (
     performance_rating  DECIMAL(3,1),
     compa_ratio         DECIMAL(5,3),
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/workforce/fact_compensation';
+) LOCATION 'hr/gold/workforce/fact_compensation';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_compensation TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.gold.fact_compensation TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_workforce_analytics (
+CREATE DELTA TABLE IF NOT EXISTS hr.gold.kpi_workforce_analytics (
     department_name     STRING      NOT NULL,
     quarter             STRING      NOT NULL,
     headcount           INT,
@@ -334,11 +334,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_workforce_analytics (
     gender_pay_gap_pct  DECIMAL(5,2),
     avg_compa_ratio     DECIMAL(5,3),
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/workforce/kpi_workforce_analytics';
+) LOCATION 'hr/gold/workforce/kpi_workforce_analytics';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_workforce_analytics TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.gold.kpi_workforce_analytics TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_retention_risk (
+CREATE DELTA TABLE IF NOT EXISTS hr.gold.kpi_retention_risk (
     employee_id         STRING      NOT NULL,
     employee_name       STRING,
     department_name     STRING,
@@ -350,18 +350,18 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_retention_risk (
     risk_score          INT,
     risk_category       STRING,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/gold/workforce/kpi_retention_risk';
+) LOCATION 'hr/gold/workforce/kpi_retention_risk';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_retention_risk TO USER {{current_user}};
+GRANT ADMIN ON TABLE hr.gold.kpi_retention_risk TO USER admin;
 
 -- ===================== PSEUDONYMISATION RULES (all 5 transforms) =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.employee_dim (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
+CREATE PSEUDONYMISATION RULE ON hr.silver.employee_dim (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.employee_dim (email) TRANSFORM mask PARAMS (show = 3);
+CREATE PSEUDONYMISATION RULE ON hr.silver.employee_dim (email) TRANSFORM mask PARAMS (show = 3);
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.employee_dim (employee_name) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'hr_salt_2024');
+CREATE PSEUDONYMISATION RULE ON hr.silver.employee_dim (employee_name) TRANSFORM keyed_hash SCOPE person PARAMS (salt = 'hr_salt_2024');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.employee_dim (date_of_birth) TRANSFORM generalize PARAMS (range = 10);
+CREATE PSEUDONYMISATION RULE ON hr.silver.employee_dim (date_of_birth) TRANSFORM generalize PARAMS (range = 10);
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.employee_dim (base_salary) TRANSFORM redact PARAMS (mask = '[REDACTED]');
+CREATE PSEUDONYMISATION RULE ON hr.silver.employee_dim (base_salary) TRANSFORM redact PARAMS (mask = '[REDACTED]');

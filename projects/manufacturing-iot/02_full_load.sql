@@ -21,19 +21,19 @@ PIPELINE manufacturing_iot_pipeline DESCRIPTION 'IoT sensor pipeline with 2-sigm
 STEP validate_bronze
   TIMEOUT '2m'
 AS
-  SELECT COUNT(*) AS reading_count FROM {{zone_prefix}}.bronze.raw_readings;
+  SELECT COUNT(*) AS reading_count FROM mfg.bronze.raw_readings;
   ASSERT VALUE reading_count = 90
 
-  SELECT COUNT(*) AS sensor_count FROM {{zone_prefix}}.bronze.raw_sensors;
+  SELECT COUNT(*) AS sensor_count FROM mfg.bronze.raw_sensors;
   ASSERT VALUE sensor_count = 16
 
-  SELECT COUNT(*) AS line_count FROM {{zone_prefix}}.bronze.raw_production_lines;
+  SELECT COUNT(*) AS line_count FROM mfg.bronze.raw_production_lines;
   ASSERT VALUE line_count = 12
 
-  SELECT COUNT(*) AS shift_count FROM {{zone_prefix}}.bronze.raw_shifts;
+  SELECT COUNT(*) AS shift_count FROM mfg.bronze.raw_shifts;
   ASSERT VALUE shift_count = 3
 
-  SELECT COUNT(*) AS target_count FROM {{zone_prefix}}.bronze.raw_production_targets;
+  SELECT COUNT(*) AS target_count FROM mfg.bronze.raw_production_targets;
   ASSERT VALUE target_count = 12;
 
 -- =============================================================================
@@ -47,7 +47,7 @@ STEP validate_readings
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.readings_validated AS tgt
+  MERGE INTO mfg.silver.readings_validated AS tgt
   USING (
       SELECT
           r.reading_id,
@@ -80,8 +80,8 @@ AS
           r.defect_units,
           r.downtime_min,
           r.ingested_at
-      FROM {{zone_prefix}}.bronze.raw_readings r
-      LEFT JOIN {{zone_prefix}}.bronze.raw_sensors s ON r.sensor_id = s.sensor_id
+      FROM mfg.bronze.raw_readings r
+      LEFT JOIN mfg.bronze.raw_sensors s ON r.sensor_id = s.sensor_id
   ) AS src
   ON tgt.reading_id = src.reading_id
   WHEN MATCHED THEN UPDATE SET
@@ -107,7 +107,7 @@ STEP build_equipment_status
   DEPENDS ON (validate_bronze)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.equipment_status AS tgt
+  MERGE INTO mfg.silver.equipment_status AS tgt
   USING (
       WITH shift_downtime AS (
           SELECT
@@ -128,7 +128,7 @@ AS
                   WHEN COALESCE(SUM(r.downtime_min), 0) < 30 THEN 'DEGRADED'
                   ELSE 'IMPAIRED'
               END AS status
-          FROM {{zone_prefix}}.bronze.raw_readings r
+          FROM mfg.bronze.raw_readings r
           GROUP BY r.plant_id, r.line_name, CAST(r.reading_time AS DATE),
                    CASE
                        WHEN EXTRACT(HOUR FROM r.reading_time) >= 6  AND EXTRACT(HOUR FROM r.reading_time) < 14 THEN 'SHIFT-AM'
@@ -169,7 +169,7 @@ STEP smooth_and_detect_anomalies
   DEPENDS ON (validate_readings)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.readings_smoothed AS tgt
+  MERGE INTO mfg.silver.readings_smoothed AS tgt
   USING (
       WITH smoothed AS (
           SELECT
@@ -192,7 +192,7 @@ AS
                   ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
               ) AS DECIMAL(10,4)) AS moving_stddev,
               v.validated_at
-          FROM {{zone_prefix}}.silver.readings_validated v
+          FROM mfg.silver.readings_validated v
       )
       SELECT
           s.*,
@@ -239,7 +239,7 @@ STEP build_dim_sensor
   DEPENDS ON (smooth_and_detect_anomalies, build_equipment_status)
   TIMEOUT '2m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_sensor AS tgt
+  MERGE INTO mfg.gold.dim_sensor AS tgt
   USING (
       SELECT
           sensor_id       AS sensor_key,
@@ -252,7 +252,7 @@ AS
           threshold_max,
           plant_id,
           line_name
-      FROM {{zone_prefix}}.bronze.raw_sensors
+      FROM mfg.bronze.raw_sensors
   ) AS src
   ON tgt.sensor_key = src.sensor_key
   WHEN MATCHED THEN UPDATE SET
@@ -276,7 +276,7 @@ STEP build_dim_line
   DEPENDS ON (smooth_and_detect_anomalies, build_equipment_status)
   TIMEOUT '2m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_line AS tgt
+  MERGE INTO mfg.gold.dim_line AS tgt
   USING (
       SELECT
           line_id                 AS line_key,
@@ -284,7 +284,7 @@ AS
           line_name,
           product_type,
           capacity_units_per_hour
-      FROM {{zone_prefix}}.bronze.raw_production_lines
+      FROM mfg.bronze.raw_production_lines
   ) AS src
   ON tgt.line_key = src.line_key
   WHEN NOT MATCHED THEN INSERT (line_key, plant_id, line_name, product_type, capacity_units_per_hour)
@@ -298,7 +298,7 @@ STEP build_dim_shift
   DEPENDS ON (smooth_and_detect_anomalies, build_equipment_status)
   TIMEOUT '2m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_shift AS tgt
+  MERGE INTO mfg.gold.dim_shift AS tgt
   USING (
       SELECT
           shift_id    AS shift_key,
@@ -306,7 +306,7 @@ AS
           start_hour,
           end_hour,
           supervisor
-      FROM {{zone_prefix}}.bronze.raw_shifts
+      FROM mfg.bronze.raw_shifts
   ) AS src
   ON tgt.shift_key = src.shift_key
   WHEN NOT MATCHED THEN INSERT (shift_key, shift_name, start_hour, end_hour, supervisor)
@@ -320,7 +320,7 @@ STEP build_fact_readings
   DEPENDS ON (build_dim_sensor, build_dim_line, build_dim_shift)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_readings AS tgt
+  MERGE INTO mfg.gold.fact_readings AS tgt
   USING (
       SELECT
           sm.reading_id     AS reading_key,
@@ -332,8 +332,8 @@ AS
           sm.moving_avg     AS smoothed_value,
           sm.anomaly_flag,
           v.quality_score
-      FROM {{zone_prefix}}.silver.readings_smoothed sm
-      JOIN {{zone_prefix}}.silver.readings_validated v ON sm.reading_id = v.reading_id
+      FROM mfg.silver.readings_smoothed sm
+      JOIN mfg.silver.readings_validated v ON sm.reading_id = v.reading_id
   ) AS src
   ON tgt.reading_key = src.reading_key
   WHEN MATCHED THEN UPDATE SET
@@ -360,7 +360,7 @@ STEP compute_oee
   DEPENDS ON (build_fact_readings)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_oee AS tgt
+  MERGE INTO mfg.gold.kpi_oee AS tgt
   USING (
       WITH shift_metrics AS (
           SELECT
@@ -374,8 +374,8 @@ AS
               SUM(v.units_produced) AS actual_units,
               SUM(v.defect_units)   AS defect_units,
               SUM(v.units_produced) - SUM(v.defect_units) AS good_units
-          FROM {{zone_prefix}}.silver.readings_validated v
-          JOIN {{zone_prefix}}.bronze.raw_shifts sh ON v.shift_id = sh.shift_id
+          FROM mfg.silver.readings_validated v
+          JOIN mfg.bronze.raw_shifts sh ON v.shift_id = sh.shift_id
           GROUP BY v.plant_id, v.line_name, CAST(v.reading_time AS DATE), sh.shift_name, v.shift_id
       ),
       oee_calc AS (
@@ -411,7 +411,7 @@ AS
               AS DECIMAL(5,2)) AS quality_pct,
               sm.defect_units
           FROM shift_metrics sm
-          LEFT JOIN {{zone_prefix}}.bronze.raw_production_targets pt
+          LEFT JOIN mfg.bronze.raw_production_targets pt
               ON sm.plant_id = pt.plant_id AND sm.line_name = pt.line_name AND sm.shift_id = pt.shift_id
       )
       SELECT
@@ -451,7 +451,7 @@ STEP compute_anomaly_trends
   DEPENDS ON (build_fact_readings)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_anomaly_trends AS tgt
+  MERGE INTO mfg.gold.kpi_anomaly_trends AS tgt
   USING (
       SELECT
           sm.sensor_type,
@@ -472,7 +472,7 @@ AS
               THEN ABS(sm.value - sm.moving_avg) / NULLIF(sm.moving_stddev, 0)
               END
           ) AS DECIMAL(10,4)) AS max_deviation
-      FROM {{zone_prefix}}.silver.readings_smoothed sm
+      FROM mfg.silver.readings_smoothed sm
       GROUP BY sm.sensor_type, sm.plant_id, DATE_TRUNC('month', sm.reading_time)
   ) AS src
   ON tgt.sensor_type = src.sensor_type AND tgt.plant_id = src.plant_id
@@ -500,10 +500,10 @@ STEP vacuum_and_optimize
   CONTINUE ON FAILURE
   TIMEOUT '10m'
 AS
-  OPTIMIZE {{zone_prefix}}.silver.readings_validated;
-  OPTIMIZE {{zone_prefix}}.silver.readings_smoothed;
-  OPTIMIZE {{zone_prefix}}.gold.fact_readings;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_oee;
-  VACUUM {{zone_prefix}}.bronze.raw_readings RETAIN 2160 HOURS;
-  VACUUM {{zone_prefix}}.silver.readings_validated RETAIN 2160 HOURS;
-  VACUUM {{zone_prefix}}.silver.readings_smoothed RETAIN 2160 HOURS;
+  OPTIMIZE mfg.silver.readings_validated;
+  OPTIMIZE mfg.silver.readings_smoothed;
+  OPTIMIZE mfg.gold.fact_readings;
+  OPTIMIZE mfg.gold.kpi_oee;
+  VACUUM mfg.bronze.raw_readings RETAIN 2160 HOURS;
+  VACUUM mfg.silver.readings_validated RETAIN 2160 HOURS;
+  VACUUM mfg.silver.readings_smoothed RETAIN 2160 HOURS;

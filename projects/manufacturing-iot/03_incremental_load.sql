@@ -19,21 +19,21 @@
 -- ============================================================================
 
 -- Preview the generated filter condition:
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.readings_validated, reading_id, reading_time, 1)}};
+PRINT {{INCREMENTAL_FILTER(mfg.silver.readings_validated, reading_id, reading_time, 1)}};
 
 -- Show current watermark
 SELECT MAX(validated_at) AS current_watermark
-FROM {{zone_prefix}}.silver.readings_validated;
+FROM mfg.silver.readings_validated;
 
 SELECT
     'silver.readings_validated' AS table_name, COUNT(*) AS row_count
-FROM {{zone_prefix}}.silver.readings_validated
+FROM mfg.silver.readings_validated
 UNION ALL
 SELECT 'silver.readings_smoothed', COUNT(*)
-FROM {{zone_prefix}}.silver.readings_smoothed
+FROM mfg.silver.readings_smoothed
 UNION ALL
 SELECT 'gold.fact_readings', COUNT(*)
-FROM {{zone_prefix}}.gold.fact_readings;
+FROM mfg.gold.fact_readings;
 
 -- =============================================================================
 -- Insert 10 new sensor readings (June 2, Morning shift)
@@ -41,7 +41,7 @@ FROM {{zone_prefix}}.gold.fact_readings;
 -- Includes 1 temperature anomaly (R-093: 91.0C spike on P1LA),
 -- 1 downtime event (R-100: 5min), normal readings across 4 plants.
 
-INSERT INTO {{zone_prefix}}.bronze.raw_readings VALUES
+INSERT INTO mfg.bronze.raw_readings VALUES
 ('R-091', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:00:00', 43.00,  31, 0, 0,  '2024-06-02T08:00:00'),
 ('R-092', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:15:00', 43.50,  30, 1, 0,  '2024-06-02T08:00:00'),
 ('R-093', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:30:00', 91.00,  28, 2, 0,  '2024-06-02T08:00:00'),
@@ -55,7 +55,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_readings VALUES
 
 ASSERT ROW_COUNT = 10
 SELECT COUNT(*) AS new_reading_count
-FROM {{zone_prefix}}.bronze.raw_readings
+FROM mfg.bronze.raw_readings
 WHERE ingested_at >= '2024-06-02T08:00:00';
 
 
@@ -63,7 +63,7 @@ WHERE ingested_at >= '2024-06-02T08:00:00';
 -- Incremental MERGE: validate new readings
 -- =============================================================================
 
-MERGE INTO {{zone_prefix}}.silver.readings_validated AS tgt
+MERGE INTO mfg.silver.readings_validated AS tgt
 USING (
     SELECT
         r.reading_id,
@@ -96,9 +96,9 @@ USING (
         r.defect_units,
         r.downtime_min,
         r.ingested_at
-    FROM {{zone_prefix}}.bronze.raw_readings r
-    LEFT JOIN {{zone_prefix}}.bronze.raw_sensors s ON r.sensor_id = s.sensor_id
-    WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.readings_validated, reading_id, reading_time, 1)}}
+    FROM mfg.bronze.raw_readings r
+    LEFT JOIN mfg.bronze.raw_sensors s ON r.sensor_id = s.sensor_id
+    WHERE {{INCREMENTAL_FILTER(mfg.silver.readings_validated, reading_id, reading_time, 1)}}
 ) AS src
 ON tgt.reading_id = src.reading_id
 WHEN NOT MATCHED THEN INSERT (
@@ -116,7 +116,7 @@ WHEN NOT MATCHED THEN INSERT (
 -- Incremental MERGE: smooth new readings and detect anomalies
 -- =============================================================================
 
-MERGE INTO {{zone_prefix}}.silver.readings_smoothed AS tgt
+MERGE INTO mfg.silver.readings_smoothed AS tgt
 USING (
     WITH smoothed AS (
         SELECT
@@ -137,7 +137,7 @@ USING (
                 ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
             ) AS DECIMAL(10,4)) AS moving_stddev,
             v.validated_at
-        FROM {{zone_prefix}}.silver.readings_validated v
+        FROM mfg.silver.readings_validated v
     )
     SELECT
         s.*,
@@ -157,7 +157,7 @@ USING (
             ELSE NULL
         END AS anomaly_reason
     FROM smoothed s
-    WHERE s.reading_id IN (SELECT reading_id FROM {{zone_prefix}}.silver.readings_validated WHERE validated_at >= '2024-06-02T08:00:00')
+    WHERE s.reading_id IN (SELECT reading_id FROM mfg.silver.readings_validated WHERE validated_at >= '2024-06-02T08:00:00')
 ) AS src
 ON tgt.reading_id = src.reading_id
 WHEN MATCHED THEN UPDATE SET
@@ -180,25 +180,25 @@ WHEN NOT MATCHED THEN INSERT (
 -- =============================================================================
 
 -- Validated should now have 90 + 10 = 100
-SELECT COUNT(*) AS validated_total FROM {{zone_prefix}}.silver.readings_validated;
+SELECT COUNT(*) AS validated_total FROM mfg.silver.readings_validated;
 
 ASSERT VALUE validated_total = 100
 SELECT reading_id, value, in_range_flag
-FROM {{zone_prefix}}.silver.readings_validated
+FROM mfg.silver.readings_validated
 WHERE reading_id = 'R-093';
 
 -- Verify anomaly detection in incremental batch (R-093 temp = 91.0 spike)
 ASSERT VALUE in_range_flag = true
 SELECT reading_id, value, anomaly_flag, anomaly_reason
-FROM {{zone_prefix}}.silver.readings_smoothed
+FROM mfg.silver.readings_smoothed
 WHERE reading_id = 'R-093';
 
 ASSERT VALUE anomaly_flag = true
 SELECT MAX(validated_at) AS new_watermark
-FROM {{zone_prefix}}.silver.readings_validated;
+FROM mfg.silver.readings_validated;
 
 -- =============================================================================
 -- RESTORE demonstration: point-in-time recovery
 -- =============================================================================
 
-RESTORE {{zone_prefix}}.silver.readings_validated TO VERSION 0;
+RESTORE mfg.silver.readings_validated TO VERSION 0;

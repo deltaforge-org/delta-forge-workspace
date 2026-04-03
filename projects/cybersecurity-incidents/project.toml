@@ -18,11 +18,6 @@ difficulty = "advanced"
 estimated_time_minutes = 20
 load_type = "incremental"
 
-[project.variables]
-data_path = { description = "Root path for Delta table storage", required = true }
-zone_prefix = { description = "Zone name for this project", required = false, default = "cyber" }
-current_user = { description = "Current user for GRANT statements", required = true }
-
 [project.pipeline]
 name = "cyber_incident_pipeline"
 schedule = "*/15 * * * *"

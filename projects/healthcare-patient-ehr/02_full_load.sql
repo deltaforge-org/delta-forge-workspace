@@ -19,16 +19,16 @@ STEP validate_bronze
   TIMEOUT '2m'
 AS
   ASSERT ROW_COUNT >= 55
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_admissions;
+  SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_admissions;
 
   ASSERT ROW_COUNT >= 25
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_patients;
+  SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_patients;
 
   ASSERT ROW_COUNT = 9
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_departments;
+  SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_departments;
 
   ASSERT ROW_COUNT = 16
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_diagnoses;
+  SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_diagnoses;
 
 -- ===================== STEP 2: dedup_admissions =====================
 -- Deduplicate on record_id, parse dates, calculate LOS, flag 30-day readmissions
@@ -37,7 +37,7 @@ STEP dedup_admissions
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.admissions_cleaned AS target
+  MERGE INTO ehr.silver.admissions_cleaned AS target
   USING (
       WITH deduped AS (
           SELECT
@@ -51,7 +51,7 @@ AS
               attending_physician,
               ingested_at,
               ROW_NUMBER() OVER (PARTITION BY record_id ORDER BY ingested_at ASC) AS rn
-          FROM {{zone_prefix}}.bronze.raw_admissions
+          FROM ehr.bronze.raw_admissions
       ),
       cleaned AS (
           SELECT
@@ -119,7 +119,7 @@ AS
 
   -- After dedup: 55 raw rows minus 5 duplicates (A001, A003, A008, A009, A016) = 50 unique
   ASSERT VALUE silver_admission_count >= 47
-  SELECT COUNT(*) AS silver_admission_count FROM {{zone_prefix}}.silver.admissions_cleaned;
+  SELECT COUNT(*) AS silver_admission_count FROM ehr.silver.admissions_cleaned;
 
 -- ===================== STEP 3: build_patient_scd2 =====================
 -- SCD Type 2: two-pass MERGE on patient_dim
@@ -132,7 +132,7 @@ STEP build_patient_scd2
 AS
   -- Pass 1: For patients whose demographics changed, expire the current record
   -- by setting is_current = false and valid_to = day before the new record's date
-  MERGE INTO {{zone_prefix}}.silver.patient_dim AS target
+  MERGE INTO ehr.silver.patient_dim AS target
   USING (
       WITH ranked AS (
           SELECT
@@ -151,7 +151,7 @@ AS
                   PARTITION BY patient_id
                   ORDER BY ingested_at ASC
               ) AS version_num
-          FROM {{zone_prefix}}.bronze.raw_patients
+          FROM ehr.bronze.raw_patients
       )
       -- Select the FIRST (original) version of each patient for initial load
       SELECT
@@ -187,7 +187,7 @@ AS
 
   -- Pass 2: Now process the CHANGED records (patients with version_num > 1)
   -- First expire the old current records for these patients
-  MERGE INTO {{zone_prefix}}.silver.patient_dim AS target
+  MERGE INTO ehr.silver.patient_dim AS target
   USING (
       WITH ranked AS (
           SELECT
@@ -206,7 +206,7 @@ AS
                   PARTITION BY patient_id
                   ORDER BY ingested_at ASC
               ) AS version_num
-          FROM {{zone_prefix}}.bronze.raw_patients
+          FROM ehr.bronze.raw_patients
       )
       SELECT
           patient_id, patient_name, ssn, date_of_birth, email,
@@ -224,7 +224,7 @@ AS
       updated_at  = CURRENT_TIMESTAMP;
 
   -- Pass 3: Insert new current records for changed patients
-  INSERT INTO {{zone_prefix}}.silver.patient_dim
+  INSERT INTO ehr.silver.patient_dim
   SELECT
       r.patient_id,
       TRIM(r.patient_name) AS patient_name,
@@ -257,11 +257,11 @@ AS
               PARTITION BY patient_id
               ORDER BY ingested_at ASC
           ) AS version_num
-      FROM {{zone_prefix}}.bronze.raw_patients
+      FROM ehr.bronze.raw_patients
   ) r
   WHERE r.version_num > 1
     AND EXISTS (
-        SELECT 1 FROM {{zone_prefix}}.silver.patient_dim p
+        SELECT 1 FROM ehr.silver.patient_dim p
         WHERE p.patient_id = r.patient_id
           AND p.is_current = false
           AND p.valid_to = CAST('2024-06-01' AS DATE)
@@ -271,11 +271,11 @@ AS
   -- (20 patients with 1 version each + 3 patients with 2 versions = 20 + 6 = 26,
   --  but actually 22 unique + 3 extra = 25 total records)
   ASSERT VALUE patient_dim_count >= 22
-  SELECT COUNT(*) AS patient_dim_count FROM {{zone_prefix}}.silver.patient_dim;
+  SELECT COUNT(*) AS patient_dim_count FROM ehr.silver.patient_dim;
 
   -- Verify SCD2: 3 patients should have expired records
   ASSERT VALUE expired_count = 3
-  SELECT COUNT(*) AS expired_count FROM {{zone_prefix}}.silver.patient_dim WHERE is_current = false;
+  SELECT COUNT(*) AS expired_count FROM ehr.silver.patient_dim WHERE is_current = false;
 
 -- ===================== STEP 4: enable_cdf_audit =====================
 -- Read CDF changes from patient_dim and materialize into audit_log
@@ -286,7 +286,7 @@ STEP enable_cdf_audit
 AS
   -- Capture all changes from CDF on patient_dim into the audit log
   -- table_changes reads the CDF of patient_dim from version 0 to current
-  INSERT INTO {{zone_prefix}}.silver.audit_log
+  INSERT INTO ehr.silver.audit_log
   SELECT
       ROW_NUMBER() OVER (ORDER BY _commit_timestamp, patient_id) AS audit_id,
       'patient_dim' AS table_name,
@@ -300,17 +300,17 @@ AS
       NULL AS old_values,
       CONCAT(address, '|', city, '|', state, '|', insurance_id) AS new_values,
       _commit_timestamp AS change_timestamp
-  FROM table_changes('{{zone_prefix}}.silver.patient_dim', 0);
+  FROM table_changes('ehr.silver.patient_dim', 0);
 
   ASSERT VALUE audit_count >= 1
-  SELECT COUNT(*) AS audit_count FROM {{zone_prefix}}.silver.audit_log;
+  SELECT COUNT(*) AS audit_count FROM ehr.silver.audit_log;
 
 -- ===================== STEP 5: build_dim_department =====================
 
 STEP build_dim_dept
   DEPENDS ON (dedup_admissions, build_patient_scd2)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_department AS target
+  MERGE INTO ehr.gold.dim_department AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY department_code) AS department_key,
@@ -318,7 +318,7 @@ AS
           TRIM(department_name) AS department_name,
           floor,
           wing
-      FROM {{zone_prefix}}.bronze.raw_departments
+      FROM ehr.bronze.raw_departments
   ) AS source
   ON target.department_code = source.department_code
   WHEN MATCHED THEN UPDATE SET
@@ -338,7 +338,7 @@ AS
 STEP build_dim_diag
   DEPENDS ON (dedup_admissions, build_patient_scd2)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_diagnosis AS target
+  MERGE INTO ehr.gold.dim_diagnosis AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY diagnosis_code) AS diagnosis_key,
@@ -346,7 +346,7 @@ AS
           TRIM(description) AS description,
           category,
           severity
-      FROM {{zone_prefix}}.bronze.raw_diagnoses
+      FROM ehr.bronze.raw_diagnoses
   ) AS source
   ON target.diagnosis_code = source.diagnosis_code
   WHEN MATCHED THEN UPDATE SET
@@ -369,7 +369,7 @@ STEP build_fact_admissions
   DEPENDS ON (build_dim_dept, build_dim_diag)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_admissions AS target
+  MERGE INTO ehr.gold.fact_admissions AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY a.admission_date, a.record_id) AS admission_key,
@@ -386,10 +386,10 @@ AS
           DENSE_RANK() OVER (ORDER BY a.total_charges DESC) AS cost_rank,
           p.valid_from AS patient_valid_from,
           p.valid_to AS patient_valid_to
-      FROM {{zone_prefix}}.silver.admissions_cleaned a
-      JOIN {{zone_prefix}}.gold.dim_department d ON a.department_code = d.department_code
-      JOIN {{zone_prefix}}.gold.dim_diagnosis dx ON a.diagnosis_code = dx.diagnosis_code
-      LEFT JOIN {{zone_prefix}}.silver.patient_dim p
+      FROM ehr.silver.admissions_cleaned a
+      JOIN ehr.gold.dim_department d ON a.department_code = d.department_code
+      JOIN ehr.gold.dim_diagnosis dx ON a.diagnosis_code = dx.diagnosis_code
+      LEFT JOIN ehr.silver.patient_dim p
           ON a.patient_id = p.patient_id
           AND a.admission_date >= p.valid_from
           AND a.admission_date < COALESCE(p.valid_to, CAST('9999-12-31' AS DATE))
@@ -426,7 +426,7 @@ AS
 STEP compute_kpi_readmission
   DEPENDS ON (build_fact_admissions)
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_readmission_rates AS target
+  MERGE INTO ehr.gold.kpi_readmission_rates AS target
   USING (
       SELECT
           dd.department_name,
@@ -438,8 +438,8 @@ AS
           ROUND(AVG(f.los_days), 2) AS avg_los,
           ROUND(AVG(f.total_charges), 2) AS avg_charges,
           MAX(f.los_days) AS max_los
-      FROM {{zone_prefix}}.gold.fact_admissions f
-      JOIN {{zone_prefix}}.gold.dim_department dd ON f.department_key = dd.department_key
+      FROM ehr.gold.fact_admissions f
+      JOIN ehr.gold.dim_department dd ON f.department_key = dd.department_key
       GROUP BY dd.department_name,
           CONCAT(CAST(EXTRACT(YEAR FROM f.admission_date) AS STRING), '-Q',
                  CAST(CAST((EXTRACT(MONTH FROM f.admission_date) - 1) / 3 + 1 AS INT) AS STRING))
@@ -473,29 +473,29 @@ STEP gdpr_erasure_demo
   TIMEOUT '5m'
 AS
   -- Count before deletion
-  SELECT COUNT(*) AS pre_delete_count FROM {{zone_prefix}}.silver.patient_dim WHERE patient_id = 'P1022';
+  SELECT COUNT(*) AS pre_delete_count FROM ehr.silver.patient_dim WHERE patient_id = 'P1022';
 
   -- GDPR erasure: remove patient P1022 completely
-  DELETE FROM {{zone_prefix}}.silver.patient_dim WHERE patient_id = 'P1022';
+  DELETE FROM ehr.silver.patient_dim WHERE patient_id = 'P1022';
 
   -- Verify deletion
   ASSERT VALUE post_delete_count = 0
-  SELECT COUNT(*) AS post_delete_count FROM {{zone_prefix}}.silver.patient_dim WHERE patient_id = 'P1022';
+  SELECT COUNT(*) AS post_delete_count FROM ehr.silver.patient_dim WHERE patient_id = 'P1022';
 
   -- VACUUM to physically remove the data (prove deletion vectors applied)
-  VACUUM {{zone_prefix}}.silver.patient_dim;
+  VACUUM ehr.silver.patient_dim;
 
   -- Time travel: show the patient existed in a previous version
   SELECT COUNT(*) AS version_1_count
-  FROM {{zone_prefix}}.silver.patient_dim VERSION AS OF 1
+  FROM ehr.silver.patient_dim VERSION AS OF 1
   WHERE patient_id = 'P1022';
 
   -- RESTORE to recover the table (undo the erasure for demo purposes)
-  RESTORE {{zone_prefix}}.silver.patient_dim TO VERSION 1;
+  RESTORE ehr.silver.patient_dim TO VERSION 1;
 
   -- Verify recovery
   ASSERT VALUE restored_count >= 1
-  SELECT COUNT(*) AS restored_count FROM {{zone_prefix}}.silver.patient_dim WHERE patient_id = 'P1022';
+  SELECT COUNT(*) AS restored_count FROM ehr.silver.patient_dim WHERE patient_id = 'P1022';
 
 -- ===================== STEP 10: optimize_and_maintain =====================
 
@@ -503,9 +503,9 @@ STEP optimize_and_maintain
   DEPENDS ON (gdpr_erasure_demo)
   CONTINUE ON FAILURE
 AS
-  OPTIMIZE {{zone_prefix}}.silver.admissions_cleaned;
-  OPTIMIZE {{zone_prefix}}.silver.patient_dim;
-  OPTIMIZE {{zone_prefix}}.gold.dim_department;
-  OPTIMIZE {{zone_prefix}}.gold.dim_diagnosis;
-  OPTIMIZE {{zone_prefix}}.gold.fact_admissions;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_readmission_rates;
+  OPTIMIZE ehr.silver.admissions_cleaned;
+  OPTIMIZE ehr.silver.patient_dim;
+  OPTIMIZE ehr.gold.dim_department;
+  OPTIMIZE ehr.gold.dim_diagnosis;
+  OPTIMIZE ehr.gold.fact_admissions;
+  OPTIMIZE ehr.gold.kpi_readmission_rates;

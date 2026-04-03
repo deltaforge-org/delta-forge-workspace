@@ -20,19 +20,19 @@ PIPELINE telecom_cdr_pipeline DESCRIPTION 'Daily CDR pipeline with schema evolut
 STEP validate_bronze
   TIMEOUT '2m'
 AS
-  SELECT COUNT(*) AS v1_count FROM {{zone_prefix}}.bronze.raw_cdr_v1;
+  SELECT COUNT(*) AS v1_count FROM telco.bronze.raw_cdr_v1;
   ASSERT VALUE v1_count = 25
 
-  SELECT COUNT(*) AS v2_count FROM {{zone_prefix}}.bronze.raw_cdr_v2;
+  SELECT COUNT(*) AS v2_count FROM telco.bronze.raw_cdr_v2;
   ASSERT VALUE v2_count = 25
 
-  SELECT COUNT(*) AS v3_count FROM {{zone_prefix}}.bronze.raw_cdr_v3;
+  SELECT COUNT(*) AS v3_count FROM telco.bronze.raw_cdr_v3;
   ASSERT VALUE v3_count = 20
 
-  SELECT COUNT(*) AS sub_count FROM {{zone_prefix}}.bronze.raw_subscribers;
+  SELECT COUNT(*) AS sub_count FROM telco.bronze.raw_subscribers;
   ASSERT VALUE sub_count = 15
 
-  SELECT COUNT(*) AS tower_count FROM {{zone_prefix}}.bronze.raw_cell_towers;
+  SELECT COUNT(*) AS tower_count FROM telco.bronze.raw_cell_towers;
   ASSERT VALUE tower_count = 10;
 
 -- =============================================================================
@@ -43,11 +43,11 @@ STEP merge_schema_v1
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.cdr_unified AS tgt
+  MERGE INTO telco.silver.cdr_unified AS tgt
   USING (
       WITH subscriber_lookup AS (
           SELECT subscriber_id, phone_number
-          FROM {{zone_prefix}}.bronze.raw_subscribers
+          FROM telco.bronze.raw_subscribers
       )
       SELECT
           v.call_id,
@@ -74,10 +74,10 @@ AS
           CAST(v.duration_sec * 0.01 AS DECIMAL(8,2)) AS revenue,
           1               AS schema_version,
           v.ingested_at   AS unified_at
-      FROM {{zone_prefix}}.bronze.raw_cdr_v1 v
+      FROM telco.bronze.raw_cdr_v1 v
       LEFT JOIN subscriber_lookup caller_sub ON v.caller = caller_sub.phone_number
       LEFT JOIN subscriber_lookup callee_sub ON v.callee = callee_sub.phone_number
-      LEFT JOIN {{zone_prefix}}.bronze.raw_cell_towers t ON v.tower_id = t.tower_id
+      LEFT JOIN telco.bronze.raw_cell_towers t ON v.tower_id = t.tower_id
   ) AS src
   ON tgt.call_id = src.call_id
   WHEN MATCHED THEN UPDATE SET
@@ -104,11 +104,11 @@ STEP merge_schema_v2
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.cdr_unified AS tgt
+  MERGE INTO telco.silver.cdr_unified AS tgt
   USING (
       WITH subscriber_lookup AS (
           SELECT subscriber_id, phone_number
-          FROM {{zone_prefix}}.bronze.raw_subscribers
+          FROM telco.bronze.raw_subscribers
       )
       SELECT
           v.call_id,
@@ -140,10 +140,10 @@ AS
           END AS revenue,
           2               AS schema_version,
           v.ingested_at   AS unified_at
-      FROM {{zone_prefix}}.bronze.raw_cdr_v2 v
+      FROM telco.bronze.raw_cdr_v2 v
       LEFT JOIN subscriber_lookup caller_sub ON v.caller = caller_sub.phone_number
       LEFT JOIN subscriber_lookup callee_sub ON v.callee = callee_sub.phone_number
-      LEFT JOIN {{zone_prefix}}.bronze.raw_cell_towers t ON v.tower_id = t.tower_id
+      LEFT JOIN telco.bronze.raw_cell_towers t ON v.tower_id = t.tower_id
   ) AS src
   ON tgt.call_id = src.call_id
   WHEN MATCHED THEN UPDATE SET
@@ -174,11 +174,11 @@ STEP merge_schema_v3
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.cdr_unified AS tgt
+  MERGE INTO telco.silver.cdr_unified AS tgt
   USING (
       WITH subscriber_lookup AS (
           SELECT subscriber_id, phone_number
-          FROM {{zone_prefix}}.bronze.raw_subscribers
+          FROM telco.bronze.raw_subscribers
       )
       SELECT
           v.call_id,
@@ -210,10 +210,10 @@ AS
           END AS revenue,
           3               AS schema_version,
           v.ingested_at   AS unified_at
-      FROM {{zone_prefix}}.bronze.raw_cdr_v3 v
+      FROM telco.bronze.raw_cdr_v3 v
       LEFT JOIN subscriber_lookup caller_sub ON v.caller = caller_sub.phone_number
       LEFT JOIN subscriber_lookup callee_sub ON v.callee = callee_sub.phone_number
-      LEFT JOIN {{zone_prefix}}.bronze.raw_cell_towers t ON v.tower_id = t.tower_id
+      LEFT JOIN telco.bronze.raw_cell_towers t ON v.tower_id = t.tower_id
   ) AS src
   ON tgt.call_id = src.call_id
   WHEN MATCHED THEN UPDATE SET
@@ -255,12 +255,12 @@ AS
       COUNT(*) AS row_count,
       MAX(duration_sec) AS max_duration_bigint,
       MIN(duration_sec) AS min_duration_bigint
-  FROM {{zone_prefix}}.silver.cdr_unified
+  FROM telco.silver.cdr_unified
   GROUP BY schema_version
   ORDER BY schema_version;
 
   ASSERT VALUE row_count > 0
-  SELECT COUNT(*) AS unified_total FROM {{zone_prefix}}.silver.cdr_unified;
+  SELECT COUNT(*) AS unified_total FROM telco.silver.cdr_unified;
   ASSERT VALUE unified_total = 70;
 
 -- =============================================================================
@@ -271,7 +271,7 @@ STEP upsert_subscribers
   DEPENDS ON (apply_type_widening)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.subscriber_profiles AS tgt
+  MERGE INTO telco.silver.subscriber_profiles AS tgt
   USING (
       WITH activity AS (
           SELECT
@@ -315,8 +315,8 @@ AS
                   ELSE -25.00
               END AS monthly_usage_trend,
               MAX(u.start_time) AS last_activity
-          FROM {{zone_prefix}}.bronze.raw_subscribers s
-          LEFT JOIN {{zone_prefix}}.silver.cdr_unified u
+          FROM telco.bronze.raw_subscribers s
+          LEFT JOIN telco.silver.cdr_unified u
               ON s.phone_number = u.caller OR s.phone_number = u.callee
           GROUP BY s.subscriber_id, s.phone_number, s.plan_type, s.plan_tier,
                    s.activation_date, s.status, s.monthly_spend, s.balance
@@ -358,7 +358,7 @@ STEP reconstruct_sessions
   DEPENDS ON (apply_type_widening)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.sessions AS tgt
+  MERGE INTO telco.silver.sessions AS tgt
   USING (
       WITH caller_events AS (
           SELECT
@@ -371,7 +371,7 @@ AS
               data_usage_mb,
               roaming_flag,
               drop_flag
-          FROM {{zone_prefix}}.silver.cdr_unified
+          FROM telco.silver.cdr_unified
           WHERE caller_id IS NOT NULL
       ),
       events_with_gap AS (
@@ -450,7 +450,7 @@ STEP build_dim_tower
   DEPENDS ON (upsert_subscribers, reconstruct_sessions)
   TIMEOUT '2m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_tower AS tgt
+  MERGE INTO telco.gold.dim_tower AS tgt
   USING (
       SELECT
           tower_id AS tower_key,
@@ -460,7 +460,7 @@ AS
           region,
           technology,
           capacity_mhz
-      FROM {{zone_prefix}}.bronze.raw_cell_towers
+      FROM telco.bronze.raw_cell_towers
   ) AS src
   ON tgt.tower_key = src.tower_key
   WHEN MATCHED THEN UPDATE SET
@@ -477,14 +477,14 @@ STEP build_dim_plan
   DEPENDS ON (upsert_subscribers, reconstruct_sessions)
   TIMEOUT '2m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_plan AS tgt
+  MERGE INTO telco.gold.dim_plan AS tgt
   USING (
       SELECT DISTINCT
           plan_type || '-' || plan_tier AS plan_key,
           plan_type,
           plan_tier,
           monthly_spend
-      FROM {{zone_prefix}}.silver.subscriber_profiles
+      FROM telco.silver.subscriber_profiles
   ) AS src
   ON tgt.plan_key = src.plan_key
   WHEN MATCHED THEN UPDATE SET
@@ -500,7 +500,7 @@ STEP build_dim_subscriber
   DEPENDS ON (upsert_subscribers, reconstruct_sessions)
   TIMEOUT '2m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_subscriber AS tgt
+  MERGE INTO telco.gold.dim_subscriber AS tgt
   USING (
       SELECT
           subscriber_id AS subscriber_key,
@@ -511,7 +511,7 @@ AS
           status,
           monthly_spend,
           balance
-      FROM {{zone_prefix}}.silver.subscriber_profiles
+      FROM telco.silver.subscriber_profiles
   ) AS src
   ON tgt.subscriber_key = src.subscriber_key
   WHEN MATCHED THEN UPDATE SET
@@ -529,7 +529,7 @@ STEP build_fact_calls
   DEPENDS ON (build_dim_tower, build_dim_plan, build_dim_subscriber)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_calls AS tgt
+  MERGE INTO telco.gold.fact_calls AS tgt
   USING (
       SELECT
           u.call_id        AS call_key,
@@ -546,8 +546,8 @@ AS
           u.network_type,
           u.schema_version,
           u.revenue
-      FROM {{zone_prefix}}.silver.cdr_unified u
-      LEFT JOIN {{zone_prefix}}.silver.subscriber_profiles sp
+      FROM telco.silver.cdr_unified u
+      LEFT JOIN telco.silver.subscriber_profiles sp
           ON u.caller_id = sp.subscriber_id
   ) AS src
   ON tgt.call_key = src.call_key
@@ -575,7 +575,7 @@ STEP kpi_network_quality
   DEPENDS ON (build_fact_calls)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_network_quality AS tgt
+  MERGE INTO telco.gold.kpi_network_quality AS tgt
   USING (
       SELECT
           u.tower_region                                      AS region,
@@ -597,7 +597,7 @@ AS
           COUNT(CASE WHEN u.roaming_flag = true THEN 1 END)  AS roaming_calls,
           COUNT(CASE WHEN u.network_type = '5G' THEN 1 END)  AS fiveg_calls,
           SUM(u.revenue)                                      AS revenue
-      FROM {{zone_prefix}}.silver.cdr_unified u
+      FROM telco.silver.cdr_unified u
       GROUP BY u.tower_region, EXTRACT(HOUR FROM u.start_time)
   ) AS src
   ON tgt.region = src.region AND tgt.hour_bucket = src.hour_bucket
@@ -633,7 +633,7 @@ STEP kpi_churn_risk
   DEPENDS ON (build_fact_calls)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_churn_risk AS tgt
+  MERGE INTO telco.gold.kpi_churn_risk AS tgt
   USING (
       SELECT
           sp.subscriber_id,
@@ -666,7 +666,7 @@ AS
               ELSE 'LOW'
           END AS churn_risk_level,
           CURRENT_TIMESTAMP AS scored_at
-      FROM {{zone_prefix}}.silver.subscriber_profiles sp
+      FROM telco.silver.subscriber_profiles sp
   ) AS src
   ON tgt.subscriber_id = src.subscriber_id
   WHEN MATCHED THEN UPDATE SET
@@ -696,10 +696,10 @@ STEP vacuum_and_optimize
   CONTINUE ON FAILURE
   TIMEOUT '10m'
 AS
-  OPTIMIZE {{zone_prefix}}.silver.cdr_unified;
-  OPTIMIZE {{zone_prefix}}.gold.fact_calls;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_network_quality;
-  VACUUM {{zone_prefix}}.bronze.raw_cdr_v1 RETAIN 168 HOURS;
-  VACUUM {{zone_prefix}}.bronze.raw_cdr_v2 RETAIN 168 HOURS;
-  VACUUM {{zone_prefix}}.bronze.raw_cdr_v3 RETAIN 168 HOURS;
-  VACUUM {{zone_prefix}}.silver.cdr_unified RETAIN 168 HOURS;
+  OPTIMIZE telco.silver.cdr_unified;
+  OPTIMIZE telco.gold.fact_calls;
+  OPTIMIZE telco.gold.kpi_network_quality;
+  VACUUM telco.bronze.raw_cdr_v1 RETAIN 168 HOURS;
+  VACUUM telco.bronze.raw_cdr_v2 RETAIN 168 HOURS;
+  VACUUM telco.bronze.raw_cdr_v3 RETAIN 168 HOURS;
+  VACUUM telco.silver.cdr_unified RETAIN 168 HOURS;

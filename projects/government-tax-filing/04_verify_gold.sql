@@ -20,7 +20,7 @@ SELECT
     k.compliance_rate,
     k.amendment_count,
     k.audit_yield_pct
-FROM {{zone_prefix}}.gold.kpi_revenue_analysis k
+FROM tax.gold.kpi_revenue_analysis k
 ORDER BY k.fiscal_year, k.jurisdiction_name;
 
 -- ===================== QUERY 2: Star Schema Join — Full Filing Detail with Amendments =====================
@@ -50,11 +50,11 @@ SELECT
     ff.effective_tax_rate,
     ff.audit_flag,
     ff.filing_status
-FROM {{zone_prefix}}.gold.fact_filings ff
-JOIN {{zone_prefix}}.gold.dim_taxpayer dt       ON ff.taxpayer_key = dt.taxpayer_key
-JOIN {{zone_prefix}}.gold.dim_jurisdiction dj   ON ff.jurisdiction_key = dj.jurisdiction_key
-LEFT JOIN {{zone_prefix}}.gold.dim_preparer dp  ON ff.preparer_key = dp.preparer_key
-JOIN {{zone_prefix}}.gold.dim_fiscal_year dfy   ON ff.fiscal_year_key = dfy.fiscal_year_key
+FROM tax.gold.fact_filings ff
+JOIN tax.gold.dim_taxpayer dt       ON ff.taxpayer_key = dt.taxpayer_key
+JOIN tax.gold.dim_jurisdiction dj   ON ff.jurisdiction_key = dj.jurisdiction_key
+LEFT JOIN tax.gold.dim_preparer dp  ON ff.preparer_key = dp.preparer_key
+JOIN tax.gold.dim_fiscal_year dfy   ON ff.fiscal_year_key = dfy.fiscal_year_key
 ORDER BY ff.fiscal_year, dt.taxpayer_id, dj.jurisdiction_name;
 
 -- ===================== QUERY 3: Audit Candidate Analysis =====================
@@ -73,8 +73,8 @@ SELECT
     ff.filing_status,
     ff.was_amended,
     ff.effective_tax_owed - ff.tax_owed                            AS audit_tax_adjustment
-FROM {{zone_prefix}}.gold.fact_filings ff
-JOIN {{zone_prefix}}.gold.dim_taxpayer dt ON ff.taxpayer_key = dt.taxpayer_key
+FROM tax.gold.fact_filings ff
+JOIN tax.gold.dim_taxpayer dt ON ff.taxpayer_key = dt.taxpayer_key
 WHERE ff.audit_flag = true
 ORDER BY dt.taxpayer_id, ff.fiscal_year;
 
@@ -94,8 +94,8 @@ SELECT
     ff.effective_tax_owed - ff.tax_owed                            AS tax_delta,
     ff.amendment_reason,
     ff.amendment_count
-FROM {{zone_prefix}}.gold.fact_filings ff
-JOIN {{zone_prefix}}.gold.dim_taxpayer dt ON ff.taxpayer_key = dt.taxpayer_key
+FROM tax.gold.fact_filings ff
+JOIN tax.gold.dim_taxpayer dt ON ff.taxpayer_key = dt.taxpayer_key
 WHERE ff.was_amended = true
 ORDER BY ABS(ff.effective_tax_owed - ff.tax_owed) DESC;
 
@@ -114,7 +114,7 @@ SELECT
     k.avg_client_income,
     k.avg_deduction_pct,
     k.avg_effective_rate
-FROM {{zone_prefix}}.gold.kpi_preparer_quality k
+FROM tax.gold.kpi_preparer_quality k
 ORDER BY k.amendment_rate_pct DESC;
 
 -- ===================== QUERY 6: Fiscal Year Dimension Validation =====================
@@ -126,7 +126,7 @@ SELECT
     dfy.total_filings,
     dfy.total_amendments,
     dfy.audit_flag_count
-FROM {{zone_prefix}}.gold.dim_fiscal_year dfy
+FROM tax.gold.dim_fiscal_year dfy
 ORDER BY dfy.fiscal_year;
 
 -- ===================== QUERY 7: Year-over-Year Tax Revenue Trend =====================
@@ -146,8 +146,8 @@ SELECT
         / NULLIF(LAG(SUM(ff.effective_tax_owed)) OVER (PARTITION BY dj.jurisdiction_name ORDER BY ff.fiscal_year), 0),
         2
     )                                                               AS yoy_change_pct
-FROM {{zone_prefix}}.gold.fact_filings ff
-JOIN {{zone_prefix}}.gold.dim_jurisdiction dj ON ff.jurisdiction_key = dj.jurisdiction_key
+FROM tax.gold.fact_filings ff
+JOIN tax.gold.dim_jurisdiction dj ON ff.jurisdiction_key = dj.jurisdiction_key
 GROUP BY dj.jurisdiction_name, ff.fiscal_year
 ORDER BY dj.jurisdiction_name, ff.fiscal_year;
 
@@ -162,8 +162,8 @@ SELECT
     ff.effective_tax_rate,
     dt.filing_type,
     ff.was_amended
-FROM {{zone_prefix}}.gold.fact_filings ff
-JOIN {{zone_prefix}}.gold.dim_taxpayer dt ON ff.taxpayer_key = dt.taxpayer_key
+FROM tax.gold.fact_filings ff
+JOIN tax.gold.dim_taxpayer dt ON ff.taxpayer_key = dt.taxpayer_key
 WHERE ff.fiscal_year = 2023
 ORDER BY ff.gross_income;
 
@@ -183,8 +183,8 @@ SELECT
         100.0 * SUM(CASE WHEN ff.filing_status IN ('Accepted', 'Filed') THEN 1 ELSE 0 END) / COUNT(*),
         2
     )                                                               AS compliance_rate_pct
-FROM {{zone_prefix}}.gold.fact_filings ff
-JOIN {{zone_prefix}}.gold.dim_jurisdiction dj ON ff.jurisdiction_key = dj.jurisdiction_key
+FROM tax.gold.fact_filings ff
+JOIN tax.gold.dim_jurisdiction dj ON ff.jurisdiction_key = dj.jurisdiction_key
 GROUP BY dj.jurisdiction_name, dj.jurisdiction_level
 ORDER BY total_filings DESC;
 
@@ -201,8 +201,8 @@ SELECT
     ROUND(AVG(ff.gross_income), 2)                                AS avg_gross_income,
     SUM(ff.amendment_count)                                        AS total_amendments,
     PERCENT_RANK() OVER (ORDER BY SUM(ff.effective_tax_owed))     AS tax_percentile
-FROM {{zone_prefix}}.gold.fact_filings ff
-JOIN {{zone_prefix}}.gold.dim_taxpayer dt ON ff.taxpayer_key = dt.taxpayer_key
+FROM tax.gold.fact_filings ff
+JOIN tax.gold.dim_taxpayer dt ON ff.taxpayer_key = dt.taxpayer_key
 GROUP BY dt.taxpayer_id, dt.filing_type, dt.state, dt.ever_audited
 ORDER BY total_effective_tax_contributed DESC;
 
@@ -215,7 +215,7 @@ SELECT
     COUNT(*)                                                       AS record_count,
     MIN(at.change_timestamp)                                       AS earliest,
     MAX(at.change_timestamp)                                       AS latest
-FROM {{zone_prefix}}.silver.audit_trail at
+FROM tax.silver.audit_trail at
 GROUP BY at.table_name, at.operation
 ORDER BY at.table_name, at.operation;
 
@@ -230,12 +230,12 @@ SELECT
     SUM(CASE WHEN ff.refund_amount < 0 THEN 1 ELSE 0 END)       AS owed_more,
     ROUND(AVG(ff.refund_amount), 2)                               AS avg_refund,
     ROUND(AVG(ff.effective_tax_owed), 2)                          AS avg_effective_tax
-FROM {{zone_prefix}}.gold.fact_filings ff
-JOIN {{zone_prefix}}.gold.dim_taxpayer dt ON ff.taxpayer_key = dt.taxpayer_key
+FROM tax.gold.fact_filings ff
+JOIN tax.gold.dim_taxpayer dt ON ff.taxpayer_key = dt.taxpayer_key
 GROUP BY ff.fiscal_year, dt.filing_type
 ORDER BY ff.fiscal_year, dt.filing_type;
 
 -- ===================== FINAL: Summary assertion =====================
 
 ASSERT ROW_COUNT >= 50
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.gold.fact_filings;
+SELECT COUNT(*) AS row_count FROM tax.gold.fact_filings;

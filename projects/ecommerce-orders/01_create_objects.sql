@@ -10,19 +10,19 @@
 
 -- ===================== ZONE =====================
 
-CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS ecom TYPE EXTERNAL
     COMMENT 'Omnichannel e-commerce project zone';
 
 -- ===================== SCHEMAS =====================
 
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw order feeds from web, mobile, POS, browsing events';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'Unified orders, RFM scoring, inventory CDF, sessions';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold   COMMENT 'Star schema for sales, funnel, and channel analytics';
+CREATE SCHEMA IF NOT EXISTS ecom.bronze COMMENT 'Raw order feeds from web, mobile, POS, browsing events';
+CREATE SCHEMA IF NOT EXISTS ecom.silver COMMENT 'Unified orders, RFM scoring, inventory CDF, sessions';
+CREATE SCHEMA IF NOT EXISTS ecom.gold   COMMENT 'Star schema for sales, funnel, and channel analytics';
 
 -- ===================== BRONZE TABLES =====================
 
 -- Customers dimension feed (18 rows)
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_customers (
+CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_customers (
     customer_id       STRING      NOT NULL,
     email             STRING      NOT NULL,
     first_name        STRING,
@@ -36,10 +36,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_customers (
     registration_date DATE,
     source_system     STRING,
     ingested_at       TIMESTAMP
-) LOCATION '{{data_path}}/ecommerce/bronze/raw_customers';
+) LOCATION 'ecom/ecommerce/bronze/raw_customers';
 
 -- Products dimension feed (20 rows)
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_products (
+CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_products (
     product_id   STRING      NOT NULL,
     sku          STRING      NOT NULL,
     product_name STRING,
@@ -50,10 +50,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_products (
     list_price   DECIMAL(10,2),
     weight_kg    DECIMAL(6,2),
     ingested_at  TIMESTAMP
-) LOCATION '{{data_path}}/ecommerce/bronze/raw_products';
+) LOCATION 'ecom/ecommerce/bronze/raw_products';
 
 -- Web channel orders (30 rows)
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_web_orders (
+CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_web_orders (
     order_id      STRING      NOT NULL,
     customer_id   STRING      NOT NULL,
     product_id    STRING      NOT NULL,
@@ -66,10 +66,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_web_orders (
     session_id    STRING,
     browser       STRING,
     ingested_at   TIMESTAMP
-) LOCATION '{{data_path}}/ecommerce/bronze/raw_web_orders';
+) LOCATION 'ecom/ecommerce/bronze/raw_web_orders';
 
 -- Mobile app orders (20 rows)
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_mobile_orders (
+CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_mobile_orders (
     order_id      STRING      NOT NULL,
     customer_id   STRING      NOT NULL,
     product_id    STRING      NOT NULL,
@@ -82,10 +82,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_mobile_orders (
     session_id    STRING,
     app_version   STRING,
     ingested_at   TIMESTAMP
-) LOCATION '{{data_path}}/ecommerce/bronze/raw_mobile_orders';
+) LOCATION 'ecom/ecommerce/bronze/raw_mobile_orders';
 
 -- POS terminal orders (25 rows)
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_pos_orders (
+CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_pos_orders (
     order_id      STRING      NOT NULL,
     customer_id   STRING      NOT NULL,
     product_id    STRING      NOT NULL,
@@ -98,10 +98,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_pos_orders (
     store_id      STRING,
     terminal_id   STRING,
     ingested_at   TIMESTAMP
-) LOCATION '{{data_path}}/ecommerce/bronze/raw_pos_orders';
+) LOCATION 'ecom/ecommerce/bronze/raw_pos_orders';
 
 -- Browsing events for funnel sessionization
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_browsing_events (
+CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_browsing_events (
     event_id      STRING      NOT NULL,
     customer_id   STRING      NOT NULL,
     session_id    STRING,
@@ -110,12 +110,12 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_browsing_events (
     page_url      STRING,
     product_id    STRING,
     ingested_at   TIMESTAMP
-) LOCATION '{{data_path}}/ecommerce/bronze/raw_browsing_events';
+) LOCATION 'ecom/ecommerce/bronze/raw_browsing_events';
 
 -- ===================== SILVER TABLES =====================
 
 -- Unified orders from 3 channels, soft-delete for cancellations, CDF-enabled
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.orders_unified (
+CREATE DELTA TABLE IF NOT EXISTS ecom.silver.orders_unified (
     order_id        STRING      NOT NULL,
     customer_id     STRING      NOT NULL,
     product_id      STRING      NOT NULL,
@@ -132,11 +132,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.orders_unified (
     store_id        STRING,
     session_id      STRING,
     updated_at      TIMESTAMP
-) LOCATION '{{data_path}}/ecommerce/silver/orders_unified'
+) LOCATION 'ecom/ecommerce/silver/orders_unified'
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
 -- Customer RFM segmentation with NTILE quartile scoring
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.customer_rfm (
+CREATE DELTA TABLE IF NOT EXISTS ecom.silver.customer_rfm (
     customer_id      STRING      NOT NULL,
     email            STRING,
     first_name       STRING,
@@ -156,10 +156,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.customer_rfm (
     rfm_total        INT,
     rfm_segment      STRING,
     updated_at       TIMESTAMP
-) LOCATION '{{data_path}}/ecommerce/silver/customer_rfm';
+) LOCATION 'ecom/ecommerce/silver/customer_rfm';
 
 -- Inventory adjustments driven by CDF on orders_unified
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.inventory_adjustments (
+CREATE DELTA TABLE IF NOT EXISTS ecom.silver.inventory_adjustments (
     adjustment_id   STRING      NOT NULL,
     product_id      STRING      NOT NULL,
     order_id        STRING      NOT NULL,
@@ -167,10 +167,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.inventory_adjustments (
     quantity_delta  INT         NOT NULL,
     reason          STRING,
     captured_at     TIMESTAMP
-) LOCATION '{{data_path}}/ecommerce/silver/inventory_adjustments';
+) LOCATION 'ecom/ecommerce/silver/inventory_adjustments';
 
 -- Sessionized browsing events for funnel analysis
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.sessions (
+CREATE DELTA TABLE IF NOT EXISTS ecom.silver.sessions (
     session_key     STRING      NOT NULL,
     customer_id     STRING      NOT NULL,
     session_id      STRING,
@@ -183,11 +183,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.sessions (
     purchase_count  INT,
     funnel_stage    STRING,
     processed_at    TIMESTAMP
-) LOCATION '{{data_path}}/ecommerce/silver/sessions';
+) LOCATION 'ecom/ecommerce/silver/sessions';
 
 -- ===================== GOLD TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_product (
+CREATE DELTA TABLE IF NOT EXISTS ecom.gold.dim_product (
     product_key   STRING      NOT NULL,
     sku           STRING,
     product_name  STRING,
@@ -196,9 +196,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_product (
     brand         STRING,
     unit_cost     DECIMAL(10,2),
     list_price    DECIMAL(10,2)
-) LOCATION '{{data_path}}/ecommerce/gold/dim_product';
+) LOCATION 'ecom/ecommerce/gold/dim_product';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_customer (
+CREATE DELTA TABLE IF NOT EXISTS ecom.gold.dim_customer (
     customer_key      STRING      NOT NULL,
     email             STRING,
     full_name         STRING,
@@ -211,15 +211,15 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_customer (
     lifetime_orders   INT,
     lifetime_revenue  DECIMAL(14,2),
     rfm_segment       STRING
-) LOCATION '{{data_path}}/ecommerce/gold/dim_customer';
+) LOCATION 'ecom/ecommerce/gold/dim_customer';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_channel (
+CREATE DELTA TABLE IF NOT EXISTS ecom.gold.dim_channel (
     channel_key   STRING      NOT NULL,
     channel_name  STRING,
     channel_detail STRING
-) LOCATION '{{data_path}}/ecommerce/gold/dim_channel';
+) LOCATION 'ecom/ecommerce/gold/dim_channel';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_date (
+CREATE DELTA TABLE IF NOT EXISTS ecom.gold.dim_date (
     date_key      INT         NOT NULL,
     full_date     DATE        NOT NULL,
     year          INT,
@@ -229,9 +229,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_date (
     day_of_week   INT,
     day_name      STRING,
     is_weekend    BOOLEAN
-) LOCATION '{{data_path}}/ecommerce/gold/dim_date';
+) LOCATION 'ecom/ecommerce/gold/dim_date';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_order_lines (
+CREATE DELTA TABLE IF NOT EXISTS ecom.gold.fact_order_lines (
     order_line_key STRING      NOT NULL,
     order_key      STRING      NOT NULL,
     product_key    STRING      NOT NULL,
@@ -245,9 +245,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_order_lines (
     line_total     DECIMAL(12,2),
     shipping_cost  DECIMAL(10,2),
     status         STRING
-) LOCATION '{{data_path}}/ecommerce/gold/fact_order_lines';
+) LOCATION 'ecom/ecommerce/gold/fact_order_lines';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_sales_dashboard (
+CREATE DELTA TABLE IF NOT EXISTS ecom.gold.kpi_sales_dashboard (
     report_month        DATE,
     channel             STRING,
     total_orders        INT,
@@ -258,9 +258,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_sales_dashboard (
     unique_customers    INT,
     repeat_customers    INT,
     repeat_rate_pct     DECIMAL(5,2)
-) LOCATION '{{data_path}}/ecommerce/gold/kpi_sales_dashboard';
+) LOCATION 'ecom/ecommerce/gold/kpi_sales_dashboard';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_funnel_analysis (
+CREATE DELTA TABLE IF NOT EXISTS ecom.gold.kpi_funnel_analysis (
     report_month        DATE,
     total_sessions      INT,
     browse_sessions     INT,
@@ -271,39 +271,39 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_funnel_analysis (
     cart_to_checkout_pct DECIMAL(5,2),
     checkout_to_purchase_pct DECIMAL(5,2),
     overall_conversion_pct   DECIMAL(5,2)
-) LOCATION '{{data_path}}/ecommerce/gold/kpi_funnel_analysis';
+) LOCATION 'ecom/ecommerce/gold/kpi_funnel_analysis';
 
 -- ===================== PSEUDONYMISATION =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_customers (email) TRANSFORM redact PARAMS (mask = '***@***.***');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.customer_rfm (email) TRANSFORM redact PARAMS (mask = '***@***.***');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_customers (address) TRANSFORM mask PARAMS (show = 5);
+CREATE PSEUDONYMISATION RULE ON ecom.bronze.raw_customers (email) TRANSFORM redact PARAMS (mask = '***@***.***');
+CREATE PSEUDONYMISATION RULE ON ecom.silver.customer_rfm (email) TRANSFORM redact PARAMS (mask = '***@***.***');
+CREATE PSEUDONYMISATION RULE ON ecom.bronze.raw_customers (address) TRANSFORM mask PARAMS (show = 5);
 
 -- ===================== GRANTS =====================
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_customers TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_products TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_web_orders TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_mobile_orders TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_pos_orders TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_browsing_events TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.orders_unified TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.customer_rfm TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.inventory_adjustments TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.sessions TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_product TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_customer TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_channel TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_date TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_order_lines TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_sales_dashboard TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_funnel_analysis TO USER {{current_user}};
+GRANT ADMIN ON TABLE ecom.bronze.raw_customers TO USER admin;
+GRANT ADMIN ON TABLE ecom.bronze.raw_products TO USER admin;
+GRANT ADMIN ON TABLE ecom.bronze.raw_web_orders TO USER admin;
+GRANT ADMIN ON TABLE ecom.bronze.raw_mobile_orders TO USER admin;
+GRANT ADMIN ON TABLE ecom.bronze.raw_pos_orders TO USER admin;
+GRANT ADMIN ON TABLE ecom.bronze.raw_browsing_events TO USER admin;
+GRANT ADMIN ON TABLE ecom.silver.orders_unified TO USER admin;
+GRANT ADMIN ON TABLE ecom.silver.customer_rfm TO USER admin;
+GRANT ADMIN ON TABLE ecom.silver.inventory_adjustments TO USER admin;
+GRANT ADMIN ON TABLE ecom.silver.sessions TO USER admin;
+GRANT ADMIN ON TABLE ecom.gold.dim_product TO USER admin;
+GRANT ADMIN ON TABLE ecom.gold.dim_customer TO USER admin;
+GRANT ADMIN ON TABLE ecom.gold.dim_channel TO USER admin;
+GRANT ADMIN ON TABLE ecom.gold.dim_date TO USER admin;
+GRANT ADMIN ON TABLE ecom.gold.fact_order_lines TO USER admin;
+GRANT ADMIN ON TABLE ecom.gold.kpi_sales_dashboard TO USER admin;
+GRANT ADMIN ON TABLE ecom.gold.kpi_funnel_analysis TO USER admin;
 
 -- =============================================================================
 -- SEED DATA: CUSTOMERS (18 rows)
 -- =============================================================================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_customers VALUES
+INSERT INTO ecom.bronze.raw_customers VALUES
 ('C001', 'alice.morgan@example.com',   'Alice',   'Morgan',   'Premium',    'New York',      'NY', 'US', '123 5th Ave, New York, NY 10001',       'Gold',    '2023-01-15', 'CRM', '2024-06-01T00:00:00'),
 ('C002', 'bob.chen@example.com',       'Bob',     'Chen',     'Standard',   'San Francisco', 'CA', 'US', '456 Market St, San Francisco, CA 94105', 'Silver',  '2023-02-20', 'CRM', '2024-06-01T00:00:00'),
 ('C003', 'carol.davis@example.com',    'Carol',   'Davis',    'Premium',    'Chicago',       'IL', 'US', '789 Michigan Ave, Chicago, IL 60601',   'Gold',    '2023-03-10', 'CRM', '2024-06-01T00:00:00'),
@@ -324,13 +324,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_customers VALUES
 ('C018', 'rachel.wilson@example.com',  'Rachel',  'Wilson',   'Standard',   'Detroit',       'MI', 'US', '789 Woodward Ave, Detroit, MI 48226',   'Bronze',  '2023-07-01', 'CRM', '2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 18
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_customers;
+SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_customers;
 
 -- =============================================================================
 -- SEED DATA: PRODUCTS (20 rows) -- electronics, apparel, groceries
 -- =============================================================================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_products VALUES
+INSERT INTO ecom.bronze.raw_products VALUES
 ('P001', 'SKU-ELEC-001', 'Wireless Headphones',       'Electronics',  'Audio',       'SoundMax',     29.99,   79.99,  0.25, '2024-06-01T00:00:00'),
 ('P002', 'SKU-ELEC-002', 'Bluetooth Speaker',          'Electronics',  'Audio',       'SoundMax',     45.00,  129.99,  1.20, '2024-06-01T00:00:00'),
 ('P003', 'SKU-ELEC-003', 'USB-C Hub 7-Port',           'Electronics',  'Accessories', 'TechLink',     12.50,   39.99,  0.15, '2024-06-01T00:00:00'),
@@ -353,13 +353,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_products VALUES
 ('P020', 'SKU-HOME-003', 'Standing Desk Converter',    'Home',         'Furniture',   'ComfortPro',   85.00,  229.99,  8.00, '2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 20
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_products;
+SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_products;
 
 -- =============================================================================
 -- SEED DATA: WEB ORDERS (30 rows) -- Jan-Jun 2024
 -- =============================================================================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_web_orders VALUES
+INSERT INTO ecom.bronze.raw_web_orders VALUES
 ('WEB-001', 'C001', 'P001', 2,  79.99,  0.00,  5.99, '2024-01-05', 'delivered',  'WS-A001-01', 'Chrome',  '2024-06-01T00:00:00'),
 ('WEB-002', 'C001', 'P003', 1,  39.99,  0.10,  0.00, '2024-01-05', 'delivered',  'WS-A001-01', 'Chrome',  '2024-06-01T00:00:00'),
 ('WEB-003', 'C003', 'P019', 1, 399.99,  0.05, 29.99, '2024-01-12', 'delivered',  'WS-A003-01', 'Firefox', '2024-06-01T00:00:00'),
@@ -392,13 +392,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_web_orders VALUES
 ('WEB-030', 'C015', 'P007', 1, 349.99,  0.00, 12.99, '2024-06-28', 'delivered',  'WS-A015-02', 'Chrome',  '2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 30
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_web_orders;
+SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_web_orders;
 
 -- =============================================================================
 -- SEED DATA: MOBILE ORDERS (20 rows)
 -- =============================================================================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_mobile_orders VALUES
+INSERT INTO ecom.bronze.raw_mobile_orders VALUES
 ('MOB-001', 'C002', 'P006', 1, 149.99,  0.00,  8.99, '2024-01-08',  'delivered',  'MS-B002-01', 'v3.2.1', '2024-06-01T00:00:00'),
 ('MOB-002', 'C004', 'P011', 3,  29.99,  0.00,  3.99, '2024-01-15',  'delivered',  'MS-B004-01', 'v3.2.1', '2024-06-01T00:00:00'),
 ('MOB-003', 'C007', 'P002', 1, 129.99,  0.00,  6.99, '2024-01-22',  'delivered',  'MS-B007-01', 'v3.2.1', '2024-06-01T00:00:00'),
@@ -421,13 +421,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_mobile_orders VALUES
 ('MOB-020', 'C007', 'P010', 1, 149.99,  0.00,  8.99, '2024-06-28',  'delivered',  'MS-B007-02', 'v3.4.1', '2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 20
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_mobile_orders;
+SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_mobile_orders;
 
 -- =============================================================================
 -- SEED DATA: POS ORDERS (25 rows) -- store_id + terminal_id
 -- =============================================================================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_pos_orders VALUES
+INSERT INTO ecom.bronze.raw_pos_orders VALUES
 ('POS-001', 'C004', 'P013', 5,  18.99,  0.00,  0.00, '2024-01-06',  'delivered',  'STR-NYC-01',  'T01', '2024-06-01T00:00:00'),
 ('POS-002', 'C002', 'P008', 1,  99.99,  0.00,  0.00, '2024-01-10',  'delivered',  'STR-SF-01',   'T02', '2024-06-01T00:00:00'),
 ('POS-003', 'C006', 'P015', 3,  24.99,  0.05,  0.00, '2024-01-20',  'delivered',  'STR-ATX-01',  'T01', '2024-06-01T00:00:00'),
@@ -455,13 +455,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_pos_orders VALUES
 ('POS-025', 'C011', 'P020', 1, 229.99,  0.05,  0.00, '2024-06-29',  'delivered',  'STR-ATL-01',  'T01', '2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 25
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_pos_orders;
+SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_pos_orders;
 
 -- =============================================================================
 -- SEED DATA: BROWSING EVENTS (40 rows for 5 customers) -- funnel stages
 -- =============================================================================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_browsing_events VALUES
+INSERT INTO ecom.bronze.raw_browsing_events VALUES
 -- Customer C001: full funnel browse -> cart -> checkout -> purchase
 ('EVT-001', 'C001', 'WS-A001-01', 'page_view',      '2024-01-05T09:00:00', '/products',           NULL,   '2024-06-01T00:00:00'),
 ('EVT-002', 'C001', 'WS-A001-01', 'product_view',    '2024-01-05T09:05:00', '/products/P001',      'P001', '2024-06-01T00:00:00'),
@@ -511,4 +511,4 @@ INSERT INTO {{zone_prefix}}.bronze.raw_browsing_events VALUES
 ('EVT-040', 'C008', 'WS-A008-01', 'purchase',        '2024-06-18T19:28:00', '/checkout/confirm',   NULL,   '2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 40
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_browsing_events;
+SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_browsing_events;

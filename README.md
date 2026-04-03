@@ -18,22 +18,34 @@ Each project has a unique feature combination — no two projects demonstrate th
    - `bronze/*.sql` → `silver/*.sql` → `gold/*.sql` → `maintenance/*.sql`
    - Orchestrated by `pipeline.sql` using `INCLUDE SCRIPT` references
 
-## Template Variables
+## Zone Naming
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `{{data_path}}` | Root path for Delta table storage | Yes |
-| `{{zone_prefix}}` | Zone name for this project (one dedicated zone each) | No |
-| `{{current_user}}` | Current user for GRANT statements | Yes |
+Each project creates a dedicated zone with a fixed name. No template variables — all SQL uses actual values:
+
+| Project | Zone | Example table reference |
+|---------|------|----------------------|
+| healthcare-patient-ehr | `ehr` | `ehr.bronze.raw_admissions` |
+| banking-transactions | `bank` | `bank.silver.transactions_enriched` |
+| ecommerce-orders | `ecom` | `ecom.gold.fact_order_lines` |
+| insurance-claims | `ins` | `ins.silver.policy_dim` |
+| telecom-cdr | `telco` | `telco.bronze.raw_cdr_v1` |
+| manufacturing-iot | `mfg` | `mfg.gold.kpi_oee` |
+| logistics-shipments | `logi` | `logi.silver.events_deduped` |
+| government-tax-filing | `tax` | `tax.gold.fact_filings` |
+| real-estate-property | `realty` | `realty.silver.property_dim` |
+| legal-case-management | `legal` | `legal.gold.legal_network` |
+| hr-workforce | `hr` | `hr.silver.employee_dim` |
+| cybersecurity-incidents | `cyber` | `cyber.gold.fact_incidents` |
+| supply-chain-analytics | `sc` | `sc.gold.fact_inventory` |
 
 ## Incremental Loading
 
-All projects use the `INCREMENTAL_FILTER` macro for dynamic watermark-based loading:
+Projects use the `INCREMENTAL_FILTER` macro for dynamic watermark-based loading:
 
 ```sql
-SELECT * FROM {{zone_prefix}}.bronze.source_table
-WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.target_table, id, updated_at, 3)}};
--- Expands to: id > 12345 AND updated_at > '2024-01-15'
+SELECT * FROM ehr.bronze.raw_admissions
+WHERE {{INCREMENTAL_FILTER(ehr.silver.admissions_cleaned, record_id, admission_date, 3)}};
+-- Expands to: record_id > 'R-055' AND admission_date > '2024-06-01'
 -- Or: 1=1 (if target is empty — first run = full load)
 ```
 

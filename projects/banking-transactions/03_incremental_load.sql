@@ -18,20 +18,20 @@
 -- ============================================================================
 
 -- Preview the generated filter condition:
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.transactions_enriched, transaction_id, transaction_date, 1)}};
+PRINT {{INCREMENTAL_FILTER(bank.silver.transactions_enriched, transaction_id, transaction_date, 1)}};
 
 -- ===================== STEP 1: Capture Current Watermarks =====================
 
-SELECT MAX(ingested_at) AS current_watermark FROM {{zone_prefix}}.silver.transactions_enriched;
+SELECT MAX(ingested_at) AS current_watermark FROM bank.silver.transactions_enriched;
 
-SELECT COUNT(*) AS pre_silver_count FROM {{zone_prefix}}.silver.transactions_enriched;
+SELECT COUNT(*) AS pre_silver_count FROM bank.silver.transactions_enriched;
 
-SELECT COUNT(*) AS pre_gold_count FROM {{zone_prefix}}.gold.fact_transactions;
+SELECT COUNT(*) AS pre_gold_count FROM bank.gold.fact_transactions;
 
 -- ===================== STEP 2: Insert New Bronze Transactions (10 rows, Feb 2024) =====================
 -- Includes 2 fraud-flagged: one crypto + suspicious + high value, one velocity cluster
 
-INSERT INTO {{zone_prefix}}.bronze.raw_transactions VALUES
+INSERT INTO bank.bronze.raw_transactions VALUES
     ('TXN00071', 'ACC001', 'M001', '2024-02-01T09:00:00', 92.30, 'debit', 'pos', false, '2024-02-01T12:00:00'),
     ('TXN00072', 'ACC002', 'M005', '2024-02-01T14:20:00', 245.99, 'debit', 'online', false, '2024-02-01T12:00:00'),
     ('TXN00073', 'ACC003', NULL, '2024-02-02T08:00:00', 4000.00, 'credit', 'wire', false, '2024-02-01T12:00:00'),
@@ -48,12 +48,12 @@ INSERT INTO {{zone_prefix}}.bronze.raw_transactions VALUES
 -- ===================== STEP 3: Incremental MERGE to Silver =====================
 -- Uses INCREMENTAL_FILTER to process only new records with 1-day overlap
 
-MERGE INTO {{zone_prefix}}.silver.transactions_enriched AS target
+MERGE INTO bank.silver.transactions_enriched AS target
 USING (
     WITH new_txns AS (
         SELECT *
-        FROM {{zone_prefix}}.bronze.raw_transactions
-        WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.transactions_enriched, transaction_id, transaction_date, 1)}}
+        FROM bank.bronze.raw_transactions
+        WHERE {{INCREMENTAL_FILTER(bank.silver.transactions_enriched, transaction_id, transaction_date, 1)}}
     ),
     enriched AS (
         SELECT
@@ -80,7 +80,7 @@ USING (
             ) AS txn_velocity_5,
             ROW_NUMBER() OVER (PARTITION BY t.transaction_id ORDER BY t.ingested_at ASC) AS rn
         FROM new_txns t
-        LEFT JOIN {{zone_prefix}}.bronze.raw_merchants m ON t.merchant_id = m.merchant_id
+        LEFT JOIN bank.bronze.raw_merchants m ON t.merchant_id = m.merchant_id
     ),
     scored AS (
         SELECT
@@ -124,12 +124,12 @@ WHEN NOT MATCHED THEN INSERT (
 -- ===================== STEP 4: Update CDF Customer Dim =====================
 -- Update last_txn info in customer_dim for CDF tracking
 
-MERGE INTO {{zone_prefix}}.silver.customer_dim AS target
+MERGE INTO bank.silver.customer_dim AS target
 USING (
     SELECT
         account_id,
         MAX(transaction_date) AS last_txn_date
-    FROM {{zone_prefix}}.silver.transactions_enriched
+    FROM bank.silver.transactions_enriched
     WHERE ingested_at > '2024-01-15T00:00:00'
     GROUP BY account_id
 ) AS source
@@ -139,11 +139,11 @@ WHEN MATCHED THEN UPDATE SET
 
 -- ===================== STEP 5: Verify Incremental Processing =====================
 
-SELECT COUNT(*) AS post_silver_count FROM {{zone_prefix}}.silver.transactions_enriched;
+SELECT COUNT(*) AS post_silver_count FROM bank.silver.transactions_enriched;
 
 ASSERT VALUE new_silver_records = 10
 SELECT post.cnt - pre.cnt AS new_silver_records
-FROM (SELECT COUNT(*) AS cnt FROM {{zone_prefix}}.silver.transactions_enriched) post,
+FROM (SELECT COUNT(*) AS cnt FROM bank.silver.transactions_enriched) post,
      (SELECT 70 AS cnt) pre;
 
 -- Verify no duplicates
@@ -151,14 +151,14 @@ ASSERT VALUE dup_check = 0
 SELECT COUNT(*) AS dup_check
 FROM (
     SELECT transaction_id, COUNT(*) AS cnt
-    FROM {{zone_prefix}}.silver.transactions_enriched
+    FROM bank.silver.transactions_enriched
     GROUP BY transaction_id
     HAVING COUNT(*) > 1
 );
 
 -- ===================== STEP 6: Refresh Gold Fact (incremental) =====================
 
-MERGE INTO {{zone_prefix}}.gold.fact_transactions AS target
+MERGE INTO bank.gold.fact_transactions AS target
 USING (
     SELECT
         ROW_NUMBER() OVER (ORDER BY te.transaction_date, te.transaction_id) AS transaction_key,
@@ -171,10 +171,10 @@ USING (
         te.running_balance,
         te.fraud_score,
         te.channel
-    FROM {{zone_prefix}}.silver.transactions_enriched te
-    JOIN {{zone_prefix}}.gold.dim_account da ON te.account_id = da.account_id
-    LEFT JOIN {{zone_prefix}}.gold.dim_merchant dm ON te.merchant_id = dm.merchant_id
-    LEFT JOIN {{zone_prefix}}.gold.dim_date dd ON CAST(te.transaction_date AS DATE) = dd.full_date
+    FROM bank.silver.transactions_enriched te
+    JOIN bank.gold.dim_account da ON te.account_id = da.account_id
+    LEFT JOIN bank.gold.dim_merchant dm ON te.merchant_id = dm.merchant_id
+    LEFT JOIN bank.gold.dim_date dd ON CAST(te.transaction_date AS DATE) = dd.full_date
 ) AS source
 ON target.account_key = source.account_key
     AND target.transaction_date = source.transaction_date
@@ -194,11 +194,11 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 ASSERT VALUE post_gold_count >= 80
-SELECT COUNT(*) AS post_gold_count FROM {{zone_prefix}}.gold.fact_transactions;
+SELECT COUNT(*) AS post_gold_count FROM bank.gold.fact_transactions;
 
 -- ===================== STEP 7: Refresh KPI Daily Volumes =====================
 
-MERGE INTO {{zone_prefix}}.gold.kpi_daily_volumes AS target
+MERGE INTO bank.gold.kpi_daily_volumes AS target
 USING (
     WITH daily AS (
         SELECT
@@ -208,7 +208,7 @@ USING (
             ROUND(AVG(amount), 2) AS avg_amount,
             SUM(CASE WHEN fraud_score >= 40 THEN 1 ELSE 0 END) AS fraud_flagged_count,
             ROUND(100.0 * SUM(CASE WHEN fraud_score >= 40 THEN 1 ELSE 0 END) / COUNT(*), 2) AS fraud_pct
-        FROM {{zone_prefix}}.gold.fact_transactions
+        FROM bank.gold.fact_transactions
         GROUP BY CAST(transaction_date AS DATE)
     )
     SELECT

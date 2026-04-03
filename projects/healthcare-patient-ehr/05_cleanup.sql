@@ -15,37 +15,37 @@ PIPELINE healthcare_patient_ehr_cleanup
 
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
-DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patient_dim (ssn);
-DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patient_dim (email);
-DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patient_dim (patient_name);
-DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patient_dim (date_of_birth);
+DROP PSEUDONYMISATION RULE ON ehr.silver.patient_dim (ssn);
+DROP PSEUDONYMISATION RULE ON ehr.silver.patient_dim (email);
+DROP PSEUDONYMISATION RULE ON ehr.silver.patient_dim (patient_name);
+DROP PSEUDONYMISATION RULE ON ehr.silver.patient_dim (date_of_birth);
 
 -- ===================== DROP GOLD TABLES =====================
 
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_readmission_rates WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.fact_admissions WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_diagnosis WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_department WITH FILES;
+DROP DELTA TABLE IF EXISTS ehr.gold.kpi_readmission_rates WITH FILES;
+DROP DELTA TABLE IF EXISTS ehr.gold.fact_admissions WITH FILES;
+DROP DELTA TABLE IF EXISTS ehr.gold.dim_diagnosis WITH FILES;
+DROP DELTA TABLE IF EXISTS ehr.gold.dim_department WITH FILES;
 
 -- ===================== DROP SILVER TABLES =====================
 
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.audit_log WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.admissions_cleaned WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.patient_dim WITH FILES;
+DROP DELTA TABLE IF EXISTS ehr.silver.audit_log WITH FILES;
+DROP DELTA TABLE IF EXISTS ehr.silver.admissions_cleaned WITH FILES;
+DROP DELTA TABLE IF EXISTS ehr.silver.patient_dim WITH FILES;
 
 -- ===================== DROP BRONZE TABLES =====================
 
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_diagnoses WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_departments WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_patients WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_admissions WITH FILES;
+DROP DELTA TABLE IF EXISTS ehr.bronze.raw_diagnoses WITH FILES;
+DROP DELTA TABLE IF EXISTS ehr.bronze.raw_departments WITH FILES;
+DROP DELTA TABLE IF EXISTS ehr.bronze.raw_patients WITH FILES;
+DROP DELTA TABLE IF EXISTS ehr.bronze.raw_admissions WITH FILES;
 
 -- ===================== DROP SCHEMAS =====================
 
-DROP SCHEMA IF EXISTS {{zone_prefix}}.gold;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.silver;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.bronze;
+DROP SCHEMA IF EXISTS ehr.gold;
+DROP SCHEMA IF EXISTS ehr.silver;
+DROP SCHEMA IF EXISTS ehr.bronze;
 
 -- ===================== DROP ZONES =====================
 
-DROP ZONE IF EXISTS {{zone_prefix}};
+DROP ZONE IF EXISTS ehr;

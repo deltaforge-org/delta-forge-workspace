@@ -8,18 +8,18 @@
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS telco TYPE EXTERNAL
     COMMENT 'Telecom CDR project zone — schema evolution, session reconstruction, churn scoring';
 
 -- ===================== SCHEMAS =====================
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw CDR feeds across 3 schema versions and reference data';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'Unified CDR with schema evolution merge, subscriber profiles, reconstructed sessions';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold   COMMENT 'Star schema for network quality, churn risk, and revenue analytics';
+CREATE SCHEMA IF NOT EXISTS telco.bronze COMMENT 'Raw CDR feeds across 3 schema versions and reference data';
+CREATE SCHEMA IF NOT EXISTS telco.silver COMMENT 'Unified CDR with schema evolution merge, subscriber profiles, reconstructed sessions';
+CREATE SCHEMA IF NOT EXISTS telco.gold   COMMENT 'Star schema for network quality, churn risk, and revenue analytics';
 
 -- ===================== BRONZE TABLES =====================
 
 -- CDR v1 (2023): Voice-only format — 6 core columns
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cdr_v1 (
+CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cdr_v1 (
     call_id         STRING      NOT NULL,
     caller          STRING      NOT NULL,
     callee          STRING      NOT NULL,
@@ -28,10 +28,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cdr_v1 (
     tower_id        STRING,
     duration_sec    INT,
     ingested_at     TIMESTAMP
-) LOCATION '{{data_path}}/telecom/bronze/raw_cdr_v1';
+) LOCATION 'telco/telecom/bronze/raw_cdr_v1';
 
 -- CDR v2 (2024 H1): Multi-service — adds call_type, data_usage_mb, sms_count
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cdr_v2 (
+CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cdr_v2 (
     call_id         STRING      NOT NULL,
     caller          STRING      NOT NULL,
     callee          STRING      NOT NULL,
@@ -43,11 +43,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cdr_v2 (
     data_usage_mb   DECIMAL(10,2),
     sms_count       INT,
     ingested_at     TIMESTAMP
-) LOCATION '{{data_path}}/telecom/bronze/raw_cdr_v2';
+) LOCATION 'telco/telecom/bronze/raw_cdr_v2';
 
 -- CDR v3 (2024 H2): 5G era — adds roaming_flag, network_type, handover_count
 -- Type widening: duration_sec from INT to BIGINT for long data sessions
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cdr_v3 (
+CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cdr_v3 (
     call_id         STRING      NOT NULL,
     caller          STRING      NOT NULL,
     callee          STRING      NOT NULL,
@@ -62,10 +62,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cdr_v3 (
     network_type    STRING,
     handover_count  INT,
     ingested_at     TIMESTAMP
-) LOCATION '{{data_path}}/telecom/bronze/raw_cdr_v3';
+) LOCATION 'telco/telecom/bronze/raw_cdr_v3';
 
 -- Subscriber reference
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_subscribers (
+CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_subscribers (
     subscriber_id   STRING      NOT NULL,
     phone_number    STRING      NOT NULL,
     plan_type       STRING,
@@ -75,10 +75,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_subscribers (
     monthly_spend   DECIMAL(8,2),
     balance         DECIMAL(8,2),
     ingested_at     TIMESTAMP
-) LOCATION '{{data_path}}/telecom/bronze/raw_subscribers';
+) LOCATION 'telco/telecom/bronze/raw_subscribers';
 
 -- Cell tower reference
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cell_towers (
+CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cell_towers (
     tower_id       STRING      NOT NULL,
     location       STRING,
     city           STRING,
@@ -86,12 +86,12 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_cell_towers (
     technology     STRING,
     capacity_mhz   INT,
     ingested_at    TIMESTAMP
-) LOCATION '{{data_path}}/telecom/bronze/raw_cell_towers';
+) LOCATION 'telco/telecom/bronze/raw_cell_towers';
 
 -- ===================== SILVER TABLES =====================
 
 -- Unified CDR: all 3 versions merged, NULL-filled for missing columns
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.cdr_unified (
+CREATE DELTA TABLE IF NOT EXISTS telco.silver.cdr_unified (
     call_id         STRING      NOT NULL,
     caller          STRING      NOT NULL,
     callee          STRING      NOT NULL,
@@ -113,11 +113,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.cdr_unified (
     revenue         DECIMAL(8,2),
     schema_version  INT,
     unified_at      TIMESTAMP
-) LOCATION '{{data_path}}/telecom/silver/cdr_unified'
+) LOCATION 'telco/telecom/silver/cdr_unified'
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
 -- Subscriber profiles: MERGE-upserted from CDR aggregation
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.subscriber_profiles (
+CREATE DELTA TABLE IF NOT EXISTS telco.silver.subscriber_profiles (
     subscriber_id    STRING      NOT NULL,
     phone_number     STRING,
     plan_type        STRING,
@@ -136,10 +136,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.subscriber_profiles (
     monthly_usage_trend  DECIMAL(8,2),
     last_activity    TIMESTAMP,
     updated_at       TIMESTAMP
-) LOCATION '{{data_path}}/telecom/silver/subscriber_profiles';
+) LOCATION 'telco/telecom/silver/subscriber_profiles';
 
 -- Sessions: reconstructed from CDR events using LAG gap detection
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.sessions (
+CREATE DELTA TABLE IF NOT EXISTS telco.silver.sessions (
     session_id      STRING      NOT NULL,
     subscriber_id   STRING      NOT NULL,
     session_start   TIMESTAMP,
@@ -151,11 +151,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.sessions (
     roaming_events  INT,
     drop_events     INT,
     created_at      TIMESTAMP
-) LOCATION '{{data_path}}/telecom/silver/sessions';
+) LOCATION 'telco/telecom/silver/sessions';
 
 -- ===================== GOLD TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_subscriber (
+CREATE DELTA TABLE IF NOT EXISTS telco.gold.dim_subscriber (
     subscriber_key  STRING      NOT NULL,
     phone_number    STRING,
     plan_type       STRING,
@@ -164,9 +164,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_subscriber (
     status          STRING,
     monthly_spend   DECIMAL(8,2),
     balance         DECIMAL(8,2)
-) LOCATION '{{data_path}}/telecom/gold/dim_subscriber';
+) LOCATION 'telco/telecom/gold/dim_subscriber';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_tower (
+CREATE DELTA TABLE IF NOT EXISTS telco.gold.dim_tower (
     tower_key      STRING      NOT NULL,
     tower_id       STRING,
     location       STRING,
@@ -174,16 +174,16 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_tower (
     region         STRING,
     technology     STRING,
     capacity_mhz   INT
-) LOCATION '{{data_path}}/telecom/gold/dim_tower';
+) LOCATION 'telco/telecom/gold/dim_tower';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_plan (
+CREATE DELTA TABLE IF NOT EXISTS telco.gold.dim_plan (
     plan_key       STRING      NOT NULL,
     plan_type      STRING,
     plan_tier      STRING,
     monthly_spend  DECIMAL(8,2)
-) LOCATION '{{data_path}}/telecom/gold/dim_plan';
+) LOCATION 'telco/telecom/gold/dim_plan';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_calls (
+CREATE DELTA TABLE IF NOT EXISTS telco.gold.fact_calls (
     call_key        STRING      NOT NULL,
     caller_key      STRING,
     callee_key      STRING,
@@ -198,10 +198,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_calls (
     network_type    STRING,
     schema_version  INT,
     revenue         DECIMAL(8,2)
-) LOCATION '{{data_path}}/telecom/gold/fact_calls'
+) LOCATION 'telco/telecom/gold/fact_calls'
 PARTITIONED BY (start_time);
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_network_quality (
+CREATE DELTA TABLE IF NOT EXISTS telco.gold.kpi_network_quality (
     region          STRING,
     hour_bucket     INT,
     total_calls     INT,
@@ -213,9 +213,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_network_quality (
     roaming_calls   INT,
     fiveg_calls     INT,
     revenue         DECIMAL(10,2)
-) LOCATION '{{data_path}}/telecom/gold/kpi_network_quality';
+) LOCATION 'telco/telecom/gold/kpi_network_quality';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_churn_risk (
+CREATE DELTA TABLE IF NOT EXISTS telco.gold.kpi_churn_risk (
     subscriber_id    STRING      NOT NULL,
     phone_number     STRING,
     plan_type        STRING,
@@ -228,37 +228,37 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_churn_risk (
     churn_score      INT,
     churn_risk_level STRING,
     scored_at        TIMESTAMP
-) LOCATION '{{data_path}}/telecom/gold/kpi_churn_risk';
+) LOCATION 'telco/telecom/gold/kpi_churn_risk';
 
 -- ===================== PSEUDONYMISATION =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_subscribers (phone_number) TRANSFORM generalize PARAMS (range = 4);
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.cdr_unified (caller) TRANSFORM generalize PARAMS (range = 4);
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.cdr_unified (callee) TRANSFORM generalize PARAMS (range = 4);
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.kpi_churn_risk (phone_number) TRANSFORM generalize PARAMS (range = 4);
+CREATE PSEUDONYMISATION RULE ON telco.bronze.raw_subscribers (phone_number) TRANSFORM generalize PARAMS (range = 4);
+CREATE PSEUDONYMISATION RULE ON telco.silver.cdr_unified (caller) TRANSFORM generalize PARAMS (range = 4);
+CREATE PSEUDONYMISATION RULE ON telco.silver.cdr_unified (callee) TRANSFORM generalize PARAMS (range = 4);
+CREATE PSEUDONYMISATION RULE ON telco.gold.kpi_churn_risk (phone_number) TRANSFORM generalize PARAMS (range = 4);
 
 -- ===================== GRANTS =====================
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_cdr_v1 TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_cdr_v2 TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_cdr_v3 TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_subscribers TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_cell_towers TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.cdr_unified TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.subscriber_profiles TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.sessions TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_subscriber TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_tower TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_plan TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_calls TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_network_quality TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_churn_risk TO USER {{current_user}};
+GRANT ADMIN ON TABLE telco.bronze.raw_cdr_v1 TO USER admin;
+GRANT ADMIN ON TABLE telco.bronze.raw_cdr_v2 TO USER admin;
+GRANT ADMIN ON TABLE telco.bronze.raw_cdr_v3 TO USER admin;
+GRANT ADMIN ON TABLE telco.bronze.raw_subscribers TO USER admin;
+GRANT ADMIN ON TABLE telco.bronze.raw_cell_towers TO USER admin;
+GRANT ADMIN ON TABLE telco.silver.cdr_unified TO USER admin;
+GRANT ADMIN ON TABLE telco.silver.subscriber_profiles TO USER admin;
+GRANT ADMIN ON TABLE telco.silver.sessions TO USER admin;
+GRANT ADMIN ON TABLE telco.gold.dim_subscriber TO USER admin;
+GRANT ADMIN ON TABLE telco.gold.dim_tower TO USER admin;
+GRANT ADMIN ON TABLE telco.gold.dim_plan TO USER admin;
+GRANT ADMIN ON TABLE telco.gold.fact_calls TO USER admin;
+GRANT ADMIN ON TABLE telco.gold.kpi_network_quality TO USER admin;
+GRANT ADMIN ON TABLE telco.gold.kpi_churn_risk TO USER admin;
 
 -- ===================== SEED DATA: SUBSCRIBERS (15 rows) =====================
 -- Mix of prepaid/postpaid, some declining usage patterns for churn detection.
 -- SUB-012/013/014 have low balances. SUB-015 is already churned.
 
-INSERT INTO {{zone_prefix}}.bronze.raw_subscribers VALUES
+INSERT INTO telco.bronze.raw_subscribers VALUES
 ('SUB-001', '+1-212-555-1001', 'postpaid', 'platinum', '2022-03-15', 'active',   89.99, 250.00, '2024-06-01T00:00:00'),
 ('SUB-002', '+1-415-555-2002', 'postpaid', 'gold',     '2022-07-20', 'active',   59.99, 180.00, '2024-06-01T00:00:00'),
 ('SUB-003', '+1-312-555-3003', 'prepaid',  'silver',   '2023-01-10', 'active',   29.99, 45.00,  '2024-06-01T00:00:00'),
@@ -276,12 +276,12 @@ INSERT INTO {{zone_prefix}}.bronze.raw_subscribers VALUES
 ('SUB-015', '+1-901-555-5015', 'postpaid', 'gold',     '2022-05-10', 'churned',  59.99, 0.00,   '2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 15
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_subscribers;
+SELECT COUNT(*) AS row_count FROM telco.bronze.raw_subscribers;
 
 
 -- ===================== SEED DATA: CELL TOWERS (10 rows across 4 regions) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_cell_towers VALUES
+INSERT INTO telco.bronze.raw_cell_towers VALUES
 ('TWR-NE-01', '40.7128,-74.0060',  'New York',      'Northeast', '5G',  100, '2024-06-01T00:00:00'),
 ('TWR-NE-02', '42.3601,-71.0589',  'Boston',        'Northeast', '4G',   60, '2024-06-01T00:00:00'),
 ('TWR-NE-03', '39.9526,-75.1652',  'Philadelphia',  'Northeast', '4G',   55, '2024-06-01T00:00:00'),
@@ -294,7 +294,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_cell_towers VALUES
 ('TWR-S-03',  '29.7604,-95.3698',  'Houston',       'South',     '5G',   90, '2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 10
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cell_towers;
+SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cell_towers;
 
 
 -- ===================== SEED DATA: CDR V1 — 2023 voice-only (25 rows) =====================
@@ -302,7 +302,7 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cell_towers;
 -- No call_type, no data_usage, no roaming. Duration in INT (seconds).
 -- Includes 2 dropped calls (duration < 10s).
 
-INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v1 VALUES
+INSERT INTO telco.bronze.raw_cdr_v1 VALUES
 ('V1-001', '+1-212-555-1001', '+1-415-555-2002', '2023-03-15T08:15:00', '2023-03-15T08:19:32', 'TWR-NE-01', 272,  '2023-03-15T12:00:00'),
 ('V1-002', '+1-212-555-1001', '+1-312-555-3003', '2023-03-15T08:45:00', '2023-03-15T08:45:07', 'TWR-NE-01', 7,    '2023-03-15T12:00:00'),
 ('V1-003', '+1-617-555-5005', '+1-212-555-1001', '2023-03-15T09:10:00', '2023-03-15T09:22:15', 'TWR-NE-02', 735,  '2023-03-15T12:00:00'),
@@ -330,14 +330,14 @@ INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v1 VALUES
 ('V1-025', '+1-404-555-1011', '+1-212-555-1001', '2023-12-31T20:00:00', '2023-12-31T20:14:25', 'TWR-S-02',  865,  '2023-12-31T22:00:00');
 
 ASSERT ROW_COUNT = 25
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cdr_v1;
+SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cdr_v1;
 
 
 -- ===================== SEED DATA: CDR V2 — 2024 H1 multi-service (25 rows) =====================
 -- Schema v2: adds call_type (voice/sms/data), data_usage_mb, sms_count
 -- Includes 2 dropped voice calls, data sessions, SMS events.
 
-INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v2 VALUES
+INSERT INTO telco.bronze.raw_cdr_v2 VALUES
 ('V2-001', '+1-212-555-1001', '+1-415-555-2002', '2024-01-15T08:15:00', '2024-01-15T08:19:32', 'TWR-NE-01', 272,  'voice',  0.00,  0, '2024-01-15T12:00:00'),
 ('V2-002', '+1-212-555-1001', '+1-312-555-3003', '2024-01-15T08:45:00', NULL,                  'TWR-NE-01', 0,    'sms',    0.00,  3, '2024-01-15T12:00:00'),
 ('V2-003', '+1-415-555-2002', '+1-206-555-4004', '2024-01-20T09:00:00', NULL,                  'TWR-W-01',  NULL, 'data',   250.50, 0, '2024-01-20T12:00:00'),
@@ -365,7 +365,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v2 VALUES
 ('V2-025', '+1-305-555-9009', '+1-214-555-2012', '2024-06-15T10:00:00', '2024-06-15T10:25:40', 'TWR-S-01',  1540, 'voice',  0.00,  0, '2024-06-15T12:00:00');
 
 ASSERT ROW_COUNT = 25
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cdr_v2;
+SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cdr_v2;
 
 
 -- ===================== SEED DATA: CDR V3 — 2024 H2 5G era (20 rows) =====================
@@ -373,7 +373,7 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cdr_v2;
 -- Type widening: duration_sec as BIGINT (long data sessions can exceed INT range conceptually).
 -- Includes 3 roaming events, 2 5G handovers, 1 dropped call.
 
-INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v3 VALUES
+INSERT INTO telco.bronze.raw_cdr_v3 VALUES
 ('V3-001', '+1-212-555-1001', '+1-415-555-2002', '2024-07-01T08:00:00', '2024-07-01T08:18:30', 'TWR-NE-01', 1110, 'voice', 0.00,   0, false, '5G',  0, '2024-07-01T12:00:00'),
 ('V3-002', '+1-415-555-2002', '+1-305-555-9009', '2024-07-01T09:00:00', NULL,                  'TWR-W-01',  NULL, 'data',  520.00, 0, true,  '5G',  0, '2024-07-01T12:00:00'),
 ('V3-003', '+1-305-555-9009', '+1-212-555-1001', '2024-07-01T09:30:00', '2024-07-01T09:30:06', 'TWR-S-01',  6,    'voice', 0.00,   0, false, '5G',  1, '2024-07-01T12:00:00'),
@@ -396,5 +396,5 @@ INSERT INTO {{zone_prefix}}.bronze.raw_cdr_v3 VALUES
 ('V3-020', '+1-901-555-5015', '+1-212-555-1001', '2024-09-20T10:00:00', '2024-09-20T10:02:15', 'TWR-S-02',  135,  'voice', 0.00,   0, false, '4G',  0, '2024-09-20T12:00:00');
 
 ASSERT ROW_COUNT = 20
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_cdr_v3;
+SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cdr_v3;
 

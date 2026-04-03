@@ -18,22 +18,22 @@
 -- ============================================================================
 
 -- Preview the generated filter condition:
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.admissions_cleaned, record_id, admission_date, 3)}};
+PRINT {{INCREMENTAL_FILTER(ehr.silver.admissions_cleaned, record_id, admission_date, 3)}};
 
 -- ===================== STEP 1: Capture Current Watermarks =====================
 
-SELECT MAX(ingested_at) AS current_watermark FROM {{zone_prefix}}.silver.admissions_cleaned;
+SELECT MAX(ingested_at) AS current_watermark FROM ehr.silver.admissions_cleaned;
 
-SELECT COUNT(*) AS pre_silver_count FROM {{zone_prefix}}.silver.admissions_cleaned;
+SELECT COUNT(*) AS pre_silver_count FROM ehr.silver.admissions_cleaned;
 
-SELECT COUNT(*) AS pre_gold_fact_count FROM {{zone_prefix}}.gold.fact_admissions;
+SELECT COUNT(*) AS pre_gold_fact_count FROM ehr.gold.fact_admissions;
 
-SELECT COUNT(*) AS pre_patient_dim_count FROM {{zone_prefix}}.silver.patient_dim;
+SELECT COUNT(*) AS pre_patient_dim_count FROM ehr.silver.patient_dim;
 
 -- ===================== STEP 2: Insert New Bronze Incremental Records =====================
 -- 8 new admissions including 1 duplicate, 1 readmission within 30 days
 
-INSERT INTO {{zone_prefix}}.bronze.raw_admissions VALUES
+INSERT INTO ehr.bronze.raw_admissions VALUES
     ('A051', 'P1021', 'CARD', 'I21.0', '2024-01-20', '2024-01-28', 48700.00, 'Dr. Rivera', 'New STEMI patient Rachel Green', '2024-01-20T06:00:00'),
     ('A052', 'P1021', 'CARD', 'I25.10', '2024-02-12', '2024-02-15', 13200.00, 'Dr. Rivera', 'Readmission within 30d cardiac', '2024-01-20T06:00:00'),
     ('A053', 'P1022', 'NEUR', 'G45.9', '2024-01-25', '2024-01-28', 17800.00, 'Dr. Patel', 'TIA new patient Thomas Baker', '2024-01-20T06:00:00'),
@@ -44,19 +44,19 @@ INSERT INTO {{zone_prefix}}.bronze.raw_admissions VALUES
     ('A051', 'P1021', 'CARD', 'I21.0', '2024-01-20', '2024-01-28', 48700.00, 'Dr. Rivera', 'DUPLICATE Rachel Green', '2024-01-20T06:05:00');
 
 -- 2 patient address changes for incremental SCD2 processing
-INSERT INTO {{zone_prefix}}.bronze.raw_patients VALUES
+INSERT INTO ehr.bronze.raw_patients VALUES
     ('P1009', 'William Taylor', '901-23-4567', '1975-08-09', 'wtaylor@mail.com', '42 Lakeside Drive', 'Mystic', 'CT', 'INS-BC-099', 'BlueCross Shield', '2024-07-01T08:00:00'),
     ('P1015', 'Daniel Lewis', '555-66-7777', '1973-12-21', 'dlewis@email.com', '18 Mountain Road', 'Litchfield', 'CT', 'INS-AE-155', 'Aetna Health', '2024-07-01T08:00:00');
 
 -- ===================== STEP 3: Incremental MERGE to Silver Admissions =====================
 -- Uses INCREMENTAL_FILTER to only process new records with 3-day overlap
 
-MERGE INTO {{zone_prefix}}.silver.admissions_cleaned AS target
+MERGE INTO ehr.silver.admissions_cleaned AS target
 USING (
     WITH new_records AS (
         SELECT *
-        FROM {{zone_prefix}}.bronze.raw_admissions
-        WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.admissions_cleaned, record_id, admission_date, 3)}}
+        FROM ehr.bronze.raw_admissions
+        WHERE {{INCREMENTAL_FILTER(ehr.silver.admissions_cleaned, record_id, admission_date, 3)}}
     ),
     deduped AS (
         SELECT
@@ -100,7 +100,7 @@ USING (
         FROM cleaned c
         LEFT JOIN (
             SELECT patient_id, discharge_date
-            FROM {{zone_prefix}}.silver.admissions_cleaned
+            FROM ehr.silver.admissions_cleaned
             UNION ALL
             SELECT patient_id, discharge_date FROM cleaned
         ) prev_all ON c.patient_id = prev_all.patient_id AND prev_all.discharge_date < c.admission_date
@@ -143,7 +143,7 @@ WHEN NOT MATCHED THEN INSERT (
 -- Process the 2 new address changes for P1009 and P1015
 
 -- Expire current records for patients with new demographics
-MERGE INTO {{zone_prefix}}.silver.patient_dim AS target
+MERGE INTO ehr.silver.patient_dim AS target
 USING (
     WITH ranked AS (
         SELECT
@@ -158,7 +158,7 @@ USING (
             insurance_id,
             insurance_name,
             ingested_at
-        FROM {{zone_prefix}}.bronze.raw_patients
+        FROM ehr.bronze.raw_patients
         WHERE ingested_at > '2024-06-15T00:00:00'
     )
     SELECT * FROM ranked
@@ -171,7 +171,7 @@ WHEN MATCHED THEN UPDATE SET
     updated_at  = CURRENT_TIMESTAMP;
 
 -- Insert new current version for changed patients
-INSERT INTO {{zone_prefix}}.silver.patient_dim
+INSERT INTO ehr.silver.patient_dim
 SELECT
     r.patient_id,
     TRIM(r.patient_name) AS patient_name,
@@ -187,10 +187,10 @@ SELECT
     NULL AS valid_to,
     true AS is_current,
     CURRENT_TIMESTAMP AS updated_at
-FROM {{zone_prefix}}.bronze.raw_patients r
+FROM ehr.bronze.raw_patients r
 WHERE r.ingested_at > '2024-06-15T00:00:00'
   AND EXISTS (
-      SELECT 1 FROM {{zone_prefix}}.silver.patient_dim p
+      SELECT 1 FROM ehr.silver.patient_dim p
       WHERE p.patient_id = r.patient_id
         AND p.is_current = false
         AND p.valid_to = CAST('2024-07-01' AS DATE)
@@ -198,19 +198,19 @@ WHERE r.ingested_at > '2024-06-15T00:00:00'
 
 -- ===================== STEP 5: Verify Incremental Processing =====================
 
-SELECT COUNT(*) AS post_silver_count FROM {{zone_prefix}}.silver.admissions_cleaned;
+SELECT COUNT(*) AS post_silver_count FROM ehr.silver.admissions_cleaned;
 
 -- Should have added 7 new unique records (8 inserted minus 1 duplicate)
 SELECT COUNT(*) AS new_records_added
-FROM {{zone_prefix}}.silver.admissions_cleaned
-WHERE processed_at > (SELECT MAX(loaded_at) FROM {{zone_prefix}}.gold.fact_admissions);
+FROM ehr.silver.admissions_cleaned
+WHERE processed_at > (SELECT MAX(loaded_at) FROM ehr.gold.fact_admissions);
 
 -- Verify no duplicates exist in silver
 ASSERT VALUE duplicate_check = 0
 SELECT COUNT(*) AS duplicate_check
 FROM (
     SELECT record_id, COUNT(*) AS cnt
-    FROM {{zone_prefix}}.silver.admissions_cleaned
+    FROM ehr.silver.admissions_cleaned
     GROUP BY record_id
     HAVING COUNT(*) > 1
 );
@@ -218,12 +218,12 @@ FROM (
 -- Verify SCD2 incremental: P1009 and P1015 should now have expired records
 ASSERT VALUE incremental_expired >= 2
 SELECT COUNT(*) AS incremental_expired
-FROM {{zone_prefix}}.silver.patient_dim
+FROM ehr.silver.patient_dim
 WHERE is_current = false AND valid_to = CAST('2024-07-01' AS DATE);
 
 -- ===================== STEP 6: Refresh Gold Fact (incremental) =====================
 
-MERGE INTO {{zone_prefix}}.gold.fact_admissions AS target
+MERGE INTO ehr.gold.fact_admissions AS target
 USING (
     SELECT
         ROW_NUMBER() OVER (ORDER BY a.admission_date, a.record_id) AS admission_key,
@@ -240,10 +240,10 @@ USING (
         DENSE_RANK() OVER (ORDER BY a.total_charges DESC) AS cost_rank,
         p.valid_from AS patient_valid_from,
         p.valid_to AS patient_valid_to
-    FROM {{zone_prefix}}.silver.admissions_cleaned a
-    JOIN {{zone_prefix}}.gold.dim_department d ON a.department_code = d.department_code
-    JOIN {{zone_prefix}}.gold.dim_diagnosis dx ON a.diagnosis_code = dx.diagnosis_code
-    LEFT JOIN {{zone_prefix}}.silver.patient_dim p
+    FROM ehr.silver.admissions_cleaned a
+    JOIN ehr.gold.dim_department d ON a.department_code = d.department_code
+    JOIN ehr.gold.dim_diagnosis dx ON a.diagnosis_code = dx.diagnosis_code
+    LEFT JOIN ehr.silver.patient_dim p
         ON a.patient_id = p.patient_id
         AND a.admission_date >= p.valid_from
         AND a.admission_date < COALESCE(p.valid_to, CAST('9999-12-31' AS DATE))
@@ -275,19 +275,19 @@ WHEN NOT MATCHED THEN INSERT (
     source.patient_valid_from, source.patient_valid_to, CURRENT_TIMESTAMP
 );
 
-SELECT COUNT(*) AS post_gold_fact_count FROM {{zone_prefix}}.gold.fact_admissions;
+SELECT COUNT(*) AS post_gold_fact_count FROM ehr.gold.fact_admissions;
 
 -- Verify gold grew by at least 7 new facts
 ASSERT VALUE net_new_facts >= 7
 SELECT
     post.cnt - pre.cnt AS net_new_facts
 FROM
-    (SELECT COUNT(*) AS cnt FROM {{zone_prefix}}.gold.fact_admissions) post,
+    (SELECT COUNT(*) AS cnt FROM ehr.gold.fact_admissions) post,
     (SELECT 50 AS cnt) pre;
 
 -- ===================== STEP 7: Refresh KPI =====================
 
-MERGE INTO {{zone_prefix}}.gold.kpi_readmission_rates AS target
+MERGE INTO ehr.gold.kpi_readmission_rates AS target
 USING (
     SELECT
         dd.department_name,
@@ -299,8 +299,8 @@ USING (
         ROUND(AVG(f.los_days), 2) AS avg_los,
         ROUND(AVG(f.total_charges), 2) AS avg_charges,
         MAX(f.los_days) AS max_los
-    FROM {{zone_prefix}}.gold.fact_admissions f
-    JOIN {{zone_prefix}}.gold.dim_department dd ON f.department_key = dd.department_key
+    FROM ehr.gold.fact_admissions f
+    JOIN ehr.gold.dim_department dd ON f.department_key = dd.department_key
     GROUP BY dd.department_name,
         CONCAT(CAST(EXTRACT(YEAR FROM f.admission_date) AS STRING), '-Q',
                CAST(CAST((EXTRACT(MONTH FROM f.admission_date) - 1) / 3 + 1 AS INT) AS STRING))

@@ -6,7 +6,7 @@
 -- Used for demand forecasting and stockout risk scoring.
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS {{zone_prefix}}.bronze.pos_demand (
+CREATE TABLE IF NOT EXISTS sc.bronze.pos_demand (
   pos_id          STRING,
   store_id        STRING,
   sku             STRING,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS {{zone_prefix}}.bronze.pos_demand (
   ingested_at     TIMESTAMP
 );
 
-INSERT INTO {{zone_prefix}}.bronze.pos_demand VALUES
+INSERT INTO sc.bronze.pos_demand VALUES
   -- Store ST01 (Washington DC — East region)
   ('POS-0001', 'ST01', 'SKU-001', '2026-03-10', 18, 1, 89.10,  '2026-03-11 02:00:00'),
   ('POS-0002', 'ST01', 'SKU-001', '2026-03-11', 22, 0, 110.00, '2026-03-12 02:00:00'),

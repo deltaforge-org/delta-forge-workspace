@@ -15,30 +15,30 @@ PIPELINE logistics_shipments_cleanup
 ;
 
 -- Gold tables
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_sla_compliance WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_delivery_performance WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.fact_shipments WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_route WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_customer WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_location WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_carrier WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.gold.kpi_sla_compliance WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.gold.kpi_delivery_performance WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.gold.fact_shipments WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.gold.dim_route WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.gold.dim_customer WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.gold.dim_location WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.gold.dim_carrier WITH FILES;
 
 -- Silver tables
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.sla_violations WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.shipment_status WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.events_deduped WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.silver.sla_violations WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.silver.shipment_status WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.silver.events_deduped WITH FILES;
 
 -- Bronze tables
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_tracking_events WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_sla_contracts WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_customers WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_locations WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_carriers WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.bronze.raw_tracking_events WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.bronze.raw_sla_contracts WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.bronze.raw_customers WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.bronze.raw_locations WITH FILES;
+DROP DELTA TABLE IF EXISTS logi.bronze.raw_carriers WITH FILES;
 
 -- Schemas
-DROP SCHEMA IF EXISTS {{zone_prefix}}.gold;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.silver;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.bronze;
+DROP SCHEMA IF EXISTS logi.gold;
+DROP SCHEMA IF EXISTS logi.silver;
+DROP SCHEMA IF EXISTS logi.bronze;
 
 -- Zone
-DROP ZONE IF EXISTS {{zone_prefix}};
+DROP ZONE IF EXISTS logi;

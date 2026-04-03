@@ -10,18 +10,18 @@
 
 -- ===================== ZONE =====================
 
-CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS ins TYPE EXTERNAL
     COMMENT 'Property and casualty insurance project zone';
 
 -- ===================== SCHEMAS =====================
 
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw policy, claims, claimant, and adjuster feeds';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'SCD2 policy dimension, enriched claims, actuarial CDF';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold   COMMENT 'Claims analytics star schema with loss ratio and adjuster KPIs';
+CREATE SCHEMA IF NOT EXISTS ins.bronze COMMENT 'Raw policy, claims, claimant, and adjuster feeds';
+CREATE SCHEMA IF NOT EXISTS ins.silver COMMENT 'SCD2 policy dimension, enriched claims, actuarial CDF';
+CREATE SCHEMA IF NOT EXISTS ins.gold   COMMENT 'Claims analytics star schema with loss ratio and adjuster KPIs';
 
 -- ===================== BRONZE TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_policies (
+CREATE DELTA TABLE IF NOT EXISTS ins.bronze.raw_policies (
     policy_id           STRING      NOT NULL,
     holder_name         STRING      NOT NULL,
     ssn                 STRING,
@@ -33,9 +33,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_policies (
     effective_date      DATE        NOT NULL,
     change_type         STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/bronze/raw_policies';
+) LOCATION 'ins/insurance/bronze/raw_policies';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_claims (
+CREATE DELTA TABLE IF NOT EXISTS ins.bronze.raw_claims (
     claim_id            STRING      NOT NULL,
     policy_id           STRING      NOT NULL,
     claimant_id         STRING      NOT NULL,
@@ -48,9 +48,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_claims (
     settlement_date     DATE,
     description         STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/bronze/raw_claims';
+) LOCATION 'ins/insurance/bronze/raw_claims';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_claimants (
+CREATE DELTA TABLE IF NOT EXISTS ins.bronze.raw_claimants (
     claimant_id         STRING      NOT NULL,
     name                STRING      NOT NULL,
     ssn                 STRING,
@@ -59,21 +59,21 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_claimants (
     state               STRING,
     risk_tier           STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/bronze/raw_claimants';
+) LOCATION 'ins/insurance/bronze/raw_claimants';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_adjusters (
+CREATE DELTA TABLE IF NOT EXISTS ins.bronze.raw_adjusters (
     adjuster_id         STRING      NOT NULL,
     name                STRING      NOT NULL,
     specialization      STRING,
     years_experience    INT,
     region              STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/bronze/raw_adjusters';
+) LOCATION 'ins/insurance/bronze/raw_adjusters';
 
 -- ===================== SILVER TABLES =====================
 
 -- SCD2 policy dimension with surrogate keys, CDF-enabled for actuarial tracking
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.policy_dim (
+CREATE DELTA TABLE IF NOT EXISTS ins.silver.policy_dim (
     surrogate_key       INT         NOT NULL,
     policy_id           STRING      NOT NULL,
     holder_name         STRING      NOT NULL,
@@ -86,11 +86,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.policy_dim (
     valid_to            DATE,
     is_current          INT         NOT NULL CHECK (is_current IN (0, 1)),
     processed_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/silver/policy_dim'
+) LOCATION 'ins/insurance/silver/policy_dim'
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
 -- Enriched claims with point-in-time policy join and fraud scoring
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.claims_enriched (
+CREATE DELTA TABLE IF NOT EXISTS ins.silver.claims_enriched (
     claim_id            STRING      NOT NULL,
     policy_id           STRING      NOT NULL,
     claimant_id         STRING      NOT NULL,
@@ -110,11 +110,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.claims_enriched (
     fraud_risk          STRING,
     fraud_score         DECIMAL(5,2),
     processed_at        TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/silver/claims_enriched'
+) LOCATION 'ins/insurance/silver/claims_enriched'
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
 -- Actuarial snapshots driven by CDF on claims_enriched
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.actuarial_snapshots (
+CREATE DELTA TABLE IF NOT EXISTS ins.silver.actuarial_snapshots (
     snapshot_id         STRING      NOT NULL,
     claim_id            STRING      NOT NULL,
     policy_id           STRING      NOT NULL,
@@ -124,11 +124,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.actuarial_snapshots (
     coverage_type       STRING,
     change_type         STRING,
     captured_at         TIMESTAMP
-) LOCATION '{{data_path}}/insurance/silver/actuarial_snapshots';
+) LOCATION 'ins/insurance/silver/actuarial_snapshots';
 
 -- ===================== GOLD TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_claimant (
+CREATE DELTA TABLE IF NOT EXISTS ins.gold.dim_claimant (
     claimant_key        INT         NOT NULL,
     claimant_id         STRING      NOT NULL,
     name                STRING,
@@ -136,9 +136,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_claimant (
     state               STRING,
     risk_tier           STRING,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/gold/dim_claimant';
+) LOCATION 'ins/insurance/gold/dim_claimant';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_adjuster (
+CREATE DELTA TABLE IF NOT EXISTS ins.gold.dim_adjuster (
     adjuster_key        INT         NOT NULL,
     adjuster_id         STRING      NOT NULL,
     name                STRING      NOT NULL,
@@ -146,16 +146,16 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_adjuster (
     years_experience    INT,
     region              STRING,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/gold/dim_adjuster';
+) LOCATION 'ins/insurance/gold/dim_adjuster';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_coverage_type (
+CREATE DELTA TABLE IF NOT EXISTS ins.gold.dim_coverage_type (
     coverage_key        STRING      NOT NULL,
     coverage_type       STRING      NOT NULL,
     coverage_category   STRING,
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/gold/dim_coverage_type';
+) LOCATION 'ins/insurance/gold/dim_coverage_type';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_claims (
+CREATE DELTA TABLE IF NOT EXISTS ins.gold.fact_claims (
     claim_key           INT         NOT NULL,
     policy_surrogate_key INT        NOT NULL,
     claimant_key        INT         NOT NULL,
@@ -172,9 +172,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_claims (
     fraud_score         DECIMAL(5,2),
     loss_ratio          DECIMAL(6,4),
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/gold/fact_claims';
+) LOCATION 'ins/insurance/gold/fact_claims';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_loss_ratios (
+CREATE DELTA TABLE IF NOT EXISTS ins.gold.kpi_loss_ratios (
     coverage_type       STRING      NOT NULL,
     region              STRING      NOT NULL,
     quarter             STRING      NOT NULL,
@@ -185,9 +185,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_loss_ratios (
     loss_ratio          DECIMAL(6,4),
     avg_days_to_settle  DECIMAL(6,2),
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/gold/kpi_loss_ratios';
+) LOCATION 'ins/insurance/gold/kpi_loss_ratios';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_adjuster_performance (
+CREATE DELTA TABLE IF NOT EXISTS ins.gold.kpi_adjuster_performance (
     adjuster_id         STRING      NOT NULL,
     adjuster_name       STRING,
     specialization      STRING,
@@ -199,35 +199,35 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_adjuster_performance (
     approval_rate_pct   DECIMAL(5,2),
     total_approved      DECIMAL(14,2),
     loaded_at           TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/insurance/gold/kpi_adjuster_performance';
+) LOCATION 'ins/insurance/gold/kpi_adjuster_performance';
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_claimant (name) TRANSFORM mask PARAMS (show = 1);
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_claimants (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_policies (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
+CREATE PSEUDONYMISATION RULE ON ins.gold.dim_claimant (name) TRANSFORM mask PARAMS (show = 1);
+CREATE PSEUDONYMISATION RULE ON ins.bronze.raw_claimants (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
+CREATE PSEUDONYMISATION RULE ON ins.bronze.raw_policies (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
 
 -- ===================== GRANTS =====================
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_policies TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_claims TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_claimants TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_adjusters TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.policy_dim TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.claims_enriched TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.actuarial_snapshots TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_claimant TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_adjuster TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_coverage_type TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_claims TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_loss_ratios TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_adjuster_performance TO USER {{current_user}};
+GRANT ADMIN ON TABLE ins.bronze.raw_policies TO USER admin;
+GRANT ADMIN ON TABLE ins.bronze.raw_claims TO USER admin;
+GRANT ADMIN ON TABLE ins.bronze.raw_claimants TO USER admin;
+GRANT ADMIN ON TABLE ins.bronze.raw_adjusters TO USER admin;
+GRANT ADMIN ON TABLE ins.silver.policy_dim TO USER admin;
+GRANT ADMIN ON TABLE ins.silver.claims_enriched TO USER admin;
+GRANT ADMIN ON TABLE ins.silver.actuarial_snapshots TO USER admin;
+GRANT ADMIN ON TABLE ins.gold.dim_claimant TO USER admin;
+GRANT ADMIN ON TABLE ins.gold.dim_adjuster TO USER admin;
+GRANT ADMIN ON TABLE ins.gold.dim_coverage_type TO USER admin;
+GRANT ADMIN ON TABLE ins.gold.fact_claims TO USER admin;
+GRANT ADMIN ON TABLE ins.gold.kpi_loss_ratios TO USER admin;
+GRANT ADMIN ON TABLE ins.gold.kpi_adjuster_performance TO USER admin;
 
 -- =============================================================================
 -- SEED DATA: ADJUSTERS (6 rows)
 -- =============================================================================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_adjusters VALUES
+INSERT INTO ins.bronze.raw_adjusters VALUES
     ('ADJ01', 'Margaret O''Brien',  'property',     12, 'Northeast', '2024-01-15T00:00:00'),
     ('ADJ02', 'Richard Townsend',   'auto',          8, 'West',      '2024-01-15T00:00:00'),
     ('ADJ03', 'Yuki Tanaka',        'liability',    15, 'Midwest',   '2024-01-15T00:00:00'),
@@ -236,13 +236,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_adjusters VALUES
     ('ADJ06', 'James Whitfield',    'multi_peril',  20, 'Northeast', '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 6
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_adjusters;
+SELECT COUNT(*) AS row_count FROM ins.bronze.raw_adjusters;
 
 -- =============================================================================
 -- SEED DATA: CLAIMANTS (12 rows) — with SSN for pseudonymisation demo
 -- =============================================================================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_claimants VALUES
+INSERT INTO ins.bronze.raw_claimants VALUES
     ('CLM01', 'Albert Donovan',    '123-45-6789', '1975-03-15', '45-54', 'CA', 'standard',  '2024-01-15T00:00:00'),
     ('CLM02', 'Barbara Chen',      '234-56-7890', '1982-08-22', '35-44', 'NY', 'preferred', '2024-01-15T00:00:00'),
     ('CLM03', 'Chris Okafor',      '345-67-8901', '1990-11-10', '25-34', 'TX', 'standard',  '2024-01-15T00:00:00'),
@@ -257,7 +257,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_claimants VALUES
     ('CLM12', 'Laura Esposito',    '222-33-4444', '1988-10-30', '30-39', 'GA', 'standard',  '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 12
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_claimants;
+SELECT COUNT(*) AS row_count FROM ins.bronze.raw_claimants;
 
 -- =============================================================================
 -- SEED DATA: POLICIES — 3 batches totaling 23 rows
@@ -267,7 +267,7 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_claimants;
 -- Batch 3: 3 coverage upgrades
 -- Result: 23 rows total, only 15 with is_current=1 after SCD2 processing
 
-INSERT INTO {{zone_prefix}}.bronze.raw_policies VALUES
+INSERT INTO ins.bronze.raw_policies VALUES
     -- BATCH 1: 15 initial policies
     ('POL001', 'Albert Donovan',   '123-45-6789', 'auto',         1200.00, 'West',      'CA', 3.2, '2022-01-01', 'new', '2024-01-15T00:00:00'),
     ('POL002', 'Barbara Chen',     '234-56-7890', 'home',         2400.00, 'Northeast', 'NY', 2.1, '2021-06-15', 'new', '2024-01-15T00:00:00'),
@@ -298,7 +298,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_policies VALUES
     ('POL007', 'George Nakamura',  '789-01-2345', 'home_plus',    4800.00, 'West',      'CA', 4.3, '2024-01-01', 'coverage_upgrade', '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 23
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_policies;
+SELECT COUNT(*) AS row_count FROM ins.bronze.raw_policies;
 
 -- =============================================================================
 -- SEED DATA: CLAIMS (45 rows) — multiple statuses, 3 outliers for fraud
@@ -307,7 +307,7 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_policies;
 -- 30 settled (with settlement_date), 15 open/under_review/denied
 -- 3 deliberately high claims for fraud detection (C0009, C0010, C0037)
 
-INSERT INTO {{zone_prefix}}.bronze.raw_claims VALUES
+INSERT INTO ins.bronze.raw_claims VALUES
     ('C0001', 'POL001', 'CLM01', 'ADJ02', '2023-03-15', '2023-03-16',   8500.00,  7200.00, 'settled',      '2023-05-10', 'Rear-end collision on highway',             '2024-01-15T00:00:00'),
     ('C0002', 'POL001', 'CLM01', 'ADJ02', '2023-08-20', '2023-08-22',   3200.00,  3200.00, 'settled',      '2023-09-15', 'Parking lot fender bender',                  '2024-01-15T00:00:00'),
     ('C0003', 'POL002', 'CLM02', 'ADJ01', '2023-02-10', '2023-02-12',  45000.00, 38000.00, 'settled',      '2023-06-20', 'Water damage from burst pipe',               '2024-01-15T00:00:00'),
@@ -355,4 +355,4 @@ INSERT INTO {{zone_prefix}}.bronze.raw_claims VALUES
     ('C0045', 'POL014', 'CLM12', 'ADJ06', '2023-02-08', '2023-02-10',   3800.00,  3800.00, 'settled',      '2023-03-25', 'Hail damage to vehicle',                      '2024-01-15T00:00:00');
 
 ASSERT ROW_COUNT = 45
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_claims;
+SELECT COUNT(*) AS row_count FROM ins.bronze.raw_claims;

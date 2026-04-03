@@ -20,13 +20,13 @@ STEP validate_bronze
   TIMEOUT '2m'
 AS
   ASSERT ROW_COUNT >= 70
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_transactions;
+  SELECT COUNT(*) AS row_count FROM bank.bronze.raw_transactions;
 
   ASSERT ROW_COUNT >= 12
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_accounts;
+  SELECT COUNT(*) AS row_count FROM bank.bronze.raw_accounts;
 
   ASSERT ROW_COUNT = 15
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_merchants;
+  SELECT COUNT(*) AS row_count FROM bank.bronze.raw_merchants;
 
 -- ===================== STEP 2: build_customer_scd2 =====================
 -- SCD Type 2: load initial customer records, then process tier upgrades
@@ -36,7 +36,7 @@ STEP build_customer_scd2
   TIMEOUT '5m'
 AS
   -- Pass 1: Load initial (oldest) version of each account
-  MERGE INTO {{zone_prefix}}.silver.customer_dim AS target
+  MERGE INTO bank.silver.customer_dim AS target
   USING (
       WITH ranked AS (
           SELECT
@@ -52,7 +52,7 @@ AS
               ingested_at,
               ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY ingested_at ASC) AS version_num,
               ROW_NUMBER() OVER (ORDER BY account_id, ingested_at ASC) AS customer_id
-          FROM {{zone_prefix}}.bronze.raw_accounts
+          FROM bank.bronze.raw_accounts
       )
       SELECT * FROM ranked WHERE version_num = 1
   ) AS source
@@ -75,7 +75,7 @@ AS
       updated_at      = CURRENT_TIMESTAMP;
 
   -- Pass 2: Expire current records for customers with tier upgrades
-  MERGE INTO {{zone_prefix}}.silver.customer_dim AS target
+  MERGE INTO bank.silver.customer_dim AS target
   USING (
       WITH ranked AS (
           SELECT
@@ -90,7 +90,7 @@ AS
               customer_tier,
               ingested_at,
               ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY ingested_at ASC) AS version_num
-          FROM {{zone_prefix}}.bronze.raw_accounts
+          FROM bank.bronze.raw_accounts
       )
       SELECT * FROM ranked WHERE version_num > 1
   ) AS source
@@ -102,7 +102,7 @@ AS
       updated_at  = CURRENT_TIMESTAMP;
 
   -- Pass 3: Insert new current records for upgraded customers
-  INSERT INTO {{zone_prefix}}.silver.customer_dim
+  INSERT INTO bank.silver.customer_dim
   SELECT
       ROW_NUMBER() OVER (ORDER BY r.account_id) + 100 AS customer_id,
       r.account_id,
@@ -130,11 +130,11 @@ AS
           customer_tier,
           ingested_at,
           ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY ingested_at ASC) AS version_num
-      FROM {{zone_prefix}}.bronze.raw_accounts
+      FROM bank.bronze.raw_accounts
   ) r
   WHERE r.version_num > 1
     AND EXISTS (
-        SELECT 1 FROM {{zone_prefix}}.silver.customer_dim c
+        SELECT 1 FROM bank.silver.customer_dim c
         WHERE c.account_id = r.account_id
           AND c.is_current = false
           AND c.valid_to = CAST('2024-02-01' AS DATE)
@@ -142,11 +142,11 @@ AS
 
   -- Verify: 12 accounts + 3 expired versions = 15 total
   ASSERT VALUE customer_dim_count >= 12
-  SELECT COUNT(*) AS customer_dim_count FROM {{zone_prefix}}.silver.customer_dim;
+  SELECT COUNT(*) AS customer_dim_count FROM bank.silver.customer_dim;
 
   -- Verify 3 expired records
   ASSERT VALUE expired_count = 3
-  SELECT COUNT(*) AS expired_count FROM {{zone_prefix}}.silver.customer_dim WHERE is_current = false;
+  SELECT COUNT(*) AS expired_count FROM bank.silver.customer_dim WHERE is_current = false;
 
 -- ===================== STEP 3: enrich_transactions =====================
 -- Multi-rule fraud scoring engine with velocity detection
@@ -155,7 +155,7 @@ STEP enrich_transactions
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.transactions_enriched AS target
+  MERGE INTO bank.silver.transactions_enriched AS target
   USING (
       WITH base AS (
           SELECT
@@ -188,8 +188,8 @@ AS
                         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS balance_delta,
               -- Dedup
               ROW_NUMBER() OVER (PARTITION BY t.transaction_id ORDER BY t.ingested_at ASC) AS rn
-          FROM {{zone_prefix}}.bronze.raw_transactions t
-          LEFT JOIN {{zone_prefix}}.bronze.raw_merchants m ON t.merchant_id = m.merchant_id
+          FROM bank.bronze.raw_transactions t
+          LEFT JOIN bank.bronze.raw_merchants m ON t.merchant_id = m.merchant_id
       ),
       scored AS (
           SELECT
@@ -210,8 +210,8 @@ AS
                   + CASE WHEN EXTRACT(HOUR FROM b.transaction_date) BETWEEN 1 AND 5 THEN 10 ELSE 0 END
               )) AS INT) AS fraud_score
           FROM base b
-          JOIN {{zone_prefix}}.bronze.raw_accounts a ON b.account_id = a.account_id
-              AND a.ingested_at = (SELECT MIN(ingested_at) FROM {{zone_prefix}}.bronze.raw_accounts WHERE account_id = b.account_id)
+          JOIN bank.bronze.raw_accounts a ON b.account_id = a.account_id
+              AND a.ingested_at = (SELECT MIN(ingested_at) FROM bank.bronze.raw_accounts WHERE account_id = b.account_id)
           WHERE b.rn = 1
       )
       SELECT * FROM scored
@@ -240,14 +240,14 @@ AS
   );
 
   ASSERT VALUE silver_txn_count = 70
-  SELECT COUNT(*) AS silver_txn_count FROM {{zone_prefix}}.silver.transactions_enriched;
+  SELECT COUNT(*) AS silver_txn_count FROM bank.silver.transactions_enriched;
 
 -- ===================== STEP 4: build_dim_merchant =====================
 
 STEP build_dim_merchant
   DEPENDS ON (validate_bronze)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_merchant AS target
+  MERGE INTO bank.gold.dim_merchant AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY merchant_id) AS merchant_key,
@@ -257,7 +257,7 @@ AS
           city,
           country,
           risk_level
-      FROM {{zone_prefix}}.bronze.raw_merchants
+      FROM bank.bronze.raw_merchants
   ) AS source
   ON target.merchant_id = source.merchant_id
   WHEN MATCHED THEN UPDATE SET
@@ -281,7 +281,7 @@ STEP materialize_cdf_snapshots
   DEPENDS ON (build_customer_scd2)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.balance_snapshots
+  INSERT INTO bank.silver.balance_snapshots
   SELECT
       ROW_NUMBER() OVER (ORDER BY _commit_timestamp, account_id) AS snapshot_id,
       account_id,
@@ -296,17 +296,17 @@ AS
       END AS new_tier,
       _change_type AS change_type,
       _commit_timestamp AS snapshot_timestamp
-  FROM table_changes('{{zone_prefix}}.silver.customer_dim', 0);
+  FROM table_changes('bank.silver.customer_dim', 0);
 
   ASSERT VALUE snapshot_count >= 1
-  SELECT COUNT(*) AS snapshot_count FROM {{zone_prefix}}.silver.balance_snapshots;
+  SELECT COUNT(*) AS snapshot_count FROM bank.silver.balance_snapshots;
 
 -- ===================== STEP 6: build_dim_account =====================
 
 STEP build_dim_account
   DEPENDS ON (materialize_cdf_snapshots)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_account AS target
+  MERGE INTO bank.gold.dim_account AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY account_id) AS account_key,
@@ -318,7 +318,7 @@ AS
           open_date,
           status,
           customer_tier
-      FROM {{zone_prefix}}.silver.customer_dim
+      FROM bank.silver.customer_dim
       WHERE is_current = true
   ) AS source
   ON target.account_id = source.account_id
@@ -345,7 +345,7 @@ AS
 STEP build_dim_date
   DEPENDS ON (build_dim_account)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_date AS target
+  MERGE INTO bank.gold.dim_date AS target
   USING (
       WITH date_series AS (
           SELECT CAST('2024-01-01' AS DATE) AS full_date
@@ -435,7 +435,7 @@ STEP build_fact_transactions
   DEPENDS ON (enrich_transactions, build_dim_account, build_dim_merchant, build_dim_date)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_transactions AS target
+  MERGE INTO bank.gold.fact_transactions AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY te.transaction_date, te.transaction_id) AS transaction_key,
@@ -448,10 +448,10 @@ AS
           te.running_balance,
           te.fraud_score,
           te.channel
-      FROM {{zone_prefix}}.silver.transactions_enriched te
-      JOIN {{zone_prefix}}.gold.dim_account da ON te.account_id = da.account_id
-      LEFT JOIN {{zone_prefix}}.gold.dim_merchant dm ON te.merchant_id = dm.merchant_id
-      LEFT JOIN {{zone_prefix}}.gold.dim_date dd ON CAST(te.transaction_date AS DATE) = dd.full_date
+      FROM bank.silver.transactions_enriched te
+      JOIN bank.gold.dim_account da ON te.account_id = da.account_id
+      LEFT JOIN bank.gold.dim_merchant dm ON te.merchant_id = dm.merchant_id
+      LEFT JOIN bank.gold.dim_date dd ON CAST(te.transaction_date AS DATE) = dd.full_date
   ) AS source
   ON target.account_key = source.account_key
       AND target.transaction_date = source.transaction_date
@@ -478,7 +478,7 @@ AS
 STEP compute_daily_kpi
   DEPENDS ON (build_fact_transactions)
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_daily_volumes AS target
+  MERGE INTO bank.gold.kpi_daily_volumes AS target
   USING (
       WITH daily AS (
           SELECT
@@ -488,7 +488,7 @@ AS
               ROUND(AVG(amount), 2) AS avg_amount,
               SUM(CASE WHEN fraud_score >= 40 THEN 1 ELSE 0 END) AS fraud_flagged_count,
               ROUND(100.0 * SUM(CASE WHEN fraud_score >= 40 THEN 1 ELSE 0 END) / COUNT(*), 2) AS fraud_pct
-          FROM {{zone_prefix}}.gold.fact_transactions
+          FROM bank.gold.fact_transactions
           GROUP BY CAST(transaction_date AS DATE)
       )
       SELECT
@@ -528,7 +528,7 @@ AS
 STEP compute_customer_health
   DEPENDS ON (build_fact_transactions)
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_customer_health AS target
+  MERGE INTO bank.gold.kpi_customer_health AS target
   USING (
       -- Use balance_snapshots to identify tier transitions
       -- Match preimage (old tier) with postimage (new tier) by account_id + timestamp proximity
@@ -538,8 +538,8 @@ AS
               pre.old_tier AS from_tier,
               post.new_tier AS to_tier,
               post.snapshot_timestamp
-          FROM {{zone_prefix}}.silver.balance_snapshots pre
-          JOIN {{zone_prefix}}.silver.balance_snapshots post
+          FROM bank.silver.balance_snapshots pre
+          JOIN bank.silver.balance_snapshots post
               ON pre.account_id = post.account_id
               AND pre.change_type = 'update_preimage'
               AND post.change_type = 'update_postimage'
@@ -553,7 +553,7 @@ AS
               customer_tier AS from_tier,
               customer_tier AS to_tier,
               COUNT(*) AS cnt
-          FROM {{zone_prefix}}.silver.customer_dim
+          FROM bank.silver.customer_dim
           WHERE is_current = true
             AND account_id NOT IN (SELECT account_id FROM tier_changes)
           GROUP BY customer_tier
@@ -580,8 +580,8 @@ AS
       FROM combined c
       LEFT JOIN (
           SELECT customer_tier, current_balance
-          FROM {{zone_prefix}}.bronze.raw_accounts
-          WHERE ingested_at = (SELECT MAX(ingested_at) FROM {{zone_prefix}}.bronze.raw_accounts)
+          FROM bank.bronze.raw_accounts
+          WHERE ingested_at = (SELECT MAX(ingested_at) FROM bank.bronze.raw_accounts)
       ) da ON c.to_tier = da.customer_tier
       GROUP BY c.from_tier, c.to_tier
   ) AS source
@@ -603,10 +603,10 @@ STEP optimize_and_vacuum
   DEPENDS ON (compute_daily_kpi, compute_customer_health)
   CONTINUE ON FAILURE
 AS
-  OPTIMIZE {{zone_prefix}}.gold.fact_transactions ZORDER BY (fraud_score);
-  OPTIMIZE {{zone_prefix}}.gold.dim_account;
-  OPTIMIZE {{zone_prefix}}.gold.dim_merchant;
-  OPTIMIZE {{zone_prefix}}.gold.dim_date;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_daily_volumes;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_customer_health;
-  OPTIMIZE {{zone_prefix}}.silver.transactions_enriched;
+  OPTIMIZE bank.gold.fact_transactions ZORDER BY (fraud_score);
+  OPTIMIZE bank.gold.dim_account;
+  OPTIMIZE bank.gold.dim_merchant;
+  OPTIMIZE bank.gold.dim_date;
+  OPTIMIZE bank.gold.kpi_daily_volumes;
+  OPTIMIZE bank.gold.kpi_customer_health;
+  OPTIMIZE bank.silver.transactions_enriched;

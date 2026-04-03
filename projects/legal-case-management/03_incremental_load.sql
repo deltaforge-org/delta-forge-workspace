@@ -12,16 +12,16 @@
 -- Output: "billing_id > 'B070' AND billing_date > '2024-01-12'" or "1=1" if empty
 -- ============================================================================
 
-PRINT {{INCREMENTAL_FILTER({{zone_prefix}}.silver.billings_validated, billing_id, billing_date, 3)}};
+PRINT {{INCREMENTAL_FILTER(legal.silver.billings_validated, billing_id, billing_date, 3)}};
 
 -- ===================== STEP 1: capture_watermarks =====================
 
 STEP capture_watermarks
   TIMEOUT '2m'
 AS
-  SELECT COUNT(*) AS pre_silver_billing_count FROM {{zone_prefix}}.silver.billings_validated;
-  SELECT COUNT(*) AS pre_fact_count FROM {{zone_prefix}}.gold.fact_billings;
-  SELECT MAX(processed_at) AS current_watermark FROM {{zone_prefix}}.silver.billings_validated;
+  SELECT COUNT(*) AS pre_silver_billing_count FROM legal.silver.billings_validated;
+  SELECT COUNT(*) AS pre_fact_count FROM legal.gold.fact_billings;
+  SELECT MAX(processed_at) AS current_watermark FROM legal.silver.billings_validated;
 
 -- ===================== STEP 2: insert_new_bronze =====================
 -- 8 new billing entries arriving after the initial load
@@ -29,7 +29,7 @@ AS
 STEP insert_new_bronze
   DEPENDS ON (capture_watermarks)
 AS
-  INSERT INTO {{zone_prefix}}.bronze.raw_billings VALUES
+  INSERT INTO legal.bronze.raw_billings VALUES
       ('B071', 'C001', 'A001', '2024-02-10', 7.0,  650.00, 4550.00,  true,  'billable',  'Summary judgment motion',                '2024-02-15T00:00:00'),
       ('B072', 'C006', 'A001', '2024-02-15', 9.5,  650.00, 6175.00,  true,  'billable',  'Sentencing hearing preparation',          '2024-02-15T00:00:00'),
       ('B073', 'C009', 'A005', '2024-02-20', 5.0,  620.00, 3100.00,  true,  'billable',  'Post-merger integration review',          '2024-02-15T00:00:00'),
@@ -41,7 +41,7 @@ AS
 
   ASSERT ROW_COUNT = 8
   SELECT COUNT(*) AS new_rows
-  FROM {{zone_prefix}}.bronze.raw_billings
+  FROM legal.bronze.raw_billings
   WHERE ingested_at > '2024-02-01T00:00:00';
 
 -- ===================== STEP 3: incremental_enrich_cases =====================
@@ -51,7 +51,7 @@ STEP incremental_enrich_cases
   DEPENDS ON (insert_new_bronze)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.cases_enriched AS target
+  MERGE INTO legal.silver.cases_enriched AS target
   USING (
       SELECT
           c.case_id,
@@ -72,11 +72,11 @@ AS
               * SQRT(CAST(COUNT(DISTINCT b.attorney_id) AS DOUBLE))
               / 1.5
           , 2))) AS complexity_score
-      FROM {{zone_prefix}}.bronze.raw_cases c
-      JOIN {{zone_prefix}}.bronze.raw_billings b ON c.case_id = b.case_id
+      FROM legal.bronze.raw_cases c
+      JOIN legal.bronze.raw_billings b ON c.case_id = b.case_id
       WHERE c.case_id IN (
-          SELECT DISTINCT case_id FROM {{zone_prefix}}.bronze.raw_billings
-          WHERE {{INCREMENTAL_FILTER({{zone_prefix}}.silver.billings_validated, billing_id, billing_date, 3)}}
+          SELECT DISTINCT case_id FROM legal.bronze.raw_billings
+          WHERE {{INCREMENTAL_FILTER(legal.silver.billings_validated, billing_id, billing_date, 3)}}
       )
       GROUP BY c.case_id, c.case_number, c.case_type, c.court, c.filing_date,
                c.close_date, c.status, c.priority
@@ -106,7 +106,7 @@ STEP incremental_validate_billings
   DEPENDS ON (incremental_enrich_cases)
   TIMEOUT '3m'
 AS
-  INSERT INTO {{zone_prefix}}.silver.billings_validated
+  INSERT INTO legal.silver.billings_validated
   SELECT
       b.billing_id,
       b.case_id,
@@ -122,20 +122,20 @@ AS
       a.partner_flag,
       ce.complexity_score,
       CURRENT_TIMESTAMP AS processed_at
-  FROM {{zone_prefix}}.bronze.raw_billings b
-  JOIN {{zone_prefix}}.bronze.raw_cases c ON b.case_id = c.case_id
-  JOIN {{zone_prefix}}.bronze.raw_attorneys a ON b.attorney_id = a.attorney_id
-  LEFT JOIN {{zone_prefix}}.silver.cases_enriched ce ON b.case_id = ce.case_id
+  FROM legal.bronze.raw_billings b
+  JOIN legal.bronze.raw_cases c ON b.case_id = c.case_id
+  JOIN legal.bronze.raw_attorneys a ON b.attorney_id = a.attorney_id
+  LEFT JOIN legal.silver.cases_enriched ce ON b.case_id = ce.case_id
   WHERE b.hours > 0
     AND b.hourly_rate > 0
-    AND {{INCREMENTAL_FILTER({{zone_prefix}}.silver.billings_validated, billing_id, billing_date, 3)}};
+    AND {{INCREMENTAL_FILTER(legal.silver.billings_validated, billing_id, billing_date, 3)}};
 
   ASSERT ROW_COUNT = 8
   SELECT COUNT(*) AS new_billings
-  FROM {{zone_prefix}}.silver.billings_validated
+  FROM legal.silver.billings_validated
   WHERE processed_at > (
       SELECT MAX(processed_at) - INTERVAL '1' MINUTE
-      FROM {{zone_prefix}}.silver.billings_validated
+      FROM legal.silver.billings_validated
   );
 
 -- ===================== STEP 5: verify_no_duplicates =====================
@@ -145,7 +145,7 @@ STEP verify_no_duplicates
 AS
   ASSERT ROW_COUNT = 0
   SELECT billing_id, COUNT(*) AS cnt
-  FROM {{zone_prefix}}.silver.billings_validated
+  FROM legal.silver.billings_validated
   GROUP BY billing_id
   HAVING COUNT(*) > 1;
 
@@ -155,13 +155,13 @@ STEP refresh_gold_dims
   DEPENDS ON (verify_no_duplicates)
   TIMEOUT '3m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_case AS target
+  MERGE INTO legal.gold.dim_case AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY ce.case_id) AS case_key,
           ce.case_id, ce.case_number, ce.case_type, ce.court, ce.filing_date,
           ce.close_date, ce.status, ce.priority, ce.complexity_score
-      FROM {{zone_prefix}}.silver.cases_enriched ce
+      FROM legal.silver.cases_enriched ce
   ) AS source
   ON target.case_id = source.case_id
   WHEN MATCHED THEN UPDATE SET
@@ -183,7 +183,7 @@ STEP refresh_fact_billings
   DEPENDS ON (refresh_gold_dims)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_billings AS target
+  MERGE INTO legal.gold.fact_billings AS target
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY bv.billing_date, bv.billing_id) AS billing_key,
@@ -195,9 +195,9 @@ AS
           bv.amount,
           bv.billable_flag,
           bv.complexity_score AS case_complexity
-      FROM {{zone_prefix}}.silver.billings_validated bv
-      JOIN {{zone_prefix}}.gold.dim_case dc ON bv.case_id = dc.case_id
-      JOIN {{zone_prefix}}.gold.dim_attorney da ON bv.attorney_id = da.attorney_id
+      FROM legal.silver.billings_validated bv
+      JOIN legal.gold.dim_case dc ON bv.case_id = dc.case_id
+      JOIN legal.gold.dim_attorney da ON bv.attorney_id = da.attorney_id
   ) AS source
   ON target.case_key = source.case_key
      AND target.attorney_key = source.attorney_key
@@ -218,16 +218,16 @@ AS
   );
 
   ASSERT ROW_COUNT >= 78
-  SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.gold.fact_billings;
+  SELECT COUNT(*) AS row_count FROM legal.gold.fact_billings;
 
 -- ===================== STEP 8: refresh_kpi =====================
 
 STEP refresh_kpi
   DEPENDS ON (refresh_fact_billings)
 AS
-  DELETE FROM {{zone_prefix}}.gold.kpi_firm_performance WHERE 1 = 1;
+  DELETE FROM legal.gold.kpi_firm_performance WHERE 1 = 1;
 
-  INSERT INTO {{zone_prefix}}.gold.kpi_firm_performance
+  INSERT INTO legal.gold.kpi_firm_performance
   SELECT
       da.attorney_id,
       da.attorney_name,
@@ -246,8 +246,8 @@ AS
           SUM(fb.amount) / NULLIF(SUM(CASE WHEN fb.billable_flag = true THEN fb.hours ELSE 0 END), 0), 2
       ) AS revenue_per_hour,
       CURRENT_TIMESTAMP AS loaded_at
-  FROM {{zone_prefix}}.gold.fact_billings fb
-  JOIN {{zone_prefix}}.gold.dim_attorney da ON fb.attorney_key = da.attorney_key
+  FROM legal.gold.fact_billings fb
+  JOIN legal.gold.dim_attorney da ON fb.attorney_key = da.attorney_key
   GROUP BY da.attorney_id, da.attorney_name, da.practice_group, da.partner_flag;
 
 -- ===================== STEP 9: optimize =====================
@@ -256,5 +256,5 @@ STEP optimize
   DEPENDS ON (refresh_kpi)
   CONTINUE ON FAILURE
 AS
-  OPTIMIZE {{zone_prefix}}.gold.fact_billings;
-  OPTIMIZE {{zone_prefix}}.gold.kpi_firm_performance;
+  OPTIMIZE legal.gold.fact_billings;
+  OPTIMIZE legal.gold.kpi_firm_performance;

@@ -16,21 +16,21 @@ PIPELINE telecom_cdr_cleanup
 
 
 -- Gold tables
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_churn_risk WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_network_quality WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.fact_calls WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_plan WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_tower WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_subscriber WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.gold.kpi_churn_risk WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.gold.kpi_network_quality WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.gold.fact_calls WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.gold.dim_plan WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.gold.dim_tower WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.gold.dim_subscriber WITH FILES;
 
 -- Silver tables
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.sessions WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.subscriber_profiles WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.cdr_unified WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.silver.sessions WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.silver.subscriber_profiles WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.silver.cdr_unified WITH FILES;
 
 -- Bronze tables
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_cdr_v3 WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_cdr_v2 WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_cdr_v1 WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_cell_towers WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_subscribers WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.bronze.raw_cdr_v3 WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.bronze.raw_cdr_v2 WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.bronze.raw_cdr_v1 WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.bronze.raw_cell_towers WITH FILES;
+DROP DELTA TABLE IF EXISTS telco.bronze.raw_subscribers WITH FILES;

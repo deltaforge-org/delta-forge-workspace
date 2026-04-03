@@ -9,17 +9,17 @@
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS mfg TYPE EXTERNAL
     COMMENT 'Manufacturing IoT project zone — anomaly detection, OEE, equipment status';
 
 -- ===================== SCHEMAS =====================
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw IoT sensor readings, sensor metadata, production lines, shifts, and targets';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'Validated readings with moving averages, anomaly flags, and equipment uptime status';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold   COMMENT 'Star schema for OEE, anomaly trends, and production analytics';
+CREATE SCHEMA IF NOT EXISTS mfg.bronze COMMENT 'Raw IoT sensor readings, sensor metadata, production lines, shifts, and targets';
+CREATE SCHEMA IF NOT EXISTS mfg.silver COMMENT 'Validated readings with moving averages, anomaly flags, and equipment uptime status';
+CREATE SCHEMA IF NOT EXISTS mfg.gold   COMMENT 'Star schema for OEE, anomaly trends, and production analytics';
 
 -- ===================== BRONZE TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_sensors (
+CREATE DELTA TABLE IF NOT EXISTS mfg.bronze.raw_sensors (
     sensor_id         STRING      NOT NULL,
     sensor_type       STRING      NOT NULL,
     manufacturer      STRING,
@@ -30,27 +30,27 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_sensors (
     plant_id          STRING,
     line_name         STRING,
     ingested_at       TIMESTAMP
-) LOCATION '{{data_path}}/manufacturing/bronze/raw_sensors';
+) LOCATION 'mfg/manufacturing/bronze/raw_sensors';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_production_lines (
+CREATE DELTA TABLE IF NOT EXISTS mfg.bronze.raw_production_lines (
     line_id              STRING      NOT NULL,
     plant_id             STRING      NOT NULL,
     line_name            STRING,
     product_type         STRING,
     capacity_units_per_hour INT,
     ingested_at          TIMESTAMP
-) LOCATION '{{data_path}}/manufacturing/bronze/raw_production_lines';
+) LOCATION 'mfg/manufacturing/bronze/raw_production_lines';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_shifts (
+CREATE DELTA TABLE IF NOT EXISTS mfg.bronze.raw_shifts (
     shift_id     STRING      NOT NULL,
     shift_name   STRING      NOT NULL,
     start_hour   INT,
     end_hour     INT,
     supervisor   STRING,
     ingested_at  TIMESTAMP
-) LOCATION '{{data_path}}/manufacturing/bronze/raw_shifts';
+) LOCATION 'mfg/manufacturing/bronze/raw_shifts';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_production_targets (
+CREATE DELTA TABLE IF NOT EXISTS mfg.bronze.raw_production_targets (
     target_id             STRING      NOT NULL,
     plant_id              STRING      NOT NULL,
     line_name             STRING      NOT NULL,
@@ -58,9 +58,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_production_targets (
     target_units_per_shift INT,
     max_acceptable_defect_pct DECIMAL(5,2),
     ingested_at           TIMESTAMP
-) LOCATION '{{data_path}}/manufacturing/bronze/raw_production_targets';
+) LOCATION 'mfg/manufacturing/bronze/raw_production_targets';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_readings (
+CREATE DELTA TABLE IF NOT EXISTS mfg.bronze.raw_readings (
     reading_id     STRING      NOT NULL,
     sensor_id      STRING      NOT NULL,
     plant_id       STRING      NOT NULL,
@@ -72,13 +72,13 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_readings (
     downtime_min   INT         DEFAULT 0,
     ingested_at    TIMESTAMP,
     CHECK (value BETWEEN -50 AND 500 OR value BETWEEN 0 AND 200 OR value BETWEEN 0 AND 50000 OR value BETWEEN 0 AND 20000)
-) LOCATION '{{data_path}}/manufacturing/bronze/raw_readings'
+) LOCATION 'mfg/manufacturing/bronze/raw_readings'
 PARTITIONED BY (plant_id, line_name);
 
 -- ===================== SILVER TABLES =====================
 
 -- Validated readings: CHECK constraints applied, out-of-range flagged
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.readings_validated (
+CREATE DELTA TABLE IF NOT EXISTS mfg.silver.readings_validated (
     reading_id       STRING      NOT NULL,
     sensor_id        STRING,
     sensor_type      STRING,
@@ -96,10 +96,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.readings_validated (
     downtime_min     INT,
     validated_at     TIMESTAMP,
     CHECK (value BETWEEN -50 AND 500 OR value BETWEEN 0 AND 200 OR value BETWEEN 0 AND 50000 OR value BETWEEN 0 AND 20000)
-) LOCATION '{{data_path}}/manufacturing/silver/readings_validated';
+) LOCATION 'mfg/manufacturing/silver/readings_validated';
 
 -- Smoothed readings: 5-reading moving avg, stddev, anomaly flag (2-sigma)
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.readings_smoothed (
+CREATE DELTA TABLE IF NOT EXISTS mfg.silver.readings_smoothed (
     reading_id       STRING      NOT NULL,
     sensor_id        STRING,
     sensor_type      STRING,
@@ -113,10 +113,10 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.readings_smoothed (
     anomaly_flag     BOOLEAN     DEFAULT false,
     anomaly_reason   STRING,
     smoothed_at      TIMESTAMP
-) LOCATION '{{data_path}}/manufacturing/silver/readings_smoothed';
+) LOCATION 'mfg/manufacturing/silver/readings_smoothed';
 
 -- Equipment status: derived uptime/downtime per shift from gap analysis
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.equipment_status (
+CREATE DELTA TABLE IF NOT EXISTS mfg.silver.equipment_status (
     status_id        STRING      NOT NULL,
     plant_id         STRING,
     line_name        STRING,
@@ -128,11 +128,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.equipment_status (
     unplanned_stops  INT,
     status           STRING,
     computed_at      TIMESTAMP
-) LOCATION '{{data_path}}/manufacturing/silver/equipment_status';
+) LOCATION 'mfg/manufacturing/silver/equipment_status';
 
 -- ===================== GOLD TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_sensor (
+CREATE DELTA TABLE IF NOT EXISTS mfg.gold.dim_sensor (
     sensor_key       STRING      NOT NULL,
     sensor_id        STRING,
     sensor_type      STRING,
@@ -143,25 +143,25 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_sensor (
     threshold_max    DECIMAL(10,2),
     plant_id         STRING,
     line_name        STRING
-) LOCATION '{{data_path}}/manufacturing/gold/dim_sensor';
+) LOCATION 'mfg/manufacturing/gold/dim_sensor';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_line (
+CREATE DELTA TABLE IF NOT EXISTS mfg.gold.dim_line (
     line_key                STRING      NOT NULL,
     plant_id                STRING,
     line_name               STRING,
     product_type            STRING,
     capacity_units_per_hour INT
-) LOCATION '{{data_path}}/manufacturing/gold/dim_line';
+) LOCATION 'mfg/manufacturing/gold/dim_line';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_shift (
+CREATE DELTA TABLE IF NOT EXISTS mfg.gold.dim_shift (
     shift_key    STRING      NOT NULL,
     shift_name   STRING,
     start_hour   INT,
     end_hour     INT,
     supervisor   STRING
-) LOCATION '{{data_path}}/manufacturing/gold/dim_shift';
+) LOCATION 'mfg/manufacturing/gold/dim_shift';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_readings (
+CREATE DELTA TABLE IF NOT EXISTS mfg.gold.fact_readings (
     reading_key    STRING      NOT NULL,
     sensor_key     STRING,
     line_key       STRING,
@@ -171,9 +171,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_readings (
     smoothed_value DECIMAL(10,2),
     anomaly_flag   BOOLEAN,
     quality_score  DECIMAL(5,2)
-) LOCATION '{{data_path}}/manufacturing/gold/fact_readings';
+) LOCATION 'mfg/manufacturing/gold/fact_readings';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_oee (
+CREATE DELTA TABLE IF NOT EXISTS mfg.gold.kpi_oee (
     plant_id          STRING,
     line_name         STRING,
     shift_date        DATE,
@@ -188,9 +188,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_oee (
     total_units       INT,
     quality_pct       DECIMAL(5,2),
     oee_pct           DECIMAL(5,2)
-) LOCATION '{{data_path}}/manufacturing/gold/kpi_oee';
+) LOCATION 'mfg/manufacturing/gold/kpi_oee';
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_anomaly_trends (
+CREATE DELTA TABLE IF NOT EXISTS mfg.gold.kpi_anomaly_trends (
     sensor_type       STRING,
     plant_id          STRING,
     trend_month       STRING,
@@ -199,34 +199,34 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_anomaly_trends (
     anomaly_rate_pct  DECIMAL(5,2),
     avg_deviation     DECIMAL(10,4),
     max_deviation     DECIMAL(10,4)
-) LOCATION '{{data_path}}/manufacturing/gold/kpi_anomaly_trends';
+) LOCATION 'mfg/manufacturing/gold/kpi_anomaly_trends';
 
 -- ===================== PSEUDONYMISATION =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_shifts (supervisor) TRANSFORM mask PARAMS (chars = 4);
+CREATE PSEUDONYMISATION RULE ON mfg.bronze.raw_shifts (supervisor) TRANSFORM mask PARAMS (chars = 4);
 
 -- ===================== GRANTS =====================
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_sensors TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_production_lines TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_shifts TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_production_targets TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_readings TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.readings_validated TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.readings_smoothed TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.equipment_status TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_sensor TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_line TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_shift TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_readings TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_oee TO USER {{current_user}};
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_anomaly_trends TO USER {{current_user}};
+GRANT ADMIN ON TABLE mfg.bronze.raw_sensors TO USER admin;
+GRANT ADMIN ON TABLE mfg.bronze.raw_production_lines TO USER admin;
+GRANT ADMIN ON TABLE mfg.bronze.raw_shifts TO USER admin;
+GRANT ADMIN ON TABLE mfg.bronze.raw_production_targets TO USER admin;
+GRANT ADMIN ON TABLE mfg.bronze.raw_readings TO USER admin;
+GRANT ADMIN ON TABLE mfg.silver.readings_validated TO USER admin;
+GRANT ADMIN ON TABLE mfg.silver.readings_smoothed TO USER admin;
+GRANT ADMIN ON TABLE mfg.silver.equipment_status TO USER admin;
+GRANT ADMIN ON TABLE mfg.gold.dim_sensor TO USER admin;
+GRANT ADMIN ON TABLE mfg.gold.dim_line TO USER admin;
+GRANT ADMIN ON TABLE mfg.gold.dim_shift TO USER admin;
+GRANT ADMIN ON TABLE mfg.gold.fact_readings TO USER admin;
+GRANT ADMIN ON TABLE mfg.gold.kpi_oee TO USER admin;
+GRANT ADMIN ON TABLE mfg.gold.kpi_anomaly_trends TO USER admin;
 
 -- ===================== SEED DATA: SENSORS (16 rows) =====================
 -- 4 plants x varying lines x 4 sensor types (temperature, pressure, vibration, rpm)
 -- Each sensor has physical threshold_min/threshold_max for anomaly detection.
 
-INSERT INTO {{zone_prefix}}.bronze.raw_sensors VALUES
+INSERT INTO mfg.bronze.raw_sensors VALUES
 ('SEN-P1LA-TEMP', 'temperature', 'ThermoTech',  '2023-01-15', '2024-05-01', -50.00, 500.00,  'PLANT-01', 'Line-A', '2024-06-01T00:00:00'),
 ('SEN-P1LA-PRES', 'pressure',    'PressurePro', '2023-01-15', '2024-05-01',   0.00, 200.00,  'PLANT-01', 'Line-A', '2024-06-01T00:00:00'),
 ('SEN-P1LA-VIB',  'vibration',   'VibraSense',  '2023-03-20', '2024-04-15',   0.00, 50000.00,'PLANT-01', 'Line-A', '2024-06-01T00:00:00'),
@@ -245,13 +245,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_sensors VALUES
 ('SEN-P4LA-RPM',  'rpm',         'RotorMax',    '2023-09-10', '2024-05-15',   0.00, 20000.00,'PLANT-04', 'Line-A', '2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 16
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_sensors;
+SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_sensors;
 
 
 -- ===================== SEED DATA: PRODUCTION LINES (12 rows) =====================
 -- 4 plants x 3 lines each
 
-INSERT INTO {{zone_prefix}}.bronze.raw_production_lines VALUES
+INSERT INTO mfg.bronze.raw_production_lines VALUES
 ('PL-P1-LA', 'PLANT-01', 'Line-A', 'Automotive Parts',     120, '2024-06-01T00:00:00'),
 ('PL-P1-LB', 'PLANT-01', 'Line-B', 'Automotive Parts',     100, '2024-06-01T00:00:00'),
 ('PL-P1-LC', 'PLANT-01', 'Line-C', 'Electronics Boards',    80, '2024-06-01T00:00:00'),
@@ -266,24 +266,24 @@ INSERT INTO {{zone_prefix}}.bronze.raw_production_lines VALUES
 ('PL-P4-LC', 'PLANT-04', 'Line-C', 'Medical Devices',       80, '2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 12
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_production_lines;
+SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_production_lines;
 
 
 -- ===================== SEED DATA: SHIFTS (3 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_shifts VALUES
+INSERT INTO mfg.bronze.raw_shifts VALUES
 ('SHIFT-AM',   'Morning',   6, 14, 'Sarah Chen',    '2024-06-01T00:00:00'),
 ('SHIFT-PM',   'Afternoon', 14, 22, 'Mike Johnson',  '2024-06-01T00:00:00'),
 ('SHIFT-NIGHT','Night',     22,  6, 'Lisa Rodriguez','2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 3
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_shifts;
+SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_shifts;
 
 
 -- ===================== SEED DATA: PRODUCTION TARGETS (12 rows) =====================
 -- Target units per shift for each plant/line combination
 
-INSERT INTO {{zone_prefix}}.bronze.raw_production_targets VALUES
+INSERT INTO mfg.bronze.raw_production_targets VALUES
 ('TGT-P1LA-AM', 'PLANT-01', 'Line-A', 'SHIFT-AM', 960,  3.00, '2024-06-01T00:00:00'),
 ('TGT-P1LB-AM', 'PLANT-01', 'Line-B', 'SHIFT-AM', 800,  3.50, '2024-06-01T00:00:00'),
 ('TGT-P1LA-PM', 'PLANT-01', 'Line-A', 'SHIFT-PM', 960,  3.00, '2024-06-01T00:00:00'),
@@ -298,7 +298,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_production_targets VALUES
 ('TGT-P3LA-PM', 'PLANT-03', 'Line-A', 'SHIFT-PM', 1200, 4.00, '2024-06-01T00:00:00');
 
 ASSERT ROW_COUNT = 12
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_production_targets;
+SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_production_targets;
 
 
 -- ===================== SEED DATA: SENSOR READINGS (90 rows) =====================
@@ -310,7 +310,7 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_production_targets;
 --   2 vibration spikes (R-034, R-063)
 -- Also 3 unplanned downtime events (R-010: 15min, R-069: 20min, R-044: 5min)
 
-INSERT INTO {{zone_prefix}}.bronze.raw_readings VALUES
+INSERT INTO mfg.bronze.raw_readings VALUES
 -- PLANT-01, Line-A, Morning shift (temp sensor), June 1
 ('R-001', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-01T06:00:00', 42.50,  30, 0, 0,  '2024-06-01T08:00:00'),
 ('R-002', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-01T06:15:00', 43.10,  31, 1, 0,  '2024-06-01T08:00:00'),
@@ -432,4 +432,4 @@ INSERT INTO {{zone_prefix}}.bronze.raw_readings VALUES
 ('R-090', 'SEN-P3LB-PRES', 'PLANT-03', 'Line-B', '2024-06-01T22:15:00', 4.90,   35, 0, 0,  '2024-06-02T00:00:00');
 
 ASSERT ROW_COUNT = 90
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_readings;
+SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_readings;

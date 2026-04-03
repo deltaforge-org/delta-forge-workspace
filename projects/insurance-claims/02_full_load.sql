@@ -56,16 +56,16 @@ PIPELINE ins_claims_pipeline
 STEP validate_bronze
   TIMEOUT '2m'
 AS
-  SELECT COUNT(*) AS raw_policy_count FROM {{zone_prefix}}.bronze.raw_policies;
+  SELECT COUNT(*) AS raw_policy_count FROM ins.bronze.raw_policies;
   ASSERT VALUE raw_policy_count = 23
 
-  SELECT COUNT(*) AS raw_claim_count FROM {{zone_prefix}}.bronze.raw_claims;
+  SELECT COUNT(*) AS raw_claim_count FROM ins.bronze.raw_claims;
   ASSERT VALUE raw_claim_count = 45
 
-  SELECT COUNT(*) AS raw_claimant_count FROM {{zone_prefix}}.bronze.raw_claimants;
+  SELECT COUNT(*) AS raw_claimant_count FROM ins.bronze.raw_claimants;
   ASSERT VALUE raw_claimant_count = 12
 
-  SELECT COUNT(*) AS raw_adjuster_count FROM {{zone_prefix}}.bronze.raw_adjusters;
+  SELECT COUNT(*) AS raw_adjuster_count FROM ins.bronze.raw_adjusters;
   ASSERT VALUE raw_adjuster_count = 6
   SELECT 'Bronze validation passed: 23 policies, 45 claims, 12 claimants, 6 adjusters' AS status;
 
@@ -77,7 +77,7 @@ STEP expire_scd2_policies
   DEPENDS ON (validate_bronze)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.policy_dim AS target
+  MERGE INTO ins.silver.policy_dim AS target
   USING (
       WITH ranked AS (
           SELECT
@@ -91,7 +91,7 @@ AS
               effective_date,
               LEAD(effective_date) OVER (PARTITION BY policy_id ORDER BY effective_date) AS next_effective_date,
               ROW_NUMBER() OVER (ORDER BY policy_id, effective_date) AS surrogate_key
-          FROM {{zone_prefix}}.bronze.raw_policies
+          FROM ins.bronze.raw_policies
       )
       SELECT
           surrogate_key,
@@ -130,14 +130,14 @@ AS
 STEP insert_scd2_current
   DEPENDS ON (expire_scd2_policies)
 AS
-  MERGE INTO {{zone_prefix}}.silver.policy_dim AS target
+  MERGE INTO ins.silver.policy_dim AS target
   USING (
       WITH latest AS (
           SELECT
               policy_id, holder_name, coverage_type, annual_premium,
               region, state, risk_score, effective_date AS valid_from,
               ROW_NUMBER() OVER (PARTITION BY policy_id ORDER BY effective_date DESC) AS rn
-          FROM {{zone_prefix}}.bronze.raw_policies
+          FROM ins.bronze.raw_policies
       )
       SELECT policy_id, holder_name, coverage_type, annual_premium,
              region, state, risk_score, valid_from
@@ -156,10 +156,10 @@ AS
       processed_at   = CURRENT_TIMESTAMP;
 
   -- Verify SCD2 structure: 23 total rows, 15 current
-  SELECT COUNT(*) AS scd2_total FROM {{zone_prefix}}.silver.policy_dim;
+  SELECT COUNT(*) AS scd2_total FROM ins.silver.policy_dim;
   ASSERT VALUE scd2_total = 23
 
-  SELECT COUNT(*) AS scd2_current FROM {{zone_prefix}}.silver.policy_dim WHERE is_current = 1;
+  SELECT COUNT(*) AS scd2_current FROM ins.silver.policy_dim WHERE is_current = 1;
   ASSERT VALUE scd2_current = 15
   SELECT 'SCD2 verified: 23 total versions, 15 current' AS status;
 
@@ -169,7 +169,7 @@ AS
 STEP enable_cdf_actuarial
   DEPENDS ON (insert_scd2_current)
 AS
-  MERGE INTO {{zone_prefix}}.silver.actuarial_snapshots AS tgt
+  MERGE INTO ins.silver.actuarial_snapshots AS tgt
   USING (
       SELECT
           policy_id || '-' || CAST(surrogate_key AS STRING) || '-INIT' AS snapshot_id,
@@ -180,7 +180,7 @@ AS
           NULL AS approved_amount,
           coverage_type,
           'policy_loaded' AS change_type
-      FROM {{zone_prefix}}.silver.policy_dim
+      FROM ins.silver.policy_dim
   ) AS src
   ON tgt.snapshot_id = src.snapshot_id
   WHEN NOT MATCHED THEN INSERT (
@@ -199,14 +199,14 @@ STEP load_raw_claims
 AS
   -- Check for claims with invalid dates (reported before incident)
   SELECT COUNT(*) AS invalid_dates
-  FROM {{zone_prefix}}.bronze.raw_claims
+  FROM ins.bronze.raw_claims
   WHERE reported_date < incident_date;
 
   ASSERT VALUE invalid_dates = 0
 
   -- Check for negative claim amounts
   SELECT COUNT(*) AS negative_amounts
-  FROM {{zone_prefix}}.bronze.raw_claims
+  FROM ins.bronze.raw_claims
   WHERE claim_amount <= 0;
 
   ASSERT VALUE negative_amounts = 0
@@ -220,7 +220,7 @@ STEP enrich_claims_point_in_time
   DEPENDS ON (insert_scd2_current, load_raw_claims)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.silver.claims_enriched AS target
+  MERGE INTO ins.silver.claims_enriched AS target
   USING (
       WITH claim_with_policy AS (
           SELECT
@@ -243,8 +243,8 @@ AS
               p.annual_premium AS annual_premium_at_incident,
               p.region,
               p.risk_score AS risk_score_at_incident
-          FROM {{zone_prefix}}.bronze.raw_claims c
-          JOIN {{zone_prefix}}.silver.policy_dim p
+          FROM ins.bronze.raw_claims c
+          JOIN ins.silver.policy_dim p
               ON c.policy_id = p.policy_id
               AND c.incident_date >= p.valid_from
               AND (p.valid_to IS NULL OR c.incident_date < p.valid_to)
@@ -300,12 +300,12 @@ AS
       source.fraud_risk, source.fraud_score, CURRENT_TIMESTAMP
   );
 
-  SELECT COUNT(*) AS enriched_count FROM {{zone_prefix}}.silver.claims_enriched;
+  SELECT COUNT(*) AS enriched_count FROM ins.silver.claims_enriched;
   ASSERT VALUE enriched_count = 45
 
   -- Verify fraud detection found the 3 outliers
   SELECT COUNT(*) AS high_risk_count
-  FROM {{zone_prefix}}.silver.claims_enriched
+  FROM ins.silver.claims_enriched
   WHERE fraud_risk = 'high_risk';
 
   ASSERT VALUE high_risk_count >= 2
@@ -316,12 +316,12 @@ AS
 STEP build_dim_claimant
   DEPENDS ON (enrich_claims_point_in_time)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_claimant AS tgt
+  MERGE INTO ins.gold.dim_claimant AS tgt
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY claimant_id) AS claimant_key,
           claimant_id, name, age_band, state, risk_tier
-      FROM {{zone_prefix}}.bronze.raw_claimants
+      FROM ins.bronze.raw_claimants
   ) AS src
   ON tgt.claimant_id = src.claimant_id
   WHEN MATCHED THEN UPDATE SET
@@ -338,12 +338,12 @@ AS
 STEP build_dim_adjuster
   DEPENDS ON (enrich_claims_point_in_time)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_adjuster AS tgt
+  MERGE INTO ins.gold.dim_adjuster AS tgt
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY adjuster_id) AS adjuster_key,
           adjuster_id, name, specialization, years_experience, region
-      FROM {{zone_prefix}}.bronze.raw_adjusters
+      FROM ins.bronze.raw_adjusters
   ) AS src
   ON tgt.adjuster_id = src.adjuster_id
   WHEN MATCHED THEN UPDATE SET
@@ -360,7 +360,7 @@ AS
 STEP build_dim_coverage_type
   DEPENDS ON (enrich_claims_point_in_time)
 AS
-  MERGE INTO {{zone_prefix}}.gold.dim_coverage_type AS tgt
+  MERGE INTO ins.gold.dim_coverage_type AS tgt
   USING (
       SELECT DISTINCT
           coverage_type AS coverage_key,
@@ -373,7 +373,7 @@ AS
               WHEN coverage_type = 'workers_comp' THEN 'Workers Compensation'
               ELSE 'Other'
           END AS coverage_category
-      FROM {{zone_prefix}}.silver.policy_dim
+      FROM ins.silver.policy_dim
   ) AS src
   ON tgt.coverage_key = src.coverage_key
   WHEN NOT MATCHED THEN INSERT (coverage_key, coverage_type, coverage_category, loaded_at)
@@ -385,7 +385,7 @@ STEP build_fact_claims
   DEPENDS ON (build_dim_claimant, build_dim_adjuster, build_dim_coverage_type)
   TIMEOUT '5m'
 AS
-  MERGE INTO {{zone_prefix}}.gold.fact_claims AS tgt
+  MERGE INTO ins.gold.fact_claims AS tgt
   USING (
       SELECT
           ROW_NUMBER() OVER (ORDER BY ce.incident_date, ce.claim_id) AS claim_key,
@@ -407,13 +407,13 @@ AS
               THEN CAST(COALESCE(ce.approved_amount, 0) / ce.annual_premium_at_incident AS DECIMAL(6,4))
               ELSE 0
           END AS loss_ratio
-      FROM {{zone_prefix}}.silver.claims_enriched ce
-      JOIN {{zone_prefix}}.silver.policy_dim pd
+      FROM ins.silver.claims_enriched ce
+      JOIN ins.silver.policy_dim pd
           ON ce.policy_id = pd.policy_id
           AND ce.incident_date >= pd.valid_from
           AND (pd.valid_to IS NULL OR ce.incident_date < pd.valid_to)
-      JOIN {{zone_prefix}}.gold.dim_claimant dc ON ce.claimant_id = dc.claimant_id
-      JOIN {{zone_prefix}}.gold.dim_adjuster da ON ce.adjuster_id = da.adjuster_id
+      JOIN ins.gold.dim_claimant dc ON ce.claimant_id = dc.claimant_id
+      JOIN ins.gold.dim_adjuster da ON ce.adjuster_id = da.adjuster_id
   ) AS src
   ON tgt.policy_surrogate_key = src.policy_surrogate_key
       AND tgt.incident_date = src.incident_date
@@ -444,7 +444,7 @@ AS
 STEP kpi_loss_ratios
   DEPENDS ON (build_fact_claims)
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_loss_ratios AS tgt
+  MERGE INTO ins.gold.kpi_loss_ratios AS tgt
   USING (
       SELECT
           fc.coverage_key AS coverage_type,
@@ -461,8 +461,8 @@ AS
               END, 4
           ) AS loss_ratio,
           ROUND(AVG(CASE WHEN fc.days_to_settle IS NOT NULL THEN fc.days_to_settle END), 2) AS avg_days_to_settle
-      FROM {{zone_prefix}}.gold.fact_claims fc
-      JOIN {{zone_prefix}}.silver.policy_dim pd ON fc.policy_surrogate_key = pd.surrogate_key
+      FROM ins.gold.fact_claims fc
+      JOIN ins.silver.policy_dim pd ON fc.policy_surrogate_key = pd.surrogate_key
       GROUP BY fc.coverage_key, pd.region,
                'Q' || CAST(EXTRACT(QUARTER FROM fc.incident_date) AS STRING) || '-' || CAST(EXTRACT(YEAR FROM fc.incident_date) AS STRING)
   ) AS src
@@ -490,7 +490,7 @@ AS
 STEP kpi_adjuster_performance
   DEPENDS ON (build_fact_claims)
 AS
-  MERGE INTO {{zone_prefix}}.gold.kpi_adjuster_performance AS tgt
+  MERGE INTO ins.gold.kpi_adjuster_performance AS tgt
   USING (
       SELECT
           da.adjuster_id,
@@ -506,8 +506,8 @@ AS
               / NULLIF(COUNT(*), 0)
           AS DECIMAL(5,2)) AS approval_rate_pct,
           ROUND(SUM(COALESCE(fc.approved_amount, 0)), 2) AS total_approved
-      FROM {{zone_prefix}}.gold.fact_claims fc
-      JOIN {{zone_prefix}}.gold.dim_adjuster da ON fc.adjuster_key = da.adjuster_key
+      FROM ins.gold.fact_claims fc
+      JOIN ins.gold.dim_adjuster da ON fc.adjuster_key = da.adjuster_key
       GROUP BY da.adjuster_id, da.name, da.specialization
   ) AS src
   ON tgt.adjuster_id = src.adjuster_id
@@ -539,22 +539,22 @@ STEP restore_correction_demo
   DEPENDS ON (kpi_loss_ratios, kpi_adjuster_performance)
 AS
   -- Record version before bad batch
-  SELECT COUNT(*) AS pre_restore_count FROM {{zone_prefix}}.silver.claims_enriched;
+  SELECT COUNT(*) AS pre_restore_count FROM ins.silver.claims_enriched;
 
   -- Insert a batch of claims with obviously wrong amounts (data entry error)
-  INSERT INTO {{zone_prefix}}.silver.claims_enriched VALUES
+  INSERT INTO ins.silver.claims_enriched VALUES
       ('C-BAD-01', 'POL001', 'CLM01', 'ADJ02', '2024-02-01', '2024-02-02', 999999.99, NULL, 'filed', NULL, NULL, 1, 'auto_plus', 1650.00, 'West', 3.5, 'high_risk', 9.99, CURRENT_TIMESTAMP),
       ('C-BAD-02', 'POL002', 'CLM02', 'ADJ01', '2024-02-03', '2024-02-04', 888888.88, NULL, 'filed', NULL, NULL, 1, 'home',      2640.00, 'Northeast', 2.4, 'high_risk', 9.50, CURRENT_TIMESTAMP),
       ('C-BAD-03', 'POL003', 'CLM03', 'ADJ02', '2024-02-05', '2024-02-06', 777777.77, NULL, 'filed', NULL, NULL, 1, 'auto',       980.00, 'South', 2.8, 'high_risk', 9.00, CURRENT_TIMESTAMP);
 
   -- Show the damage: 3 corrupted rows with absurd amounts
-  SELECT COUNT(*) AS post_bad_count FROM {{zone_prefix}}.silver.claims_enriched;
+  SELECT COUNT(*) AS post_bad_count FROM ins.silver.claims_enriched;
 
   -- RESTORE to the version before the bad batch
-  RESTORE {{zone_prefix}}.silver.claims_enriched TO VERSION 1;
+  RESTORE ins.silver.claims_enriched TO VERSION 1;
 
   -- Verify restoration: count should be back to original
-  SELECT COUNT(*) AS post_restore_count FROM {{zone_prefix}}.silver.claims_enriched;
+  SELECT COUNT(*) AS post_restore_count FROM ins.silver.claims_enriched;
   ASSERT VALUE post_restore_count = 45
   SELECT 'RESTORE correction verified: bad batch rolled back successfully' AS status;
 
@@ -564,6 +564,6 @@ STEP optimize
   DEPENDS ON (restore_correction_demo)
   CONTINUE ON FAILURE
 AS
-  OPTIMIZE {{zone_prefix}}.silver.policy_dim;
-  OPTIMIZE {{zone_prefix}}.silver.claims_enriched;
-  OPTIMIZE {{zone_prefix}}.gold.fact_claims;
+  OPTIMIZE ins.silver.policy_dim;
+  OPTIMIZE ins.silver.claims_enriched;
+  OPTIMIZE ins.gold.fact_claims;

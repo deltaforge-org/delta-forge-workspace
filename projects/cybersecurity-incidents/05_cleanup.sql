@@ -16,43 +16,43 @@ PIPELINE cybersecurity_incidents_cleanup
 
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
-DROP PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_source_ip (ip_address);
+DROP PSEUDONYMISATION RULE ON cyber.gold.dim_source_ip (ip_address);
 
 -- ===================== DROP BLOOM FILTER INDEXES =====================
 
-DROP BLOOMFILTER INDEX ON {{zone_prefix}}.silver.alerts_deduped FOR COLUMNS (source_ip);
-DROP BLOOMFILTER INDEX ON {{zone_prefix}}.gold.fact_incidents FOR COLUMNS (source_ip_key);
+DROP BLOOMFILTER INDEX ON cyber.silver.alerts_deduped FOR COLUMNS (source_ip);
+DROP BLOOMFILTER INDEX ON cyber.gold.fact_incidents FOR COLUMNS (source_ip_key);
 
 -- ===================== DROP GOLD TABLES =====================
 
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_response_metrics WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_threat_dashboard WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.fact_incidents WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_mitre WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_rule WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_target WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_source_ip WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.gold.kpi_response_metrics WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.gold.kpi_threat_dashboard WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.gold.fact_incidents WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.gold.dim_mitre WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.gold.dim_rule WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.gold.dim_target WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.gold.dim_source_ip WITH FILES;
 
 -- ===================== DROP SILVER TABLES =====================
 
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.threat_enriched WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.incidents_correlated WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.alerts_deduped WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.silver.threat_enriched WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.silver.incidents_correlated WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.silver.alerts_deduped WITH FILES;
 
 -- ===================== DROP BRONZE TABLES =====================
 
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_endpoint_alerts WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_ids_alerts WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_firewall_alerts WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_mitre_techniques WITH FILES;
-DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.raw_threat_intel WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.bronze.raw_endpoint_alerts WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.bronze.raw_ids_alerts WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.bronze.raw_firewall_alerts WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.bronze.raw_mitre_techniques WITH FILES;
+DROP DELTA TABLE IF EXISTS cyber.bronze.raw_threat_intel WITH FILES;
 
 -- ===================== DROP SCHEMAS =====================
 
-DROP SCHEMA IF EXISTS {{zone_prefix}}.gold;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.silver;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.bronze;
+DROP SCHEMA IF EXISTS cyber.gold;
+DROP SCHEMA IF EXISTS cyber.silver;
+DROP SCHEMA IF EXISTS cyber.bronze;
 
 -- ===================== DROP ZONE =====================
 
-DROP ZONE IF EXISTS {{zone_prefix}};
+DROP ZONE IF EXISTS cyber;

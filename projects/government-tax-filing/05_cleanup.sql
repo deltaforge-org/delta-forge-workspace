@@ -15,31 +15,31 @@ PIPELINE government_tax_filing_cleanup
 ;
 
 -- ===================== GOLD TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.kpi_preparer_quality;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.kpi_revenue_analysis;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.fact_filings;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_fiscal_year;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_preparer;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_jurisdiction;
-DROP TABLE IF EXISTS {{zone_prefix}}.gold.dim_taxpayer;
+DROP TABLE IF EXISTS tax.gold.kpi_preparer_quality;
+DROP TABLE IF EXISTS tax.gold.kpi_revenue_analysis;
+DROP TABLE IF EXISTS tax.gold.fact_filings;
+DROP TABLE IF EXISTS tax.gold.dim_fiscal_year;
+DROP TABLE IF EXISTS tax.gold.dim_preparer;
+DROP TABLE IF EXISTS tax.gold.dim_jurisdiction;
+DROP TABLE IF EXISTS tax.gold.dim_taxpayer;
 
 -- ===================== SILVER TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.audit_trail;
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.taxpayer_profiles;
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.amendments_applied;
-DROP TABLE IF EXISTS {{zone_prefix}}.silver.filings_immutable;
+DROP TABLE IF EXISTS tax.silver.audit_trail;
+DROP TABLE IF EXISTS tax.silver.taxpayer_profiles;
+DROP TABLE IF EXISTS tax.silver.amendments_applied;
+DROP TABLE IF EXISTS tax.silver.filings_immutable;
 
 -- ===================== BRONZE TABLES =====================
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_amendments;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_filings;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_preparers;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_jurisdictions;
-DROP TABLE IF EXISTS {{zone_prefix}}.bronze.raw_taxpayers;
+DROP TABLE IF EXISTS tax.bronze.raw_amendments;
+DROP TABLE IF EXISTS tax.bronze.raw_filings;
+DROP TABLE IF EXISTS tax.bronze.raw_preparers;
+DROP TABLE IF EXISTS tax.bronze.raw_jurisdictions;
+DROP TABLE IF EXISTS tax.bronze.raw_taxpayers;
 
 -- ===================== SCHEMAS =====================
-DROP SCHEMA IF EXISTS {{zone_prefix}}.gold;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.silver;
-DROP SCHEMA IF EXISTS {{zone_prefix}}.bronze;
+DROP SCHEMA IF EXISTS tax.gold;
+DROP SCHEMA IF EXISTS tax.silver;
+DROP SCHEMA IF EXISTS tax.bronze;
 
 -- ===================== ZONES =====================
-DROP ZONE IF EXISTS {{zone_prefix}};
+DROP ZONE IF EXISTS tax;

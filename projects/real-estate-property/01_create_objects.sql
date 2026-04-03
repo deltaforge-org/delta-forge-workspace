@@ -9,18 +9,18 @@
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS {{zone_prefix}} TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS realty TYPE EXTERNAL
     COMMENT 'County assessor real estate project zone';
 
 -- ===================== SCHEMAS =====================
 
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.bronze COMMENT 'Raw property, assessment, transaction, neighborhood, and agent data';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.silver COMMENT 'SCD2 property dimension, enriched transactions, correction log';
-CREATE SCHEMA IF NOT EXISTS {{zone_prefix}}.gold   COMMENT 'Property star schema, market trends, and assessment accuracy KPIs';
+CREATE SCHEMA IF NOT EXISTS realty.bronze COMMENT 'Raw property, assessment, transaction, neighborhood, and agent data';
+CREATE SCHEMA IF NOT EXISTS realty.silver COMMENT 'SCD2 property dimension, enriched transactions, correction log';
+CREATE SCHEMA IF NOT EXISTS realty.gold   COMMENT 'Property star schema, market trends, and assessment accuracy KPIs';
 
 -- ===================== BRONZE TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_properties (
+CREATE DELTA TABLE IF NOT EXISTS realty.bronze.raw_properties (
     parcel_id           STRING      NOT NULL,
     address             STRING,
     city                STRING,
@@ -35,11 +35,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_properties (
     lot_acres           DECIMAL(6,3),
     year_built          INT,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/property/raw_properties';
+) LOCATION 'realty/bronze/property/raw_properties';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_properties TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.bronze.raw_properties TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_assessments (
+CREATE DELTA TABLE IF NOT EXISTS realty.bronze.raw_assessments (
     assessment_id       STRING      NOT NULL,
     parcel_id           STRING      NOT NULL,
     assessment_year     INT         NOT NULL,
@@ -51,11 +51,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_assessments (
     assessment_date     STRING      NOT NULL,
     assessor_notes      STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/property/raw_assessments';
+) LOCATION 'realty/bronze/property/raw_assessments';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_assessments TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.bronze.raw_assessments TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_transactions (
+CREATE DELTA TABLE IF NOT EXISTS realty.bronze.raw_transactions (
     transaction_id      STRING      NOT NULL,
     parcel_id           STRING      NOT NULL,
     buyer_name          STRING,
@@ -67,11 +67,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_transactions (
     closing_costs       DECIMAL(10,2),
     days_on_market      INT,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/property/raw_transactions';
+) LOCATION 'realty/bronze/property/raw_transactions';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_transactions TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.bronze.raw_transactions TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_neighborhoods (
+CREATE DELTA TABLE IF NOT EXISTS realty.bronze.raw_neighborhoods (
     neighborhood_id     STRING      NOT NULL,
     neighborhood_name   STRING      NOT NULL,
     city                STRING,
@@ -82,11 +82,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_neighborhoods (
     crime_index         DECIMAL(4,2),
     walkability_score   INT,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/property/raw_neighborhoods';
+) LOCATION 'realty/bronze/property/raw_neighborhoods';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_neighborhoods TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.bronze.raw_neighborhoods TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_agents (
+CREATE DELTA TABLE IF NOT EXISTS realty.bronze.raw_agents (
     agent_id            STRING      NOT NULL,
     agent_name          STRING      NOT NULL,
     brokerage           STRING,
@@ -95,15 +95,15 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.bronze.raw_agents (
     specialization      STRING,
     county              STRING,
     ingested_at         TIMESTAMP   NOT NULL
-) LOCATION '{{data_path}}/bronze/property/raw_agents';
+) LOCATION 'realty/bronze/property/raw_agents';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.bronze.raw_agents TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.bronze.raw_agents TO USER admin;
 
 -- ===================== SILVER TABLES =====================
 
 -- SCD2: assessment value changes tracked with valid_from/valid_to/is_current.
 -- CDF enabled so every SCD2 update is captured.
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.property_dim (
+CREATE DELTA TABLE IF NOT EXISTS realty.silver.property_dim (
     surrogate_key       INT         NOT NULL,
     parcel_id           STRING      NOT NULL,
     address             STRING,
@@ -125,14 +125,14 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.property_dim (
     valid_from          DATE        NOT NULL,
     valid_to            DATE,
     is_current          BOOLEAN     NOT NULL
-) LOCATION '{{data_path}}/silver/property/property_dim'
+) LOCATION 'realty/silver/property/property_dim'
 PARTITIONED BY (county)
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.property_dim TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.silver.property_dim TO USER admin;
 
 -- Transactions enriched with assessed value at time of sale (point-in-time join)
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.transactions_enriched (
+CREATE DELTA TABLE IF NOT EXISTS realty.silver.transactions_enriched (
     transaction_id      STRING      NOT NULL,
     parcel_id           STRING      NOT NULL,
     buyer_name          STRING,
@@ -148,12 +148,12 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.transactions_enriched (
     assessment_outlier  BOOLEAN,
     financing_type      STRING,
     closing_costs       DECIMAL(10,2)
-) LOCATION '{{data_path}}/silver/property/transactions_enriched';
+) LOCATION 'realty/silver/property/transactions_enriched';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.transactions_enriched TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.silver.transactions_enriched TO USER admin;
 
 -- Captures RESTORE events
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.correction_log (
+CREATE DELTA TABLE IF NOT EXISTS realty.silver.correction_log (
     correction_id       INT         NOT NULL,
     table_name          STRING      NOT NULL,
     operation           STRING      NOT NULL,
@@ -162,13 +162,13 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.silver.correction_log (
     row_count_before    INT,
     row_count_after     INT,
     correction_timestamp TIMESTAMP  NOT NULL
-) LOCATION '{{data_path}}/silver/property/correction_log';
+) LOCATION 'realty/silver/property/correction_log';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.silver.correction_log TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.silver.correction_log TO USER admin;
 
 -- ===================== GOLD TABLES =====================
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_neighborhood (
+CREATE DELTA TABLE IF NOT EXISTS realty.gold.dim_neighborhood (
     neighborhood_key    INT         NOT NULL,
     neighborhood_id     STRING      NOT NULL,
     neighborhood_name   STRING      NOT NULL,
@@ -179,11 +179,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_neighborhood (
     school_rating       INT,
     crime_index         DECIMAL(4,2),
     walkability_score   INT
-) LOCATION '{{data_path}}/gold/property/dim_neighborhood';
+) LOCATION 'realty/gold/property/dim_neighborhood';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_neighborhood TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.gold.dim_neighborhood TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_agent (
+CREATE DELTA TABLE IF NOT EXISTS realty.gold.dim_agent (
     agent_key           INT         NOT NULL,
     agent_id            STRING      NOT NULL,
     agent_name          STRING      NOT NULL,
@@ -192,21 +192,21 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_agent (
     years_experience    INT,
     specialization      STRING,
     county              STRING
-) LOCATION '{{data_path}}/gold/property/dim_agent';
+) LOCATION 'realty/gold/property/dim_agent';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_agent TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.gold.dim_agent TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.dim_property_type (
+CREATE DELTA TABLE IF NOT EXISTS realty.gold.dim_property_type (
     property_type_key   INT         NOT NULL,
     property_type       STRING      NOT NULL,
     avg_sqft            INT,
     avg_assessed_value  DECIMAL(14,2),
     property_count      INT
-) LOCATION '{{data_path}}/gold/property/dim_property_type';
+) LOCATION 'realty/gold/property/dim_property_type';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_property_type TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.gold.dim_property_type TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_transactions (
+CREATE DELTA TABLE IF NOT EXISTS realty.gold.fact_transactions (
     transaction_key     INT         NOT NULL,
     parcel_id           STRING      NOT NULL,
     neighborhood_key    INT,
@@ -222,11 +222,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.fact_transactions (
     assessment_outlier  BOOLEAN,
     financing_type      STRING,
     closing_costs       DECIMAL(10,2)
-) LOCATION '{{data_path}}/gold/property/fact_transactions';
+) LOCATION 'realty/gold/property/fact_transactions';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.fact_transactions TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.gold.fact_transactions TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_market_trends (
+CREATE DELTA TABLE IF NOT EXISTS realty.gold.kpi_market_trends (
     city                STRING      NOT NULL,
     property_type       STRING      NOT NULL,
     sale_quarter        STRING      NOT NULL,
@@ -237,11 +237,11 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_market_trends (
     avg_over_asking_pct DECIMAL(5,2),
     inventory_months    DECIMAL(5,1),
     yoy_price_change_pct DECIMAL(5,2)
-) LOCATION '{{data_path}}/gold/property/kpi_market_trends';
+) LOCATION 'realty/gold/property/kpi_market_trends';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_market_trends TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.gold.kpi_market_trends TO USER admin;
 
-CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_assessment_accuracy (
+CREATE DELTA TABLE IF NOT EXISTS realty.gold.kpi_assessment_accuracy (
     county              STRING      NOT NULL,
     property_type       STRING      NOT NULL,
     assessment_year     INT         NOT NULL,
@@ -253,13 +253,13 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_assessment_accuracy (
     outlier_count       INT,
     outlier_rate_pct    DECIMAL(5,2),
     cod                 DECIMAL(5,2)
-) LOCATION '{{data_path}}/gold/property/kpi_assessment_accuracy';
+) LOCATION 'realty/gold/property/kpi_assessment_accuracy';
 
-GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_assessment_accuracy TO USER {{current_user}};
+GRANT ADMIN ON TABLE realty.gold.kpi_assessment_accuracy TO USER admin;
 
 -- ===================== BRONZE SEED DATA: NEIGHBORHOODS (6 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_neighborhoods VALUES
+INSERT INTO realty.bronze.raw_neighborhoods VALUES
     ('NBH-OHP', 'Oak Hill Park',     'Austin',  'Travis',    'TX', 125000.00, 9, 1.20, 82, '2025-01-01T00:00:00'),
     ('NBH-LSQ', 'Lakeside Square',   'Austin',  'Travis',    'TX', 98000.00,  7, 2.10, 71, '2025-01-01T00:00:00'),
     ('NBH-MVW', 'Mountain View',     'Denver',  'Denver',    'CO', 110000.00, 8, 1.50, 75, '2025-01-01T00:00:00'),
@@ -268,11 +268,11 @@ INSERT INTO {{zone_prefix}}.bronze.raw_neighborhoods VALUES
     ('NBH-DWN', 'Downtown Core',     'Austin',  'Travis',    'TX', 135000.00, 8, 1.80, 92, '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 6
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_neighborhoods;
+SELECT COUNT(*) AS row_count FROM realty.bronze.raw_neighborhoods;
 
 -- ===================== BRONZE SEED DATA: AGENTS (8 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_agents VALUES
+INSERT INTO realty.bronze.raw_agents VALUES
     ('AGT-01', 'Jennifer Walsh',    'Premier Realty',       'TX-RE-44521', 15, 'Luxury',       'Travis',    '2025-01-01T00:00:00'),
     ('AGT-02', 'Michael Chen',      'Premier Realty',       'TX-RE-33892', 8,  'Residential',  'Travis',    '2025-01-01T00:00:00'),
     ('AGT-03', 'Sarah Martinez',    'Horizon Properties',   'CO-RE-55673', 12, 'Residential',  'Denver',    '2025-01-01T00:00:00'),
@@ -283,11 +283,11 @@ INSERT INTO {{zone_prefix}}.bronze.raw_agents VALUES
     ('AGT-08', 'Carlos Mendez',     'Horizon Properties',   'CO-RE-66890', 9,  'Commercial',   'Denver',    '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 8
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_agents;
+SELECT COUNT(*) AS row_count FROM realty.bronze.raw_agents;
 
 -- ===================== BRONZE SEED DATA: PROPERTIES (18 rows) =====================
 
-INSERT INTO {{zone_prefix}}.bronze.raw_properties VALUES
+INSERT INTO realty.bronze.raw_properties VALUES
     ('PRC-001', '142 Oak Hill Dr',      'Austin',  'Travis',    'TX', '78745', 'NBH-OHP', 'Single Family', 4, 3.0, 2850, 0.280, 2018, '2025-01-01T00:00:00'),
     ('PRC-002', '88 Lakeside Blvd',     'Austin',  'Travis',    'TX', '78748', 'NBH-LSQ', 'Single Family', 3, 2.0, 1950, 0.180, 2005, '2025-01-01T00:00:00'),
     ('PRC-003', '520 Mountain View Ct', 'Denver',  'Denver',    'CO', '80220', 'NBH-MVW', 'Single Family', 4, 2.5, 2400, 0.220, 2015, '2025-01-01T00:00:00'),
@@ -308,13 +308,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_properties VALUES
     ('PRC-018', '610 Mountain Peak Dr', 'Denver',  'Denver',    'CO', '80220', 'NBH-MVW', 'Townhouse',     3, 2.5, 1900, 0.100, 2021, '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 18
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_properties;
+SELECT COUNT(*) AS row_count FROM realty.bronze.raw_properties;
 
 -- ===================== BRONZE SEED DATA: ASSESSMENTS (40 rows) =====================
 -- 3 annual batches: 2022 (18 properties), 2023 (12 reassessed), 2024 (8 reassessed + 2 new)
 -- 3 properties with significant value changes for SCD2 tracking: PRC-001, PRC-004, PRC-011
 
-INSERT INTO {{zone_prefix}}.bronze.raw_assessments VALUES
+INSERT INTO realty.bronze.raw_assessments VALUES
     -- ===== Batch 1: 2022 assessments — all 18 properties =====
     ('ASM-2022-001', 'PRC-001', 2022, 480000.00,  180000.00, 300000.00, 0.02150, 10320.00, '2022-01-15', NULL,                        '2025-01-01T00:00:00'),
     ('ASM-2022-002', 'PRC-002', 2022, 350000.00,  120000.00, 230000.00, 0.02150, 7525.00,  '2022-01-15', NULL,                        '2025-01-01T00:00:00'),
@@ -358,13 +358,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_assessments VALUES
     ('ASM-2024-008', 'PRC-017', 2024, 315000.00,  102000.00, 213000.00, 0.00650, 2047.50,  '2024-01-15', NULL,                        '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 40
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_assessments;
+SELECT COUNT(*) AS row_count FROM realty.bronze.raw_assessments;
 
 -- ===================== BRONZE SEED DATA: TRANSACTIONS (25 rows) =====================
 -- Sales across 2022-2024. Some over asking (bidding wars), some under.
 -- 2 assessment outliers: PRC-013 sells far above assessed, PRC-004 sells far below.
 
-INSERT INTO {{zone_prefix}}.bronze.raw_transactions VALUES
+INSERT INTO realty.bronze.raw_transactions VALUES
     -- 2022 sales
     ('TXN-001', 'PRC-001', 'Thomas Wright',     'Margaret Henderson', 'AGT-01', '2022-05-15', 540000.00, 'Conventional', 12500.00, 45, '2025-01-01T00:00:00'),
     ('TXN-002', 'PRC-002', 'Amanda Foster',      'William Chang',     'AGT-02', '2022-07-20', 365000.00, 'FHA',          8800.00,  62, '2025-01-01T00:00:00'),
@@ -395,13 +395,13 @@ INSERT INTO {{zone_prefix}}.bronze.raw_transactions VALUES
     ('TXN-025', 'PRC-007', 'Sophia Anderson',    'Daniel Lee',        'AGT-07', '2024-05-15', 298000.00, 'FHA',          7200.00,  33, '2025-01-01T00:00:00');
 
 ASSERT ROW_COUNT = 25
-SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_transactions;
+SELECT COUNT(*) AS row_count FROM realty.bronze.raw_transactions;
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.transactions_enriched (buyer_name) TRANSFORM keyed_hash PARAMS (salt = delta_forge_salt_2024);
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.transactions_enriched (seller_name) TRANSFORM keyed_hash PARAMS (salt = delta_forge_salt_2024);
+CREATE PSEUDONYMISATION RULE ON realty.silver.transactions_enriched (buyer_name) TRANSFORM keyed_hash PARAMS (salt = delta_forge_salt_2024);
+CREATE PSEUDONYMISATION RULE ON realty.silver.transactions_enriched (seller_name) TRANSFORM keyed_hash PARAMS (salt = delta_forge_salt_2024);
 
 -- ===================== BLOOM FILTER INDEX =====================
 
-CREATE BLOOMFILTER INDEX ON {{zone_prefix}}.silver.property_dim FOR COLUMNS (parcel_id);
+CREATE BLOOMFILTER INDEX ON realty.silver.property_dim FOR COLUMNS (parcel_id);

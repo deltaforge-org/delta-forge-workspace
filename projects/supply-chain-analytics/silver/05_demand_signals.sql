@@ -8,7 +8,7 @@
 --     current on-hand inventory at the nearest warehouse
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS {{zone_prefix}}.silver.demand_signals (
+CREATE TABLE IF NOT EXISTS sc.silver.demand_signals (
   store_id          STRING,
   sku               STRING,
   sale_date         DATE,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS {{zone_prefix}}.silver.demand_signals (
   updated_at        TIMESTAMP
 );
 
-MERGE INTO {{zone_prefix}}.silver.demand_signals AS tgt
+MERGE INTO sc.silver.demand_signals AS tgt
 USING (
   WITH daily_demand AS (
     SELECT
@@ -39,17 +39,17 @@ USING (
         ORDER BY pd.sale_date
         ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
       ) AS demand_7d_avg
-    FROM {{zone_prefix}}.bronze.pos_demand pd
+    FROM sc.bronze.pos_demand pd
   ),
   store_warehouse AS (
     -- Map each store to its nearest warehouse by region
     SELECT s.store_id, w.warehouse_id AS nearest_wh
-    FROM {{zone_prefix}}.bronze.stores s
-    JOIN {{zone_prefix}}.bronze.warehouses w ON s.region = w.region
+    FROM sc.bronze.stores s
+    JOIN sc.bronze.warehouses w ON s.region = w.region
   ),
   inventory AS (
     SELECT warehouse_id, sku, on_hand_qty
-    FROM {{zone_prefix}}.silver.inventory_positions
+    FROM sc.silver.inventory_positions
   )
   SELECT
     dd.store_id,

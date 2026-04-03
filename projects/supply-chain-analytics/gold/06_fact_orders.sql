@@ -6,7 +6,7 @@
 -- cost, on-time flag, and associated shipment status.
 -- =============================================================================
 
-CREATE OR REPLACE TABLE {{zone_prefix}}.gold.fact_orders AS
+CREATE OR REPLACE TABLE sc.gold.fact_orders AS
 SELECT
   of.po_id,
   of.supplier_id,
@@ -31,9 +31,9 @@ SELECT
   sh.transit_hours,
   sh.has_exception AS shipment_exception,
   CURRENT_TIMESTAMP AS updated_at
-FROM {{zone_prefix}}.silver.order_fulfillment of
-JOIN {{zone_prefix}}.gold.dim_supplier ds ON ds.supplier_id = of.supplier_id
-JOIN {{zone_prefix}}.gold.dim_product dp ON dp.sku = of.sku
+FROM sc.silver.order_fulfillment of
+JOIN sc.gold.dim_supplier ds ON ds.supplier_id = of.supplier_id
+JOIN sc.gold.dim_product dp ON dp.sku = of.sku
 LEFT JOIN (
   -- Map POs to shipments via warehouse movements (receipt -> pick -> ship)
   SELECT DISTINCT
@@ -43,13 +43,13 @@ LEFT JOIN (
     st.current_status,
     st.transit_hours,
     st.has_exception
-  FROM {{zone_prefix}}.bronze.warehouse_movements wm_receipt
-  JOIN {{zone_prefix}}.bronze.warehouse_movements wm_ship
+  FROM sc.bronze.warehouse_movements wm_receipt
+  JOIN sc.bronze.warehouse_movements wm_ship
     ON wm_ship.warehouse_id = wm_receipt.warehouse_id
     AND wm_ship.sku = wm_receipt.sku
     AND wm_ship.movement_type = 'ship'
     AND wm_ship.movement_ts > wm_receipt.movement_ts
-  JOIN {{zone_prefix}}.silver.shipment_tracking st
+  JOIN sc.silver.shipment_tracking st
     ON st.shipment_id = wm_ship.reference_id
   WHERE wm_receipt.movement_type = 'receipt'
     AND wm_receipt.reference_id LIKE 'PO-%'

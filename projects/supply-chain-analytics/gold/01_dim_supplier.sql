@@ -6,7 +6,7 @@
 -- average lead time, total spend, and order count.
 -- =============================================================================
 
-CREATE OR REPLACE TABLE {{zone_prefix}}.gold.dim_supplier AS
+CREATE OR REPLACE TABLE sc.gold.dim_supplier AS
 SELECT
   s.supplier_id,
   s.supplier_name,
@@ -21,7 +21,7 @@ SELECT
   COALESCE(perf.on_time_delivery_pct, 0) AS on_time_delivery_pct,
   COALESCE(perf.total_spend, 0) AS total_spend,
   CURRENT_TIMESTAMP AS updated_at
-FROM {{zone_prefix}}.bronze.suppliers s
+FROM sc.bronze.suppliers s
 LEFT JOIN (
   SELECT
     supplier_id,
@@ -31,6 +31,6 @@ LEFT JOIN (
     CAST(SUM(CASE WHEN on_time_flag = true THEN 1 ELSE 0 END) AS DECIMAL(10,4))
       / CAST(COUNT(*) AS DECIMAL(10,4)) AS on_time_delivery_pct,
     SUM(total_cost) AS total_spend
-  FROM {{zone_prefix}}.silver.order_fulfillment
+  FROM sc.silver.order_fulfillment
   GROUP BY supplier_id
 ) perf ON perf.supplier_id = s.supplier_id;
