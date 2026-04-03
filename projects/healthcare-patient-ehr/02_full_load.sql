@@ -235,7 +235,7 @@ MERGE INTO {{zone_prefix}}.gold.kpi_readmission_rates AS target
 USING (
     SELECT
         dd.department_name,
-        CONCAT(YEAR(f.admission_date), '-Q', QUARTER(f.admission_date)) AS period,
+        CONCAT(EXTRACT(YEAR FROM f.admission_date), '-Q', EXTRACT(QUARTER FROM f.admission_date)) AS period,
         COUNT(*) AS total_admissions,
         SUM(CASE WHEN f.readmission_flag = true THEN 1 ELSE 0 END) AS readmissions,
         ROUND(100.0 * SUM(CASE WHEN f.readmission_flag = true THEN 1 ELSE 0 END) / COUNT(*), 2) AS readmission_pct,
@@ -243,7 +243,7 @@ USING (
         ROUND(AVG(f.total_charges), 2) AS avg_charges
     FROM {{zone_prefix}}.gold.fact_admissions f
     JOIN {{zone_prefix}}.gold.dim_department dd ON f.department_key = dd.department_key
-    GROUP BY dd.department_name, CONCAT(YEAR(f.admission_date), '-Q', QUARTER(f.admission_date))
+    GROUP BY dd.department_name, CONCAT(EXTRACT(YEAR FROM f.admission_date), '-Q', EXTRACT(QUARTER FROM f.admission_date))
 ) AS source
 ON target.department_name = source.department_name AND target.period = source.period
 WHEN MATCHED THEN UPDATE SET

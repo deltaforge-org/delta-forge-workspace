@@ -339,5 +339,5 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_transactions;
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.property_scd2 (seller_name) TRANSFORM keyed_hash PARAMS ('algorithm', 'SHA256');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_buyer (name) TRANSFORM keyed_hash PARAMS ('algorithm', 'SHA256');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.property_scd2 (seller_name) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_buyer (name) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');

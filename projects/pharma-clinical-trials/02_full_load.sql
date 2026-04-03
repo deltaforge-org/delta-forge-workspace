@@ -28,7 +28,7 @@ SELECT
     p.ssn,
     LOWER(TRIM(p.email))                                        AS email,
     p.date_of_birth,
-    CONCAT(CAST(FLOOR(YEAR(CAST(p.date_of_birth AS DATE)) / 10) * 10 AS STRING), 's') AS age_band,
+    CONCAT(CAST(FLOOR(EXTRACT(YEAR FROM CAST(p.date_of_birth AS DATE)) / 10) * 10 AS STRING), 's') AS age_band,
     p.gender,
     p.ethnicity,
     p.trial_id,
@@ -218,7 +218,7 @@ WHERE participant_id = 'PT-1003';
 -- Oops! We accidentally purged PT-1003 but legal says we must retain for regulatory audit
 -- Restore silver participant table to previous version
 
-RESTORE {{zone_prefix}}.silver.participant_clean TO VERSION AS OF 0;
+RESTORE {{zone_prefix}}.silver.participant_clean TO VERSION 0;
 
 -- ===================== OPTIMIZE =====================
 

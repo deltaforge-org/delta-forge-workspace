@@ -352,6 +352,6 @@ CREATE GRAPH IF NOT EXISTS {{zone_prefix}}.gold.legal_network
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_client (client_name) TRANSFORM redact PARAMS ('replacement' = '[REDACTED]');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_client (client_name) TRANSFORM redact PARAMS (mask = '[REDACTED]');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_case (case_number) TRANSFORM keyed_hash PARAMS ('algorithm' = 'SHA256');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_case (case_number) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');

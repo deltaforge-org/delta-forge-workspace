@@ -207,7 +207,7 @@ GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_fleet_performance TO USER {{curren
 
 CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_vehicle (vin)
     TRANSFORM generalize
-    PARAMS ('pattern' = '{8}XXXXXXXXX');
+    PARAMS (range = 10);
 
 -- =============================================================================
 -- SEED DATA: raw_vehicles (10 vehicles across 3 fleets)

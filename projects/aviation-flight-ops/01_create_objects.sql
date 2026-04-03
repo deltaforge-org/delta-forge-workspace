@@ -181,8 +181,8 @@ GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_date TO USER {{current_user}};
 GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_otp TO USER {{current_user}};
 
 -- ===================== PSEUDONYMISATION =====================
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_crew (captain_name) TRANSFORM mask PARAMS ('mask_char' = '*', 'visible_chars' = 2);
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_crew (first_officer_name) TRANSFORM mask PARAMS ('mask_char' = '*', 'visible_chars' = 2);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_crew (captain_name) TRANSFORM mask PARAMS (show = 2);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_crew (first_officer_name) TRANSFORM mask PARAMS (show = 2);
 
 -- ===================== SEED DATA: ROUTES (10 routes) =====================
 INSERT INTO {{zone_prefix}}.bronze.raw_routes VALUES

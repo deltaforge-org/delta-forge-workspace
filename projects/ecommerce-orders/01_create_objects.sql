@@ -163,9 +163,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_sales_dashboard (
 
 -- ===================== PSEUDONYMISATION =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.customer_rfm (email) TRANSFORM redact PARAMS ('replacement', '***@***.***');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_customers (email) TRANSFORM redact PARAMS ('replacement', '***@***.***');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_customers (address) TRANSFORM redact PARAMS ('replacement', '[REDACTED]');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.customer_rfm (email) TRANSFORM redact PARAMS (mask = '***@***.***');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_customers (email) TRANSFORM redact PARAMS (mask = '***@***.***');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_customers (address) TRANSFORM redact PARAMS (mask = '[REDACTED]');
 
 -- ===================== GRANTS =====================
 

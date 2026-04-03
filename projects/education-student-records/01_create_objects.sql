@@ -342,5 +342,5 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_enrollments;
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.student_gpa (student_id) TRANSFORM keyed_hash PARAMS ('algorithm', 'SHA256');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_student (name) TRANSFORM keyed_hash PARAMS ('algorithm', 'SHA256');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.student_gpa (student_id) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_student (name) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');

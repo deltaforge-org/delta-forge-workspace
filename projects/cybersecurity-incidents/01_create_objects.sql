@@ -296,6 +296,6 @@ GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_threat_dashboard TO USER {{current
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_source_ip (ip_address) TRANSFORM generalize PARAMS ('mask_bits' = '24');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_source_ip (ip_address) TRANSFORM generalize PARAMS (range = 24);
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.incidents_correlated (source_ip) TRANSFORM generalize PARAMS ('mask_bits' = '24');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.incidents_correlated (source_ip) TRANSFORM generalize PARAMS (range = 24);

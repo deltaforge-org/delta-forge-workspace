@@ -264,10 +264,10 @@ GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_daily_volumes TO USER {{current_us
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.accounts_cdf (account_number) TRANSFORM keyed_hash PARAMS ('algorithm' = 'SHA256');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.accounts_cdf (account_number) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.accounts_cdf (customer_name) TRANSFORM keyed_hash PARAMS ('algorithm' = 'SHA256');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.accounts_cdf (customer_name) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_account (account_number) TRANSFORM keyed_hash PARAMS ('algorithm' = 'SHA256');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_account (account_number) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_account (customer_name) TRANSFORM keyed_hash PARAMS ('algorithm' = 'SHA256');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_account (customer_name) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');

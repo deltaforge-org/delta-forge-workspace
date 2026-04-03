@@ -283,5 +283,5 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_filings;
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.taxpayer_enriched (ssn) TRANSFORM redact PARAMS ('replacement', '[REDACTED]');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.taxpayer_enriched (taxpayer_name) TRANSFORM mask PARAMS ('visible_prefix', 1, 'visible_suffix', 0, 'mask_char', '*');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.taxpayer_enriched (ssn) TRANSFORM redact PARAMS (mask = '[REDACTED]');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.taxpayer_enriched (taxpayer_name) TRANSFORM mask PARAMS (show = 1);

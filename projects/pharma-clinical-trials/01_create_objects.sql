@@ -377,7 +377,7 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_observations;
 -- ===================== PSEUDONYMISATION RULES =====================
 -- All 4 transforms applied to participant data
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.participant_clean (ssn) TRANSFORM redact PARAMS ('replacement', '[REDACTED]');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.participant_clean (email) TRANSFORM mask PARAMS ('visible_prefix', 2, 'visible_suffix', 4, 'mask_char', '*');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.participant_clean (participant_name) TRANSFORM keyed_hash PARAMS ('algorithm', 'SHA256');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.participant_clean (date_of_birth) TRANSFORM generalize PARAMS ('granularity', 'decade');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.participant_clean (ssn) TRANSFORM redact PARAMS (mask = '[REDACTED]');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.participant_clean (email) TRANSFORM mask PARAMS (show = 2);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.participant_clean (participant_name) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.participant_clean (date_of_birth) TRANSFORM generalize PARAMS (range = 10);

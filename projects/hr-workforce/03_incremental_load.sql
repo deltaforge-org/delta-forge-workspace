@@ -75,7 +75,7 @@ SELECT
     ce.position_id,
     e.education_level,
     e.gender,
-    CONCAT(CAST(FLOOR(YEAR(CAST(e.date_of_birth AS DATE)) / 10) * 10 AS STRING), 's') AS age_band,
+    CONCAT(CAST(FLOOR(EXTRACT(YEAR FROM CAST(e.date_of_birth AS DATE)) / 10) * 10 AS STRING), 's') AS age_band,
     ce.base_salary,
     CAST(ce.event_date AS DATE)     AS valid_from,
     CAST(NULL AS DATE)              AS valid_to,

@@ -248,14 +248,14 @@ GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_readmission_rates TO USER {{curren
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.admissions_cleaned (ssn) TRANSFORM redact PARAMS ('replacement' = '***-**-****');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.admissions_cleaned (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.admissions_cleaned (email) TRANSFORM mask PARAMS ('visible_chars' = '2', 'mask_char' = '*');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.admissions_cleaned (email) TRANSFORM mask PARAMS (show = 2);
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.admissions_cleaned (patient_name) TRANSFORM keyed_hash PARAMS ('algorithm' = 'SHA256');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.admissions_cleaned (patient_name) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patients_deduped (ssn) TRANSFORM redact PARAMS ('replacement' = '***-**-****');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patients_deduped (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patients_deduped (email) TRANSFORM mask PARAMS ('visible_chars' = '2', 'mask_char' = '*');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patients_deduped (email) TRANSFORM mask PARAMS (show = 2);
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patients_deduped (patient_name) TRANSFORM keyed_hash PARAMS ('algorithm' = 'SHA256');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.patients_deduped (patient_name) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');

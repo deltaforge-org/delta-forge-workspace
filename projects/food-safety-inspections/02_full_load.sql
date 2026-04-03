@@ -264,11 +264,11 @@ USING (
             fi.district_key AS district,
             de.cuisine_type,
             CASE
-                WHEN MONTH(fi.inspection_date) BETWEEN 1 AND 3 THEN 'Q1'
-                WHEN MONTH(fi.inspection_date) BETWEEN 4 AND 6 THEN 'Q2'
-                WHEN MONTH(fi.inspection_date) BETWEEN 7 AND 9 THEN 'Q3'
+                WHEN EXTRACT(MONTH FROM fi.inspection_date) BETWEEN 1 AND 3 THEN 'Q1'
+                WHEN EXTRACT(MONTH FROM fi.inspection_date) BETWEEN 4 AND 6 THEN 'Q2'
+                WHEN EXTRACT(MONTH FROM fi.inspection_date) BETWEEN 7 AND 9 THEN 'Q3'
                 ELSE 'Q4'
-            END || '-' || CAST(YEAR(fi.inspection_date) AS STRING) AS quarter,
+            END || '-' || CAST(EXTRACT(YEAR FROM fi.inspection_date) AS STRING) AS quarter,
             COUNT(*) AS total_inspections,
             CAST(AVG(fi.score) AS DECIMAL(5,2)) AS avg_score,
             CAST(SUM(CASE WHEN fi.grade IN ('A','B') THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS DECIMAL(5,2)) AS pass_rate,
@@ -278,11 +278,11 @@ USING (
         JOIN {{zone_prefix}}.gold.dim_establishment de ON fi.establishment_key = de.establishment_key
         GROUP BY fi.district_key, de.cuisine_type,
             CASE
-                WHEN MONTH(fi.inspection_date) BETWEEN 1 AND 3 THEN 'Q1'
-                WHEN MONTH(fi.inspection_date) BETWEEN 4 AND 6 THEN 'Q2'
-                WHEN MONTH(fi.inspection_date) BETWEEN 7 AND 9 THEN 'Q3'
+                WHEN EXTRACT(MONTH FROM fi.inspection_date) BETWEEN 1 AND 3 THEN 'Q1'
+                WHEN EXTRACT(MONTH FROM fi.inspection_date) BETWEEN 4 AND 6 THEN 'Q2'
+                WHEN EXTRACT(MONTH FROM fi.inspection_date) BETWEEN 7 AND 9 THEN 'Q3'
                 ELSE 'Q4'
-            END || '-' || CAST(YEAR(fi.inspection_date) AS STRING)
+            END || '-' || CAST(EXTRACT(YEAR FROM fi.inspection_date) AS STRING)
     ),
     repeat_offenders AS (
         SELECT

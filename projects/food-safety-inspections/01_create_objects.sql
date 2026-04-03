@@ -194,7 +194,7 @@ GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_compliance TO USER {{current_user}
 
 CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_inspector (name)
     TRANSFORM mask
-    PARAMS ('character' = '*', 'preserve_length' = 'true');
+    PARAMS (range = 10);
 
 -- =============================================================================
 -- SEED DATA: raw_violations (12 violation types)

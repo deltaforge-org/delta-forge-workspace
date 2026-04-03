@@ -172,8 +172,8 @@ GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_fund TO USER {{current_user}};
 GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_fundraising TO USER {{current_user}};
 
 -- ===================== PSEUDONYMISATION =====================
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_donors (email) TRANSFORM mask PARAMS ('mask_char' = '*', 'visible_chars' = 3);
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_donors (name) TRANSFORM mask PARAMS ('mask_char' = '*', 'visible_chars' = 3);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_donors (email) TRANSFORM mask PARAMS (show = 3);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_donors (name) TRANSFORM mask PARAMS (show = 3);
 
 -- ===================== SEED DATA: DONORS (15 donors) =====================
 INSERT INTO {{zone_prefix}}.bronze.raw_donors VALUES

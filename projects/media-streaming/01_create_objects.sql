@@ -174,7 +174,7 @@ GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_session TO USER {{current_user}};
 GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_engagement TO USER {{current_user}};
 
 -- ===================== PSEUDONYMISATION =====================
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_users (user_id) TRANSFORM keyed_hash PARAMS ('key' = 'media_user_hash_key_2024');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_users (user_id) TRANSFORM keyed_hash PARAMS (salt = 'media_user_hash_key_2024');
 
 -- ===================== SEED DATA: USERS (12 users) =====================
 INSERT INTO {{zone_prefix}}.bronze.raw_users VALUES

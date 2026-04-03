@@ -139,8 +139,8 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_consumption_billing (
 
 -- ===================== PSEUDONYMISATION =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_meters (address) TRANSFORM generalize PARAMS ('show_fields', 'city,state');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_meter (address) TRANSFORM generalize PARAMS ('show_fields', 'city,state');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_meters (address) TRANSFORM generalize PARAMS (range = 10);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_meter (address) TRANSFORM generalize PARAMS (range = 10);
 
 -- ===================== GRANTS =====================
 

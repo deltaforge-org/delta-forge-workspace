@@ -299,6 +299,6 @@ GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_loss_ratios TO USER {{current_user
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_claimant (name) TRANSFORM mask PARAMS ('visible_chars' = '1', 'mask_char' = '*');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.gold.dim_claimant (name) TRANSFORM mask PARAMS (show = 1);
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.claims_enriched (claimant_id) TRANSFORM mask PARAMS ('visible_chars' = '3', 'mask_char' = '*');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.claims_enriched (claimant_id) TRANSFORM mask PARAMS (show = 3);

@@ -180,7 +180,7 @@ ASSERT ROW_COUNT = 22
 SELECT
     dp.city,
     dp.property_type,
-    CONCAT(CAST(YEAR(ft.transaction_date) AS STRING), '-Q', CAST(QUARTER(ft.transaction_date) AS STRING)) AS quarter,
+    CONCAT(CAST(EXTRACT(YEAR FROM ft.transaction_date) AS STRING), '-Q', CAST(EXTRACT(QUARTER FROM ft.transaction_date) AS STRING)) AS quarter,
     ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.sale_price), 2) AS median_sale_price,
     ROUND(AVG(ft.price_per_sqft), 2)                        AS avg_price_per_sqft,
     ROUND(AVG(ft.days_on_market), 1)                        AS avg_days_on_market,
@@ -195,7 +195,7 @@ SELECT
 FROM {{zone_prefix}}.gold.fact_transactions ft
 JOIN {{zone_prefix}}.gold.dim_property dp ON ft.property_key = dp.surrogate_key
 GROUP BY dp.city, dp.property_type,
-    CONCAT(CAST(YEAR(ft.transaction_date) AS STRING), '-Q', CAST(QUARTER(ft.transaction_date) AS STRING));
+    CONCAT(CAST(EXTRACT(YEAR FROM ft.transaction_date) AS STRING), '-Q', CAST(EXTRACT(QUARTER FROM ft.transaction_date) AS STRING));
 
 -- ===================== STEP 10: RESTORE Demo =====================
 -- Simulate a bad import by inserting garbage data, then restore
@@ -204,7 +204,7 @@ INSERT INTO {{zone_prefix}}.bronze.raw_properties VALUES
     ('PROP-BAD', 'Bad Data Row', 'Nowhere', 'XX', '00000', 'NBH-XXX', 'Unknown', 0, 0.0, 0, 0.000, 1900, 0.00, 'Error', '1900-01-01', 'Bad Import', '2025-01-01T00:00:00');
 
 -- Restore to version before the bad insert
-RESTORE {{zone_prefix}}.bronze.raw_properties TO VERSION AS OF 1;
+RESTORE {{zone_prefix}}.bronze.raw_properties TO VERSION 1;
 
 -- ===================== OPTIMIZE =====================
 

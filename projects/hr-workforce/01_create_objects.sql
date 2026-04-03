@@ -312,6 +312,6 @@ SELECT COUNT(*) AS row_count FROM {{zone_prefix}}.bronze.raw_comp_events;
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.dim_employee_scd2 (base_salary) TRANSFORM redact PARAMS ('replacement', '0.00');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.dim_employee_scd2 (ssn) TRANSFORM mask PARAMS ('visible_prefix', 0, 'visible_suffix', 4, 'mask_char', '*');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.dim_employee_scd2 (employee_name) TRANSFORM keyed_hash PARAMS ('algorithm', 'SHA256');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.dim_employee_scd2 (base_salary) TRANSFORM redact PARAMS (mask = '[REDACTED]');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.dim_employee_scd2 (ssn) TRANSFORM mask PARAMS (show = 0);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.dim_employee_scd2 (employee_name) TRANSFORM keyed_hash PARAMS (salt = 'delta_forge_salt_2024');

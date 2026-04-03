@@ -181,8 +181,8 @@ GRANT ADMIN ON TABLE {{zone_prefix}}.gold.dim_channel TO USER {{current_user}};
 GRANT ADMIN ON TABLE {{zone_prefix}}.gold.kpi_revenue_management TO USER {{current_user}};
 
 -- ===================== PSEUDONYMISATION =====================
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_guests (name) TRANSFORM mask PARAMS ('mask_char' = '*', 'visible_chars' = 3);
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_guests (credit_card_last4) TRANSFORM redact PARAMS ();
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_guests (name) TRANSFORM mask PARAMS (show = 3);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_guests (credit_card_last4) TRANSFORM redact;
 
 -- ===================== SEED DATA: PROPERTIES (4 properties) =====================
 INSERT INTO {{zone_prefix}}.bronze.raw_properties VALUES

@@ -138,9 +138,9 @@ CREATE DELTA TABLE IF NOT EXISTS {{zone_prefix}}.gold.kpi_network_quality (
 
 -- ===================== PSEUDONYMISATION =====================
 
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_subscribers (phone_number) TRANSFORM generalize PARAMS ('mask_last', '4');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.cdr_enriched (caller_number) TRANSFORM generalize PARAMS ('mask_last', '4');
-CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.cdr_enriched (callee_number) TRANSFORM generalize PARAMS ('mask_last', '4');
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.bronze.raw_subscribers (phone_number) TRANSFORM generalize PARAMS (range = 4);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.cdr_enriched (caller_number) TRANSFORM generalize PARAMS (range = 4);
+CREATE PSEUDONYMISATION RULE ON {{zone_prefix}}.silver.cdr_enriched (callee_number) TRANSFORM generalize PARAMS (range = 4);
 
 -- ===================== GRANTS =====================
 

@@ -105,7 +105,7 @@ ORDER BY dd.department_name, de.gender;
 ASSERT VALUE headcount > 0
 SELECT
     dd.department_name,
-    YEAR(f.event_date)                                      AS year,
+    EXTRACT(YEAR FROM f.event_date)                                      AS year,
     COUNT(DISTINCT CASE WHEN f.event_type = 'Termination' THEN de.employee_id END) AS terminations,
     COUNT(DISTINCT de.employee_id)                          AS total_employees,
     ROUND(
@@ -116,7 +116,7 @@ SELECT
 FROM {{zone_prefix}}.gold.fact_compensation_events f
 JOIN {{zone_prefix}}.gold.dim_employee de     ON f.employee_key = de.surrogate_key
 JOIN {{zone_prefix}}.gold.dim_department dd   ON f.department_key = dd.department_key
-GROUP BY dd.department_name, YEAR(f.event_date)
+GROUP BY dd.department_name, EXTRACT(YEAR FROM f.event_date)
 ORDER BY dd.department_name, year;
 
 -- ===================== QUERY 7: Promotion Pipeline by Job Level =====================

@@ -151,7 +151,7 @@ SELECT 'gold_total check passed' AS gold_total_status;
 SELECT COUNT(*) AS current_count FROM {{zone_prefix}}.silver.inspections_scored;
 
 -- Restore to version 1 (before incremental load)
-RESTORE {{zone_prefix}}.silver.inspections_scored TO VERSION AS OF 1;
+RESTORE {{zone_prefix}}.silver.inspections_scored TO VERSION 1;
 
 -- Verify rollback
 SELECT COUNT(*) AS restored_count FROM {{zone_prefix}}.silver.inspections_scored;

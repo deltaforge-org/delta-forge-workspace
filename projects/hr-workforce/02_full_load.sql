@@ -33,7 +33,7 @@ SELECT
     e.position_id,
     e.education_level,
     e.gender,
-    CONCAT(CAST(FLOOR(YEAR(CAST(e.date_of_birth AS DATE)) / 10) * 10 AS STRING), 's') AS age_band,
+    CONCAT(CAST(FLOOR(EXTRACT(YEAR FROM CAST(e.date_of_birth AS DATE)) / 10) * 10 AS STRING), 's') AS age_band,
     ce.base_salary,
     CAST(e.hire_date AS DATE)                               AS valid_from,
     CAST(NULL AS DATE)                                      AS valid_to,
@@ -89,7 +89,7 @@ SELECT
     ce.position_id,
     e.education_level,
     e.gender,
-    CONCAT(CAST(FLOOR(YEAR(CAST(e.date_of_birth AS DATE)) / 10) * 10 AS STRING), 's') AS age_band,
+    CONCAT(CAST(FLOOR(EXTRACT(YEAR FROM CAST(e.date_of_birth AS DATE)) / 10) * 10 AS STRING), 's') AS age_band,
     ce.base_salary,
     CAST(ce.event_date AS DATE)                             AS valid_from,
     CAST(NULL AS DATE)                                      AS valid_to,
@@ -212,7 +212,7 @@ INSERT INTO {{zone_prefix}}.gold.kpi_workforce_analytics
 ASSERT ROW_COUNT = 55
 SELECT
     dd.department_name                                       AS department,
-    CONCAT(CAST(YEAR(ce.event_date) AS STRING), '-Q', CAST(QUARTER(ce.event_date) AS STRING)) AS quarter,
+    CONCAT(CAST(EXTRACT(YEAR FROM ce.event_date) AS STRING), '-Q', CAST(EXTRACT(QUARTER FROM ce.event_date) AS STRING)) AS quarter,
     COUNT(DISTINCT ce.employee_id)                           AS headcount,
     ROUND(AVG(ce.base_salary), 2)                           AS avg_salary,
     ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ce.base_salary), 2) AS median_salary,
@@ -252,7 +252,7 @@ JOIN {{zone_prefix}}.bronze.raw_employees e ON ce.employee_id = e.employee_id
 JOIN {{zone_prefix}}.bronze.raw_departments d ON ce.department_id = d.department_id
 JOIN {{zone_prefix}}.gold.dim_department dd ON d.department_name = dd.department_name
 JOIN {{zone_prefix}}.bronze.raw_positions p ON ce.position_id = p.position_id
-GROUP BY dd.department_name, CONCAT(CAST(YEAR(ce.event_date) AS STRING), '-Q', CAST(QUARTER(ce.event_date) AS STRING));
+GROUP BY dd.department_name, CONCAT(CAST(EXTRACT(YEAR FROM ce.event_date) AS STRING), '-Q', CAST(EXTRACT(QUARTER FROM ce.event_date) AS STRING));
 
 ASSERT ROW_COUNT > 0
 SELECT 'row count check' AS status;
