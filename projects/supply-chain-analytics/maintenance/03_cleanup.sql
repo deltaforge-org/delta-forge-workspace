@@ -1,49 +1,51 @@
 -- =============================================================================
 -- Maintenance: Cleanup (Teardown)
 -- =============================================================================
--- Disables the pipeline and drops all objects. Use this to fully reset the
--- project environment. PIPELINE STATUS disabled prevents scheduled runs.
+-- Drops all objects created by this project. PIPELINE STATUS disabled prevents
+-- accidental scheduled execution. Must be manually activated before running.
 -- =============================================================================
 
-PIPELINE STATUS supply_chain_analytics disabled;
+PIPELINE supply_chain_cleanup
+  DESCRIPTION 'Cleanup pipeline for Supply Chain Analytics — drops all objects. DISABLED by default.'
+  TAGS 'cleanup', 'maintenance', 'supply-chain-analytics'
+  STATUS disabled
+  LIFECYCLE production;
 
 -- Drop gold KPI tables
-DROP TABLE IF EXISTS {{zone_prefix}}_gold.analytics.kpi_demand_forecast;
-DROP TABLE IF EXISTS {{zone_prefix}}_gold.analytics.kpi_inventory_health;
-DROP TABLE IF EXISTS {{zone_prefix}}_gold.analytics.kpi_supplier_scorecard;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_demand_forecast WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_inventory_health WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.kpi_supplier_scorecard WITH FILES;
 
 -- Drop gold fact tables
-DROP TABLE IF EXISTS {{zone_prefix}}_gold.analytics.fact_orders;
-DROP TABLE IF EXISTS {{zone_prefix}}_gold.analytics.fact_inventory;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.fact_orders WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.fact_inventory WITH FILES;
 
 -- Drop gold dimension tables
-DROP TABLE IF EXISTS {{zone_prefix}}_gold.analytics.dim_store;
-DROP TABLE IF EXISTS {{zone_prefix}}_gold.analytics.dim_warehouse;
-DROP TABLE IF EXISTS {{zone_prefix}}_gold.analytics.dim_product;
-DROP TABLE IF EXISTS {{zone_prefix}}_gold.analytics.dim_supplier;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_store WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_warehouse WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_product WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.gold.dim_supplier WITH FILES;
 
 -- Drop silver tables
-DROP TABLE IF EXISTS {{zone_prefix}}_silver.cleansed.demand_signals;
-DROP TABLE IF EXISTS {{zone_prefix}}_silver.cleansed.shipment_tracking;
-DROP TABLE IF EXISTS {{zone_prefix}}_silver.cleansed.order_fulfillment;
-DROP TABLE IF EXISTS {{zone_prefix}}_silver.cleansed.inventory_positions;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.demand_signals WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.shipment_tracking WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.order_fulfillment WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.silver.inventory_positions WITH FILES;
 
 -- Drop bronze tables
-DROP TABLE IF EXISTS {{zone_prefix}}_bronze.raw.pos_demand;
-DROP TABLE IF EXISTS {{zone_prefix}}_bronze.raw.transport_shipments;
-DROP TABLE IF EXISTS {{zone_prefix}}_bronze.raw.warehouse_movements;
-DROP TABLE IF EXISTS {{zone_prefix}}_bronze.raw.purchase_orders;
-DROP TABLE IF EXISTS {{zone_prefix}}_bronze.raw.stores;
-DROP TABLE IF EXISTS {{zone_prefix}}_bronze.raw.products;
-DROP TABLE IF EXISTS {{zone_prefix}}_bronze.raw.warehouses;
-DROP TABLE IF EXISTS {{zone_prefix}}_bronze.raw.suppliers;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.pos_demand WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.transport_shipments WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.warehouse_movements WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.purchase_orders WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.stores WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.products WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.warehouses WITH FILES;
+DROP DELTA TABLE IF EXISTS {{zone_prefix}}.bronze.suppliers WITH FILES;
 
 -- Drop schemas
-DROP SCHEMA IF EXISTS {{zone_prefix}}_gold.analytics;
-DROP SCHEMA IF EXISTS {{zone_prefix}}_silver.cleansed;
-DROP SCHEMA IF EXISTS {{zone_prefix}}_bronze.raw;
+DROP SCHEMA IF EXISTS {{zone_prefix}}.gold;
+DROP SCHEMA IF EXISTS {{zone_prefix}}.silver;
+DROP SCHEMA IF EXISTS {{zone_prefix}}.bronze;
 
--- Drop zones
-DROP ZONE IF EXISTS {{zone_prefix}}_gold;
-DROP ZONE IF EXISTS {{zone_prefix}}_silver;
-DROP ZONE IF EXISTS {{zone_prefix}}_bronze;
+-- Drop zone
+DROP ZONE IF EXISTS {{zone_prefix}};

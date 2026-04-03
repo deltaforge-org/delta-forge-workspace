@@ -6,7 +6,7 @@
 -- 35 total tracking event rows.
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.transport_shipments (
+CREATE TABLE IF NOT EXISTS {{zone_prefix}}.bronze.transport_shipments (
   event_id        STRING,
   shipment_id     STRING,
   carrier_id      STRING,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.transport_shipments (
   ingested_at     TIMESTAMP
 );
 
-INSERT INTO {{zone_prefix}}_bronze.raw.transport_shipments VALUES
+INSERT INTO {{zone_prefix}}.bronze.transport_shipments VALUES
   -- SH-001: W001 -> Store ST01 (delivered on time)
   ('TE-001', 'SH-001', 'CAR-A', 'W001', 'ST01', 'dispatched',  '2026-03-08 14:30:00', 40.7128, -74.0060, 'Loaded 120 units SKU-001',   '2026-03-08 15:00:00'),
   ('TE-002', 'SH-001', 'CAR-A', 'W001', 'ST01', 'in_transit',  '2026-03-09 06:00:00', 39.9526, -75.1652, 'En route Philadelphia',      '2026-03-09 06:30:00'),

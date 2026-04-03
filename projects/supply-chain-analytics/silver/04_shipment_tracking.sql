@@ -6,7 +6,7 @@
 -- most recent event per shipment, then MERGEs into the cleansed table.
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS {{zone_prefix}}_silver.cleansed.shipment_tracking (
+CREATE TABLE IF NOT EXISTS {{zone_prefix}}.silver.shipment_tracking (
   shipment_id       STRING,
   carrier_id        STRING,
   origin_wh         STRING,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS {{zone_prefix}}_silver.cleansed.shipment_tracking (
   updated_at        TIMESTAMP
 );
 
-MERGE INTO {{zone_prefix}}_silver.cleansed.shipment_tracking AS tgt
+MERGE INTO {{zone_prefix}}.silver.shipment_tracking AS tgt
 USING (
   WITH ranked_events AS (
     SELECT
@@ -36,7 +36,7 @@ USING (
       latitude,
       longitude,
       ROW_NUMBER() OVER (PARTITION BY shipment_id ORDER BY event_ts DESC) AS rn
-    FROM {{zone_prefix}}_bronze.raw.transport_shipments
+    FROM {{zone_prefix}}.bronze.transport_shipments
   ),
   shipment_agg AS (
     SELECT
@@ -46,7 +46,7 @@ USING (
       MAX(CASE WHEN event_type = 'customs_hold' THEN true ELSE false END) AS has_customs_hold,
       MIN(CASE WHEN event_type = 'dispatched' THEN event_ts END) AS dispatched_at,
       MAX(CASE WHEN event_type = 'delivered' THEN event_ts END) AS delivered_at
-    FROM {{zone_prefix}}_bronze.raw.transport_shipments
+    FROM {{zone_prefix}}.bronze.transport_shipments
     GROUP BY shipment_id
   )
   SELECT

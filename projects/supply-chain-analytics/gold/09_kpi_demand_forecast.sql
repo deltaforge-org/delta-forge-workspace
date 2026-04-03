@@ -8,7 +8,7 @@
 --   - projected_stockout_date: estimated date on-hand reaches zero
 -- =============================================================================
 
-CREATE OR REPLACE TABLE {{zone_prefix}}_gold.analytics.kpi_demand_forecast AS
+CREATE OR REPLACE TABLE {{zone_prefix}}.gold.kpi_demand_forecast AS
 WITH demand_series AS (
   SELECT
     ds.store_id,
@@ -22,7 +22,7 @@ WITH demand_series AS (
     ds.demand_7d_avg - LAG(ds.demand_7d_avg, 1) OVER (
       PARTITION BY ds.store_id, ds.sku ORDER BY ds.sale_date
     ) AS demand_trend_delta
-  FROM {{zone_prefix}}_silver.cleansed.demand_signals ds
+  FROM {{zone_prefix}}.silver.demand_signals ds
 ),
 demand_stats AS (
   SELECT
@@ -45,8 +45,8 @@ lead_times AS (
   SELECT
     po.sku,
     AVG(s.lead_time_days) AS avg_lead_time
-  FROM {{zone_prefix}}_bronze.raw.purchase_orders po
-  JOIN {{zone_prefix}}_bronze.raw.suppliers s ON s.supplier_id = po.supplier_id
+  FROM {{zone_prefix}}.bronze.purchase_orders po
+  JOIN {{zone_prefix}}.bronze.suppliers s ON s.supplier_id = po.supplier_id
   GROUP BY po.sku
 )
 SELECT
@@ -90,5 +90,5 @@ SELECT
   CURRENT_TIMESTAMP AS updated_at
 FROM demand_stats dstat
 LEFT JOIN lead_times lt ON lt.sku = dstat.sku
-LEFT JOIN {{zone_prefix}}_gold.analytics.dim_product dp ON dp.sku = dstat.sku
-LEFT JOIN {{zone_prefix}}_gold.analytics.dim_store st ON st.store_id = dstat.store_id;
+LEFT JOIN {{zone_prefix}}.gold.dim_product dp ON dp.sku = dstat.sku
+LEFT JOIN {{zone_prefix}}.gold.dim_store st ON st.store_id = dstat.store_id;

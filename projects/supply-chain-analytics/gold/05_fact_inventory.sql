@@ -6,13 +6,13 @@
 -- from open POs. Calculates days_of_supply and reorder_flag.
 -- =============================================================================
 
-CREATE OR REPLACE TABLE {{zone_prefix}}_gold.analytics.fact_inventory AS
+CREATE OR REPLACE TABLE {{zone_prefix}}.gold.fact_inventory AS
 WITH on_hand AS (
   SELECT
     ip.warehouse_id,
     ip.sku,
     ip.on_hand_qty
-  FROM {{zone_prefix}}_silver.cleansed.inventory_positions ip
+  FROM {{zone_prefix}}.silver.inventory_positions ip
 ),
 in_transit AS (
   -- Units currently in transit TO stores (originated from this warehouse)
@@ -20,8 +20,8 @@ in_transit AS (
     st.origin_wh AS warehouse_id,
     wm.sku,
     SUM(ABS(wm.quantity)) AS in_transit_qty
-  FROM {{zone_prefix}}_silver.cleansed.shipment_tracking st
-  JOIN {{zone_prefix}}_bronze.raw.warehouse_movements wm
+  FROM {{zone_prefix}}.silver.shipment_tracking st
+  JOIN {{zone_prefix}}.bronze.warehouse_movements wm
     ON wm.reference_id = st.shipment_id AND wm.movement_type = 'ship'
   WHERE st.current_status IN ('dispatched', 'in_transit', 'customs_hold')
   GROUP BY st.origin_wh, wm.sku
@@ -32,14 +32,14 @@ on_order AS (
     wm_ref.warehouse_id,
     po.sku,
     SUM(po.qty_ordered) AS on_order_qty
-  FROM {{zone_prefix}}_bronze.raw.purchase_orders po
+  FROM {{zone_prefix}}.bronze.purchase_orders po
   -- Map POs to warehouses via previously received POs from same supplier
   LEFT JOIN (
     SELECT DISTINCT
       wm.warehouse_id,
       po2.supplier_id
-    FROM {{zone_prefix}}_bronze.raw.warehouse_movements wm
-    JOIN {{zone_prefix}}_bronze.raw.purchase_orders po2 ON wm.reference_id = po2.po_id
+    FROM {{zone_prefix}}.bronze.warehouse_movements wm
+    JOIN {{zone_prefix}}.bronze.purchase_orders po2 ON wm.reference_id = po2.po_id
     WHERE wm.movement_type = 'receipt'
   ) wm_ref ON wm_ref.supplier_id = po.supplier_id
   WHERE po.status IN ('ordered', 'in_transit')
@@ -50,15 +50,15 @@ avg_demand AS (
     nearest_wh AS warehouse_id,
     sku,
     AVG(net_sold) AS avg_daily_demand
-  FROM {{zone_prefix}}_silver.cleansed.demand_signals
+  FROM {{zone_prefix}}.silver.demand_signals
   GROUP BY nearest_wh, sku
 ),
 supplier_lead AS (
   SELECT
     po.sku,
     AVG(s.lead_time_days) AS avg_lead_time
-  FROM {{zone_prefix}}_bronze.raw.purchase_orders po
-  JOIN {{zone_prefix}}_bronze.raw.suppliers s ON s.supplier_id = po.supplier_id
+  FROM {{zone_prefix}}.bronze.purchase_orders po
+  JOIN {{zone_prefix}}.bronze.suppliers s ON s.supplier_id = po.supplier_id
   GROUP BY po.sku
 )
 SELECT

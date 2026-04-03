@@ -9,7 +9,7 @@
 -- -------------------------------------------------------------------------
 -- Suppliers (6)
 -- -------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.suppliers (
+CREATE TABLE IF NOT EXISTS {{zone_prefix}}.bronze.suppliers (
   supplier_id       STRING,
   supplier_name     STRING,
   country           STRING,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.suppliers (
   ingested_at       TIMESTAMP
 );
 
-INSERT INTO {{zone_prefix}}_bronze.raw.suppliers VALUES
+INSERT INTO {{zone_prefix}}.bronze.suppliers VALUES
   ('S001', 'Acme Packaging',           'US',      7,  0.94, 'NET30', true,  '2026-03-01 00:00:00'),
   ('S002', 'Global Ingredients',       'US',      10, 0.88, 'NET45', true,  '2026-03-01 00:00:00'),
   ('S003', 'Fresh Farm Co-op',         'US',      5,  0.96, 'NET15', true,  '2026-03-01 00:00:00'),
@@ -31,7 +31,7 @@ INSERT INTO {{zone_prefix}}_bronze.raw.suppliers VALUES
 -- -------------------------------------------------------------------------
 -- Warehouses (4)
 -- -------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.warehouses (
+CREATE TABLE IF NOT EXISTS {{zone_prefix}}.bronze.warehouses (
   warehouse_id    STRING,
   warehouse_name  STRING,
   city            STRING,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.warehouses (
   ingested_at     TIMESTAMP
 );
 
-INSERT INTO {{zone_prefix}}_bronze.raw.warehouses VALUES
+INSERT INTO {{zone_prefix}}.bronze.warehouses VALUES
   ('W001', 'East Coast DC',        'Newark',       'NJ', 'east',    50000, true, '2026-03-01 00:00:00'),
   ('W002', 'West Coast DC',        'Los Angeles',  'CA', 'west',    45000, true, '2026-03-01 00:00:00'),
   ('W003', 'Central Hub',          'Chicago',      'IL', 'central', 60000, true, '2026-03-01 00:00:00'),
@@ -51,7 +51,7 @@ INSERT INTO {{zone_prefix}}_bronze.raw.warehouses VALUES
 -- -------------------------------------------------------------------------
 -- Products (15 across 3 categories)
 -- -------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.products (
+CREATE TABLE IF NOT EXISTS {{zone_prefix}}.bronze.products (
   sku             STRING,
   product_name    STRING,
   category        STRING,
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.products (
   ingested_at     TIMESTAMP
 );
 
-INSERT INTO {{zone_prefix}}_bronze.raw.products VALUES
+INSERT INTO {{zone_prefix}}.bronze.products VALUES
   -- Beverages (5 SKUs)
   ('SKU-001', 'Sparkling Water 500ml',    'Beverages', 'Water',         0.55, 4.99,  true, '2026-03-01 00:00:00'),
   ('SKU-002', 'Orange Juice 1L',          'Beverages', 'Juice',         1.10, 2.49,  true, '2026-03-01 00:00:00'),
@@ -87,7 +87,7 @@ INSERT INTO {{zone_prefix}}_bronze.raw.products VALUES
 -- -------------------------------------------------------------------------
 -- Stores (8 across 3 regions)
 -- -------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.stores (
+CREATE TABLE IF NOT EXISTS {{zone_prefix}}.bronze.stores (
   store_id        STRING,
   store_name      STRING,
   city            STRING,
@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.stores (
   ingested_at     TIMESTAMP
 );
 
-INSERT INTO {{zone_prefix}}_bronze.raw.stores VALUES
+INSERT INTO {{zone_prefix}}.bronze.stores VALUES
   ('ST01', 'DC Metro Supermart',      'Washington',   'DC', 'east',    'supermarket', true, '2026-03-01 00:00:00'),
   ('ST02', 'Boston Fresh Market',     'Boston',       'MA', 'east',    'supermarket', true, '2026-03-01 00:00:00'),
   ('ST03', 'Phoenix Value Store',     'Phoenix',      'AZ', 'west',    'discount',    true, '2026-03-01 00:00:00'),

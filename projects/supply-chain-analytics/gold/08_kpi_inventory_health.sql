@@ -9,7 +9,7 @@
 --   - health_status: critical / warning / healthy / overstock
 -- =============================================================================
 
-CREATE OR REPLACE TABLE {{zone_prefix}}_gold.analytics.kpi_inventory_health AS
+CREATE OR REPLACE TABLE {{zone_prefix}}.gold.kpi_inventory_health AS
 WITH inventory_facts AS (
   SELECT
     fi.warehouse_id,
@@ -22,7 +22,7 @@ WITH inventory_facts AS (
     fi.avg_daily_demand,
     fi.avg_lead_time_days,
     fi.reorder_flag
-  FROM {{zone_prefix}}_gold.analytics.fact_inventory fi
+  FROM {{zone_prefix}}.gold.fact_inventory fi
 ),
 demand_totals AS (
   SELECT
@@ -30,7 +30,7 @@ demand_totals AS (
     sku,
     SUM(net_sold) AS total_sold,
     COUNT(DISTINCT sale_date) AS days_observed
-  FROM {{zone_prefix}}_silver.cleansed.demand_signals
+  FROM {{zone_prefix}}.silver.demand_signals
   GROUP BY nearest_wh, sku
 )
 SELECT
@@ -75,4 +75,4 @@ SELECT
   CURRENT_TIMESTAMP AS updated_at
 FROM inventory_facts inf
 LEFT JOIN demand_totals dt ON dt.warehouse_id = inf.warehouse_id AND dt.sku = inf.sku
-LEFT JOIN {{zone_prefix}}_gold.analytics.dim_product dp ON dp.sku = inf.sku;
+LEFT JOIN {{zone_prefix}}.gold.dim_product dp ON dp.sku = inf.sku;

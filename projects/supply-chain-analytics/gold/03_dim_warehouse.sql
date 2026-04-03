@@ -6,7 +6,7 @@
 -- utilization percentage against stated capacity.
 -- =============================================================================
 
-CREATE OR REPLACE TABLE {{zone_prefix}}_gold.analytics.dim_warehouse AS
+CREATE OR REPLACE TABLE {{zone_prefix}}.gold.dim_warehouse AS
 SELECT
   w.warehouse_id,
   w.warehouse_name,
@@ -24,20 +24,20 @@ SELECT
   END AS utilization_pct,
   COALESCE(ship.active_shipments, 0) AS active_outbound_shipments,
   CURRENT_TIMESTAMP AS updated_at
-FROM {{zone_prefix}}_bronze.raw.warehouses w
+FROM {{zone_prefix}}.bronze.warehouses w
 LEFT JOIN (
   SELECT
     warehouse_id,
     SUM(on_hand_qty) AS total_on_hand,
     COUNT(DISTINCT sku) AS sku_count
-  FROM {{zone_prefix}}_silver.cleansed.inventory_positions
+  FROM {{zone_prefix}}.silver.inventory_positions
   GROUP BY warehouse_id
 ) inv ON inv.warehouse_id = w.warehouse_id
 LEFT JOIN (
   SELECT
     origin_wh,
     COUNT(*) AS active_shipments
-  FROM {{zone_prefix}}_silver.cleansed.shipment_tracking
+  FROM {{zone_prefix}}.silver.shipment_tracking
   WHERE current_status NOT IN ('delivered', 'exception')
   GROUP BY origin_wh
 ) ship ON ship.origin_wh = w.warehouse_id;

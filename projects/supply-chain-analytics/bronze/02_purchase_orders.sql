@@ -6,7 +6,7 @@
 -- expected delivery date, and current status.
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.purchase_orders (
+CREATE TABLE IF NOT EXISTS {{zone_prefix}}.bronze.purchase_orders (
   po_id           STRING,
   supplier_id     STRING,
   sku             STRING,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS {{zone_prefix}}_bronze.raw.purchase_orders (
   ingested_at     TIMESTAMP
 );
 
-INSERT INTO {{zone_prefix}}_bronze.raw.purchase_orders VALUES
+INSERT INTO {{zone_prefix}}.bronze.purchase_orders VALUES
   -- Supplier S001 — Acme Packaging (avg lead time 7 days)
   ('PO-1001', 'S001', 'SKU-001', 500,  2.50, '2026-03-01', '2026-03-08', '2026-03-07', 'received',  '2026-03-07 08:00:00'),
   ('PO-1002', 'S001', 'SKU-003', 300,  4.75, '2026-03-03', '2026-03-10', '2026-03-10', 'received',  '2026-03-10 09:15:00'),
