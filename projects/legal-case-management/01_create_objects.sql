@@ -25,7 +25,7 @@ PIPELINE legal_create_objects
 ;
 
 
-CREATE ZONE IF NOT EXISTS legal TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS legal TYPE TEMP
   COMMENT 'Litigation analytics pipeline zone';
 
 -- ===================== SCHEMAS =====================

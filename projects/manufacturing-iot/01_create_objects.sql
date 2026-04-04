@@ -27,7 +27,7 @@ PIPELINE manufacturing_create_objects
 ;
 
 
-CREATE ZONE IF NOT EXISTS mfg TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS mfg TYPE TEMP
   COMMENT 'Manufacturing IoT project zone — anomaly detection, OEE, equipment status';
 
 -- ===================== SCHEMAS =====================

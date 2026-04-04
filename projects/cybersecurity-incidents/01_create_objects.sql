@@ -27,7 +27,7 @@ PIPELINE cyber_create_objects
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS cyber TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS cyber TYPE TEMP
   COMMENT 'Security Operations Center SIEM analytics zone';
 
 -- ===================== SCHEMAS =====================

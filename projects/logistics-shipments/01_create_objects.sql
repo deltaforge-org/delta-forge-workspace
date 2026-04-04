@@ -27,7 +27,7 @@ PIPELINE logistics_create_objects
 ;
 
 
-CREATE ZONE IF NOT EXISTS logi TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS logi TYPE TEMP
   COMMENT 'Global logistics shipment tracking zone';
 
 -- ===================== SCHEMAS =====================

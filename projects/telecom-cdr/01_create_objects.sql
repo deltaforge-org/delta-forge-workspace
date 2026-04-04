@@ -26,7 +26,7 @@ PIPELINE telecom_create_objects
 ;
 
 
-CREATE ZONE IF NOT EXISTS telco TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS telco TYPE TEMP
   COMMENT 'Telecom CDR project zone — schema evolution, session reconstruction, churn scoring';
 
 -- ===================== SCHEMAS =====================

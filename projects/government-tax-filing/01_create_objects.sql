@@ -26,7 +26,7 @@ PIPELINE tax_create_objects
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS tax TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS tax TYPE TEMP
   COMMENT 'Government tax filing project zone';
 
 -- ===================== SCHEMAS =====================

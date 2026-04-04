@@ -25,7 +25,7 @@ PIPELINE bank_create_objects
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS bank TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS bank TYPE TEMP
   COMMENT 'Banking transactions pipeline zone';
 
 -- ===================== SCHEMAS =====================

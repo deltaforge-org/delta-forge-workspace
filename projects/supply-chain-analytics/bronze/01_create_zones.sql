@@ -5,7 +5,7 @@
 -- Safe to re-run — uses IF NOT EXISTS throughout.
 -- =============================================================================
 
-CREATE ZONE IF NOT EXISTS sc TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS sc TYPE TEMP
     COMMENT 'Supply chain analytics workspace project';
 
 CREATE SCHEMA IF NOT EXISTS sc.bronze

@@ -25,7 +25,7 @@ PIPELINE realty_create_objects
 ;
 
 
-CREATE ZONE IF NOT EXISTS realty TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS realty TYPE TEMP
   COMMENT 'County assessor real estate project zone';
 
 -- ===================== SCHEMAS =====================

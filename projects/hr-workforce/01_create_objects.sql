@@ -26,7 +26,7 @@ PIPELINE hr_create_objects
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS hr TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS hr TYPE TEMP
   COMMENT 'HR workforce analytics pipeline zone';
 
 -- ===================== SCHEMAS =====================

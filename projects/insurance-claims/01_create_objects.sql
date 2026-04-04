@@ -28,7 +28,7 @@ PIPELINE ins_create_objects
 
 -- ===================== ZONE =====================
 
-CREATE ZONE IF NOT EXISTS ins TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS ins TYPE TEMP
   COMMENT 'Property and casualty insurance project zone';
 
 -- ===================== SCHEMAS =====================

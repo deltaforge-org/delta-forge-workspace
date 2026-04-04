@@ -25,7 +25,7 @@ PIPELINE ehr_create_objects
 
 -- ===================== ZONES =====================
 
-CREATE ZONE IF NOT EXISTS ehr TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS ehr TYPE TEMP
   COMMENT 'Healthcare EHR pipeline zone';
 
 -- ===================== SCHEMAS =====================

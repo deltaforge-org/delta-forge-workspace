@@ -28,7 +28,7 @@ PIPELINE ecommerce_create_objects
 
 -- ===================== ZONE =====================
 
-CREATE ZONE IF NOT EXISTS ecom TYPE EXTERNAL
+CREATE ZONE IF NOT EXISTS ecom TYPE TEMP
   COMMENT 'Omnichannel e-commerce project zone';
 
 -- ===================== SCHEMAS =====================
