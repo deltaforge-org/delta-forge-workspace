@@ -5,7 +5,7 @@
 SCHEDULE telecom_daily_schedule
   CRON '0 2 * * *'
   TIMEZONE 'UTC'
-  RETRIES 3
+  RETRIES 0
   TIMEOUT 3600
   MAX_CONCURRENT 1
   INACTIVE;

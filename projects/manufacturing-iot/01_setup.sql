@@ -5,7 +5,7 @@
 SCHEDULE manufacturing_2hr_schedule
   CRON '0 */2 * * *'
   TIMEZONE 'UTC'
-  RETRIES 2
+  RETRIES 0
   TIMEOUT 3600
   MAX_CONCURRENT 1
   INACTIVE;

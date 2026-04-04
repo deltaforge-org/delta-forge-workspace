@@ -5,7 +5,7 @@
 SCHEDULE realty_daily_schedule
   CRON '0 9 * * *'
   TIMEZONE 'America/New_York'
-  RETRIES 2
+  RETRIES 0
   TIMEOUT 3600
   MAX_CONCURRENT 1
   INACTIVE;

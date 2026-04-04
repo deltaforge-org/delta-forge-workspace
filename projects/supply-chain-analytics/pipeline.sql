@@ -9,7 +9,7 @@
 SCHEDULE supply_chain_daily
   CRON '0 4 * * *'
   TIMEZONE 'UTC'
-  RETRIES 2
+  RETRIES 0
   TIMEOUT 7200
   MAX_CONCURRENT 1
   INACTIVE;

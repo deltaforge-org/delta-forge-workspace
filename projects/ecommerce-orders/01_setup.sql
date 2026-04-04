@@ -5,7 +5,7 @@
 SCHEDULE ecommerce_30min_schedule
   CRON '*/30 * * * *'
   TIMEZONE 'UTC'
-  RETRIES 2
+  RETRIES 0
   TIMEOUT 1800
   MAX_CONCURRENT 1
   INACTIVE;

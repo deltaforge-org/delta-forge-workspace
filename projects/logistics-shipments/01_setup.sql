@@ -5,7 +5,7 @@
 SCHEDULE logistics_6hr_schedule
   CRON '0 */6 * * *'
   TIMEZONE 'UTC'
-  RETRIES 2
+  RETRIES 0
   TIMEOUT 3600
   MAX_CONCURRENT 1
   INACTIVE;

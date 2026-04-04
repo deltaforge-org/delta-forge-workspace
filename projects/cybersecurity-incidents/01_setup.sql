@@ -5,7 +5,7 @@
 SCHEDULE cyber_15min_schedule
   CRON '*/15 * * * *'
   TIMEZONE 'UTC'
-  RETRIES 3
+  RETRIES 0
   TIMEOUT 600
   MAX_CONCURRENT 1
   INACTIVE;

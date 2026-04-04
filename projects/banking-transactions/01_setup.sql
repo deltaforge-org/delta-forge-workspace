@@ -5,7 +5,7 @@
 SCHEDULE bank_4h_schedule
   CRON '0 */4 * * *'
   TIMEZONE 'UTC'
-  RETRIES 3
+  RETRIES 0
   TIMEOUT 1800
   MAX_CONCURRENT 1
   INACTIVE;
