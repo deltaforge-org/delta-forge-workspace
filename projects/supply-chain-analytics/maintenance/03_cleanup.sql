@@ -7,6 +7,7 @@
 
 PIPELINE supply_chain_cleanup
   DESCRIPTION 'Cleanup pipeline for Supply Chain Analytics — drops all objects. DISABLED by default.'
+  SCHEDULE 'supply_chain_daily'
   TAGS 'cleanup', 'maintenance', 'supply-chain-analytics'
   STATUS disabled
   LIFECYCLE production;

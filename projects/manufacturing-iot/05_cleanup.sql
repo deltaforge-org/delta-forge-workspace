@@ -9,6 +9,7 @@
 
 PIPELINE manufacturing_iot_cleanup
   DESCRIPTION 'Cleanup pipeline for Manufacturing IoT — drops all objects including smoothed readings and equipment status. DISABLED by default.'
+  SCHEDULE 'manufacturing_2hr_schedule'
   TAGS 'cleanup', 'maintenance', 'manufacturing-iot'
   STATUS disabled
   LIFECYCLE production

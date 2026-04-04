@@ -11,13 +11,196 @@
 
 -- ===================== SCHEDULE & PIPELINE =====================
 
-SCHEDULE hr_daily_schedule CRON '0 6 * * *' TIMEZONE 'America/New_York' RETRIES 2 TIMEOUT 3600 MAX_CONCURRENT 1 ACTIVE;
+SCHEDULE hr_daily_schedule CRON '0 6 * * *' TIMEZONE 'America/New_York' RETRIES 2 TIMEOUT 3600 MAX_CONCURRENT 1 INACTIVE;
 
 PIPELINE hr_workforce_pipeline DESCRIPTION 'Full lifecycle workforce pipeline: SCD2 tracking, CDF org log, compa-ratio analysis, gender pay gap, retention risk scoring, GDPR erasure' SCHEDULE 'hr_daily_schedule' TAGS 'hr,workforce,scd2,cdf,gdpr,compa-ratio' SLA 2700 FAIL_FAST true LIFECYCLE production;
+
+-- ===================== STEP 0: create_objects =====================
+
+STEP create_objects
+  TIMEOUT '2m'
+AS
+  CREATE ZONE IF NOT EXISTS hr TYPE EXTERNAL
+      COMMENT 'HR workforce analytics pipeline zone';
+
+  CREATE SCHEMA IF NOT EXISTS hr.bronze COMMENT 'Raw employee, compensation event, department, and position data';
+  CREATE SCHEMA IF NOT EXISTS hr.silver COMMENT 'SCD2 employee dimension, enriched comp events, CDF org change log';
+  CREATE SCHEMA IF NOT EXISTS hr.gold COMMENT 'Compensation star schema, workforce KPIs, and retention risk scores';
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.bronze.raw_employees (
+      employee_id         STRING      NOT NULL,
+      employee_name       STRING      NOT NULL,
+      ssn                 STRING,
+      email               STRING,
+      date_of_birth       STRING,
+      gender              STRING,
+      hire_date           STRING      NOT NULL,
+      termination_date    STRING,
+      department_id       STRING      NOT NULL,
+      position_id         STRING      NOT NULL,
+      education_level     STRING,
+      status              STRING      NOT NULL,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'hr/bronze/workforce/raw_employees';
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.bronze.raw_comp_events (
+      event_id            STRING      NOT NULL,
+      employee_id         STRING      NOT NULL,
+      department_id       STRING      NOT NULL,
+      position_id         STRING      NOT NULL,
+      event_date          STRING      NOT NULL,
+      event_type          STRING      NOT NULL,
+      base_salary         DECIMAL(10,2),
+      bonus               DECIMAL(10,2),
+      performance_rating  DECIMAL(3,1),
+      notes               STRING,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'hr/bronze/workforce/raw_comp_events';
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.bronze.raw_departments (
+      department_id       STRING      NOT NULL,
+      department_name     STRING      NOT NULL,
+      division            STRING,
+      cost_center         STRING,
+      head_count_budget   INT,
+      annual_budget       DECIMAL(14,2),
+      manager_name        STRING,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'hr/bronze/workforce/raw_departments';
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.bronze.raw_positions (
+      position_id         STRING      NOT NULL,
+      title               STRING      NOT NULL,
+      job_family          STRING,
+      job_level           INT,
+      pay_grade_min       DECIMAL(10,2),
+      pay_grade_max       DECIMAL(10,2),
+      exempt_flag         BOOLEAN,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'hr/bronze/workforce/raw_positions';
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.silver.employee_dim (
+      surrogate_key       INT         NOT NULL,
+      employee_id         STRING      NOT NULL,
+      employee_name       STRING      NOT NULL,
+      ssn                 STRING,
+      email               STRING,
+      hire_date           DATE        NOT NULL,
+      termination_date    DATE,
+      department_id       STRING      NOT NULL,
+      position_id         STRING      NOT NULL,
+      education_level     STRING,
+      gender              STRING,
+      date_of_birth       DATE,
+      base_salary         DECIMAL(10,2),
+      status              STRING,
+      valid_from          DATE        NOT NULL,
+      valid_to            DATE,
+      is_current          BOOLEAN     NOT NULL
+  ) LOCATION 'hr/silver/workforce/employee_dim'
+  TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.silver.comp_events_enriched (
+      event_id            STRING      NOT NULL,
+      employee_id         STRING      NOT NULL,
+      department_id       STRING      NOT NULL,
+      position_id         STRING      NOT NULL,
+      event_date          DATE        NOT NULL,
+      event_type          STRING      NOT NULL,
+      base_salary         DECIMAL(10,2),
+      bonus               DECIMAL(10,2),
+      total_comp          DECIMAL(10,2),
+      salary_change_pct   DECIMAL(5,2),
+      performance_rating  DECIMAL(3,1),
+      compa_ratio         DECIMAL(5,3),
+      processed_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'hr/silver/workforce/comp_events_enriched';
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.silver.org_change_log (
+      change_id           INT         NOT NULL,
+      employee_id         STRING      NOT NULL,
+      employee_name       STRING,
+      change_type         STRING      NOT NULL,
+      old_value           STRING,
+      new_value           STRING,
+      effective_date      DATE        NOT NULL,
+      captured_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'hr/silver/workforce/org_change_log'
+  TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.gold.dim_department (
+      department_key      INT         NOT NULL,
+      department_id       STRING      NOT NULL,
+      department_name     STRING      NOT NULL,
+      division            STRING,
+      cost_center         STRING,
+      head_count_budget   INT,
+      annual_budget       DECIMAL(14,2),
+      manager_name        STRING,
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'hr/gold/workforce/dim_department';
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.gold.dim_position (
+      position_key        INT         NOT NULL,
+      position_id         STRING      NOT NULL,
+      title               STRING      NOT NULL,
+      job_family          STRING,
+      job_level           INT,
+      pay_grade_min       DECIMAL(10,2),
+      pay_grade_max       DECIMAL(10,2),
+      pay_grade_midpoint  DECIMAL(10,2),
+      exempt_flag         BOOLEAN,
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'hr/gold/workforce/dim_position';
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.gold.fact_compensation (
+      event_key           INT         NOT NULL,
+      employee_key        INT         NOT NULL,
+      department_key      INT         NOT NULL,
+      position_key        INT         NOT NULL,
+      event_date          DATE        NOT NULL,
+      event_type          STRING      NOT NULL,
+      base_salary         DECIMAL(10,2),
+      bonus               DECIMAL(10,2),
+      total_comp          DECIMAL(10,2),
+      salary_change_pct   DECIMAL(5,2),
+      performance_rating  DECIMAL(3,1),
+      compa_ratio         DECIMAL(5,3),
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'hr/gold/workforce/fact_compensation';
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.gold.kpi_workforce_analytics (
+      department_name     STRING      NOT NULL,
+      quarter             STRING      NOT NULL,
+      headcount           INT,
+      avg_salary          DECIMAL(10,2),
+      median_salary       DECIMAL(10,2),
+      turnover_rate       DECIMAL(5,2),
+      promotion_rate      DECIMAL(5,2),
+      avg_tenure_years    DECIMAL(4,1),
+      gender_pay_gap_pct  DECIMAL(5,2),
+      avg_compa_ratio     DECIMAL(5,3),
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'hr/gold/workforce/kpi_workforce_analytics';
+
+  CREATE DELTA TABLE IF NOT EXISTS hr.gold.kpi_retention_risk (
+      employee_id         STRING      NOT NULL,
+      employee_name       STRING,
+      department_name     STRING,
+      title               STRING,
+      tenure_years        DECIMAL(4,1),
+      salary_change_pct   DECIMAL(5,2),
+      promotions_in_3yr   INT,
+      compa_ratio         DECIMAL(5,3),
+      risk_score          INT,
+      risk_category       STRING,
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'hr/gold/workforce/kpi_retention_risk';
 
 -- ===================== STEP 1: validate_bronze =====================
 
 STEP validate_bronze
+  DEPENDS ON (create_objects)
   TIMEOUT '2m'
 AS
   ASSERT ROW_COUNT = 20

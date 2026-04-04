@@ -9,6 +9,7 @@
 
 PIPELINE logistics_shipments_cleanup
   DESCRIPTION 'Cleanup pipeline for Logistics Shipments — drops all objects. DISABLED by default.'
+  SCHEDULE 'logistics_6hr_schedule'
   TAGS 'cleanup', 'maintenance', 'logistics-shipments'
   STATUS disabled
   LIFECYCLE production

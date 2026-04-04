@@ -6,6 +6,7 @@
 
 PIPELINE legal_case_management_cleanup
   DESCRIPTION 'Cleanup pipeline for Legal Case Management - drops all objects. DISABLED by default.'
+  SCHEDULE 'legal_daily_schedule'
   TAGS 'cleanup', 'maintenance', 'legal-case-management'
   STATUS disabled
   LIFECYCLE production

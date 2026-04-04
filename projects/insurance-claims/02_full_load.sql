@@ -41,7 +41,7 @@ SCHEDULE ins_weekly_schedule
     RETRIES 2
     TIMEOUT 7200
     MAX_CONCURRENT 1
-    ACTIVE;
+    INACTIVE;
 
 PIPELINE ins_claims_pipeline
     DESCRIPTION 'P&C insurance pipeline: SCD2 policies, point-in-time joins, fraud detection, RESTORE workflow'
@@ -51,9 +51,195 @@ PIPELINE ins_claims_pipeline
     FAIL_FAST true
     LIFECYCLE production;
 
+-- ===================== STEP 0: create_objects =====================
+
+STEP create_objects
+  TIMEOUT '2m'
+AS
+  CREATE ZONE IF NOT EXISTS ins TYPE EXTERNAL
+      COMMENT 'Property and casualty insurance project zone';
+
+  CREATE SCHEMA IF NOT EXISTS ins.bronze COMMENT 'Raw policy, claims, claimant, and adjuster feeds';
+  CREATE SCHEMA IF NOT EXISTS ins.silver COMMENT 'SCD2 policy dimension, enriched claims, actuarial CDF';
+  CREATE SCHEMA IF NOT EXISTS ins.gold   COMMENT 'Claims analytics star schema with loss ratio and adjuster KPIs';
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.bronze.raw_policies (
+      policy_id           STRING      NOT NULL,
+      holder_name         STRING      NOT NULL,
+      ssn                 STRING,
+      coverage_type       STRING      NOT NULL,
+      annual_premium      DECIMAL(10,2),
+      region              STRING,
+      state               STRING,
+      risk_score          DECIMAL(4,2),
+      effective_date      DATE        NOT NULL,
+      change_type         STRING,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/bronze/raw_policies';
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.bronze.raw_claims (
+      claim_id            STRING      NOT NULL,
+      policy_id           STRING      NOT NULL,
+      claimant_id         STRING      NOT NULL,
+      adjuster_id         STRING      NOT NULL,
+      incident_date       DATE        NOT NULL,
+      reported_date       DATE        NOT NULL,
+      claim_amount        DECIMAL(12,2) NOT NULL,
+      approved_amount     DECIMAL(12,2),
+      status              STRING      NOT NULL,
+      settlement_date     DATE,
+      description         STRING,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/bronze/raw_claims';
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.bronze.raw_claimants (
+      claimant_id         STRING      NOT NULL,
+      name                STRING      NOT NULL,
+      ssn                 STRING,
+      date_of_birth       DATE,
+      age_band            STRING,
+      state               STRING,
+      risk_tier           STRING,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/bronze/raw_claimants';
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.bronze.raw_adjusters (
+      adjuster_id         STRING      NOT NULL,
+      name                STRING      NOT NULL,
+      specialization      STRING,
+      years_experience    INT,
+      region              STRING,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/bronze/raw_adjusters';
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.silver.policy_dim (
+      surrogate_key       INT         NOT NULL,
+      policy_id           STRING      NOT NULL,
+      holder_name         STRING      NOT NULL,
+      coverage_type       STRING      NOT NULL,
+      annual_premium      DECIMAL(10,2) CHECK (annual_premium > 0),
+      region              STRING,
+      state               STRING,
+      risk_score          DECIMAL(4,2) CHECK (risk_score >= 0 AND risk_score <= 10),
+      valid_from          DATE        NOT NULL,
+      valid_to            DATE,
+      is_current          INT         NOT NULL CHECK (is_current IN (0, 1)),
+      processed_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/silver/policy_dim'
+  TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.silver.claims_enriched (
+      claim_id            STRING      NOT NULL,
+      policy_id           STRING      NOT NULL,
+      claimant_id         STRING      NOT NULL,
+      adjuster_id         STRING      NOT NULL,
+      incident_date       DATE        NOT NULL,
+      reported_date       DATE        NOT NULL,
+      claim_amount        DECIMAL(12,2) NOT NULL CHECK (claim_amount > 0),
+      approved_amount     DECIMAL(12,2) CHECK (approved_amount >= 0),
+      status              STRING      NOT NULL,
+      settlement_date     DATE,
+      days_to_settle      INT,
+      days_to_report      INT,
+      coverage_type       STRING,
+      annual_premium_at_incident DECIMAL(10,2),
+      region              STRING,
+      risk_score_at_incident DECIMAL(4,2),
+      fraud_risk          STRING,
+      fraud_score         DECIMAL(5,2),
+      processed_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/silver/claims_enriched'
+  TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.silver.actuarial_snapshots (
+      snapshot_id         STRING      NOT NULL,
+      claim_id            STRING      NOT NULL,
+      policy_id           STRING      NOT NULL,
+      status              STRING      NOT NULL,
+      claim_amount        DECIMAL(12,2),
+      approved_amount     DECIMAL(12,2),
+      coverage_type       STRING,
+      change_type         STRING,
+      captured_at         TIMESTAMP
+  ) LOCATION 'ins/insurance/silver/actuarial_snapshots';
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.gold.dim_claimant (
+      claimant_key        INT         NOT NULL,
+      claimant_id         STRING      NOT NULL,
+      name                STRING,
+      age_band            STRING,
+      state               STRING,
+      risk_tier           STRING,
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/gold/dim_claimant';
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.gold.dim_adjuster (
+      adjuster_key        INT         NOT NULL,
+      adjuster_id         STRING      NOT NULL,
+      name                STRING      NOT NULL,
+      specialization      STRING,
+      years_experience    INT,
+      region              STRING,
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/gold/dim_adjuster';
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.gold.dim_coverage_type (
+      coverage_key        STRING      NOT NULL,
+      coverage_type       STRING      NOT NULL,
+      coverage_category   STRING,
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/gold/dim_coverage_type';
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.gold.fact_claims (
+      claim_key           INT         NOT NULL,
+      policy_surrogate_key INT        NOT NULL,
+      claimant_key        INT         NOT NULL,
+      adjuster_key        INT         NOT NULL,
+      coverage_key        STRING      NOT NULL,
+      incident_date       DATE        NOT NULL,
+      reported_date       DATE        NOT NULL,
+      claim_amount        DECIMAL(12,2) NOT NULL,
+      approved_amount     DECIMAL(12,2),
+      status              STRING      NOT NULL,
+      days_to_settle      INT,
+      days_to_report      INT,
+      fraud_risk          STRING,
+      fraud_score         DECIMAL(5,2),
+      loss_ratio          DECIMAL(6,4),
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/gold/fact_claims';
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.gold.kpi_loss_ratios (
+      coverage_type       STRING      NOT NULL,
+      region              STRING      NOT NULL,
+      quarter             STRING      NOT NULL,
+      claim_count         INT         NOT NULL,
+      total_claimed       DECIMAL(14,2),
+      total_approved      DECIMAL(14,2),
+      total_premium       DECIMAL(14,2),
+      loss_ratio          DECIMAL(6,4),
+      avg_days_to_settle  DECIMAL(6,2),
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/gold/kpi_loss_ratios';
+
+  CREATE DELTA TABLE IF NOT EXISTS ins.gold.kpi_adjuster_performance (
+      adjuster_id         STRING      NOT NULL,
+      adjuster_name       STRING,
+      specialization      STRING,
+      claims_handled      INT,
+      claims_settled      INT,
+      claims_denied       INT,
+      avg_days_to_settle  DECIMAL(6,2),
+      avg_claim_amount    DECIMAL(12,2),
+      approval_rate_pct   DECIMAL(5,2),
+      total_approved      DECIMAL(14,2),
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'ins/insurance/gold/kpi_adjuster_performance';
+
 -- ===================== STEP 1: validate_bronze =====================
 
 STEP validate_bronze
+  DEPENDS ON (create_objects)
   TIMEOUT '2m'
 AS
   SELECT COUNT(*) AS raw_policy_count FROM ins.bronze.raw_policies;

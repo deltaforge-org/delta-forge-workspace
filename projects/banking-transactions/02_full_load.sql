@@ -10,13 +10,180 @@
 
 -- ===================== SCHEDULE & PIPELINE =====================
 
-SCHEDULE bank_4h_schedule CRON '0 */4 * * *' TIMEZONE 'UTC' RETRIES 3 TIMEOUT 1800 MAX_CONCURRENT 1 ACTIVE;
+SCHEDULE bank_4h_schedule CRON '0 */4 * * *' TIMEZONE 'UTC' RETRIES 3 TIMEOUT 1800 MAX_CONCURRENT 1 INACTIVE;
 
 PIPELINE bank_transaction_pipeline DESCRIPTION 'Every-4-hour banking pipeline: SCD2 tier tracking, fraud scoring, CDF snapshots, tier migration matrix' SCHEDULE 'bank_4h_schedule' TAGS 'banking,transactions,fraud,CDF,SCD2' SLA 1800 FAIL_FAST true LIFECYCLE production;
+
+-- ===================== STEP 0: create_objects =====================
+
+STEP create_objects
+  TIMEOUT '2m'
+AS
+  CREATE ZONE IF NOT EXISTS bank TYPE EXTERNAL
+      COMMENT 'Banking transactions pipeline zone';
+
+  CREATE SCHEMA IF NOT EXISTS bank.bronze COMMENT 'Raw transaction feeds, accounts, and merchant reference data';
+  CREATE SCHEMA IF NOT EXISTS bank.silver COMMENT 'SCD2 customer dimension, enriched transactions, CDF balance snapshots';
+  CREATE SCHEMA IF NOT EXISTS bank.gold COMMENT 'Transaction analytics star schema with fraud scoring and tier migration KPIs';
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.bronze.raw_accounts (
+      account_id          STRING      NOT NULL,
+      account_number      STRING      NOT NULL,
+      account_type        STRING      NOT NULL,
+      customer_name       STRING,
+      branch              STRING,
+      open_date           DATE,
+      status              STRING,
+      current_balance     DECIMAL(14,2),
+      customer_tier       STRING,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'bank/bronze/txn/raw_accounts';
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.bronze.raw_merchants (
+      merchant_id         STRING      NOT NULL,
+      merchant_name       STRING      NOT NULL,
+      category            STRING,
+      city                STRING,
+      country             STRING,
+      risk_level          STRING,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'bank/bronze/txn/raw_merchants';
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.bronze.raw_transactions (
+      transaction_id      STRING      NOT NULL,
+      account_id          STRING      NOT NULL,
+      merchant_id         STRING,
+      transaction_date    TIMESTAMP   NOT NULL,
+      amount              DECIMAL(12,2) NOT NULL,
+      transaction_type    STRING      NOT NULL,
+      channel             STRING,
+      is_suspicious       BOOLEAN,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'bank/bronze/txn/raw_transactions';
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.silver.customer_dim (
+      customer_id         BIGINT      NOT NULL,
+      account_id          STRING      NOT NULL,
+      account_number      STRING      NOT NULL,
+      account_type        STRING      NOT NULL,
+      customer_name       STRING,
+      branch              STRING,
+      open_date           DATE,
+      status              STRING,
+      customer_tier       STRING,
+      valid_from          DATE        NOT NULL,
+      valid_to            DATE,
+      is_current          BOOLEAN     NOT NULL,
+      updated_at          TIMESTAMP   NOT NULL
+  ) LOCATION 'bank/silver/txn/customer_dim'
+  TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.silver.transactions_enriched (
+      transaction_id      STRING          NOT NULL,
+      account_id          STRING          NOT NULL,
+      merchant_id         STRING,
+      merchant_category   STRING,
+      merchant_risk       STRING,
+      transaction_date    TIMESTAMP       NOT NULL,
+      amount              DECIMAL(12,2)   NOT NULL,
+      transaction_type    STRING          NOT NULL,
+      channel             STRING,
+      running_balance     DECIMAL(14,2),
+      fraud_score         INT,
+      is_suspicious       BOOLEAN,
+      prev_txn_amount     DECIMAL(12,2),
+      time_since_prev_sec BIGINT,
+      txn_velocity_5      INT,
+      ingested_at         TIMESTAMP       NOT NULL,
+      processed_at        TIMESTAMP       NOT NULL
+  ) LOCATION 'bank/silver/txn/transactions_enriched';
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.silver.balance_snapshots (
+      snapshot_id         BIGINT      NOT NULL,
+      account_id          STRING      NOT NULL,
+      customer_name       STRING,
+      old_tier            STRING,
+      new_tier            STRING,
+      change_type         STRING      NOT NULL,
+      snapshot_timestamp  TIMESTAMP   NOT NULL
+  ) LOCATION 'bank/silver/txn/balance_snapshots';
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.gold.dim_account (
+      account_key         INT             NOT NULL,
+      account_id          STRING          NOT NULL,
+      account_number      STRING          NOT NULL,
+      account_type        STRING          NOT NULL,
+      customer_name       STRING,
+      branch              STRING,
+      open_date           DATE,
+      status              STRING,
+      customer_tier       STRING,
+      loaded_at           TIMESTAMP       NOT NULL
+  ) LOCATION 'bank/gold/txn/dim_account';
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.gold.dim_merchant (
+      merchant_key        INT             NOT NULL,
+      merchant_id         STRING          NOT NULL,
+      merchant_name       STRING          NOT NULL,
+      category            STRING,
+      city                STRING,
+      country             STRING,
+      risk_level          STRING,
+      loaded_at           TIMESTAMP       NOT NULL
+  ) LOCATION 'bank/gold/txn/dim_merchant';
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.gold.dim_date (
+      date_key            INT             NOT NULL,
+      full_date           DATE            NOT NULL,
+      day_of_week         INT,
+      day_name            STRING,
+      month               INT,
+      month_name          STRING,
+      quarter             INT,
+      year                INT,
+      is_weekend          BOOLEAN,
+      loaded_at           TIMESTAMP       NOT NULL
+  ) LOCATION 'bank/gold/txn/dim_date';
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.gold.fact_transactions (
+      transaction_key     INT             NOT NULL,
+      account_key         INT             NOT NULL,
+      merchant_key        INT,
+      date_key            INT,
+      transaction_date    TIMESTAMP       NOT NULL,
+      amount              DECIMAL(12,2)   NOT NULL,
+      transaction_type    STRING          NOT NULL,
+      running_balance     DECIMAL(14,2),
+      fraud_score         INT,
+      channel             STRING,
+      loaded_at           TIMESTAMP       NOT NULL
+  ) LOCATION 'bank/gold/txn/fact_transactions';
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.gold.kpi_daily_volumes (
+      transaction_date    DATE            NOT NULL,
+      total_txns          INT             NOT NULL,
+      total_amount        DECIMAL(14,2),
+      avg_amount          DECIMAL(12,2),
+      fraud_flagged_count INT,
+      fraud_pct           DECIMAL(5,2),
+      running_7d_avg_txns DECIMAL(10,2),
+      running_7d_avg_amount DECIMAL(14,2),
+      loaded_at           TIMESTAMP       NOT NULL
+  ) LOCATION 'bank/gold/txn/kpi_daily_volumes';
+
+  CREATE DELTA TABLE IF NOT EXISTS bank.gold.kpi_customer_health (
+      from_tier           STRING          NOT NULL,
+      to_tier             STRING          NOT NULL,
+      migration_count     INT             NOT NULL,
+      period              STRING          NOT NULL,
+      avg_balance         DECIMAL(14,2),
+      loaded_at           TIMESTAMP       NOT NULL
+  ) LOCATION 'bank/gold/txn/kpi_customer_health';
 
 -- ===================== STEP 1: validate_bronze =====================
 
 STEP validate_bronze
+  DEPENDS ON (create_objects)
   TIMEOUT '2m'
 AS
   ASSERT ROW_COUNT >= 70

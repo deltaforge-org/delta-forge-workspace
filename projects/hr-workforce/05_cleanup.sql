@@ -6,6 +6,7 @@
 
 PIPELINE hr_workforce_cleanup
   DESCRIPTION 'Cleanup pipeline for HR Workforce - drops all objects. DISABLED by default.'
+  SCHEDULE 'hr_daily_schedule'
   TAGS 'cleanup', 'maintenance', 'hr-workforce'
   STATUS disabled
   LIFECYCLE production

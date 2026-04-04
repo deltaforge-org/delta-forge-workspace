@@ -9,13 +9,198 @@
 
 -- ===================== SCHEDULE & PIPELINE =====================
 
-SCHEDULE legal_daily_schedule CRON '0 7 * * *' TIMEZONE 'America/New_York' RETRIES 2 TIMEOUT 3600 MAX_CONCURRENT 1 ACTIVE;
+SCHEDULE legal_daily_schedule CRON '0 7 * * *' TIMEZONE 'America/New_York' RETRIES 2 TIMEOUT 3600 MAX_CONCURRENT 1 INACTIVE;
 
 PIPELINE legal_billing_pipeline DESCRIPTION 'Daily legal billing pipeline: case profitability, attorney influence via PageRank, conflict-of-interest via Cypher, practice group community detection' SCHEDULE 'legal_daily_schedule' TAGS 'legal,billing,graph,pagerank,cypher' SLA 3600 FAIL_FAST true LIFECYCLE production;
+
+-- ===================== STEP 0: create_objects =====================
+
+STEP create_objects
+  TIMEOUT '2m'
+AS
+  CREATE ZONE IF NOT EXISTS legal TYPE EXTERNAL
+      COMMENT 'Litigation analytics pipeline zone';
+
+  CREATE SCHEMA IF NOT EXISTS legal.bronze COMMENT 'Raw cases, parties, attorneys, billings, and relationship edges';
+  CREATE SCHEMA IF NOT EXISTS legal.silver COMMENT 'Enriched cases with complexity scores, validated billings, party profiles';
+  CREATE SCHEMA IF NOT EXISTS legal.gold COMMENT 'Star schema, firm KPIs, and legal network property graph';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.bronze.raw_cases (
+      case_id             STRING      NOT NULL,
+      case_number         STRING      NOT NULL,
+      case_type           STRING      NOT NULL,
+      court               STRING,
+      filing_date         DATE,
+      close_date          DATE,
+      status              STRING,
+      priority            STRING,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/bronze/legal/raw_cases';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.bronze.raw_parties (
+      party_id            STRING      NOT NULL,
+      party_name          STRING      NOT NULL,
+      party_type          STRING      NOT NULL,
+      ssn                 STRING,
+      contact_email       STRING,
+      contact_phone       STRING,
+      organization        STRING,
+      jurisdiction        STRING,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/bronze/legal/raw_parties';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.bronze.raw_attorneys (
+      attorney_id         STRING      NOT NULL,
+      attorney_name       STRING      NOT NULL,
+      bar_number          STRING      NOT NULL,
+      practice_group      STRING,
+      partner_flag        BOOLEAN,
+      years_experience    INT,
+      hourly_rate         DECIMAL(8,2),
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/bronze/legal/raw_attorneys';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.bronze.raw_billings (
+      billing_id          STRING      NOT NULL,
+      case_id             STRING      NOT NULL,
+      attorney_id         STRING      NOT NULL,
+      billing_date        DATE        NOT NULL,
+      hours               DECIMAL(5,2) NOT NULL,
+      hourly_rate         DECIMAL(8,2) NOT NULL,
+      amount              DECIMAL(10,2),
+      billable_flag       BOOLEAN     NOT NULL,
+      billing_type        STRING,
+      description         STRING,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/bronze/legal/raw_billings';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.bronze.raw_relationships (
+      relationship_id     STRING      NOT NULL,
+      source_id           STRING      NOT NULL,
+      target_id           STRING      NOT NULL,
+      source_type         STRING      NOT NULL,
+      target_type         STRING      NOT NULL,
+      relationship_type   STRING      NOT NULL,
+      weight              DECIMAL(5,2),
+      effective_date      DATE,
+      ingested_at         TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/bronze/legal/raw_relationships';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.silver.cases_enriched (
+      case_id             STRING      NOT NULL,
+      case_number         STRING      NOT NULL,
+      case_type           STRING      NOT NULL,
+      court               STRING,
+      filing_date         DATE,
+      close_date          DATE,
+      status              STRING,
+      priority            STRING,
+      duration_days       INT,
+      attorney_count      INT,
+      party_count         INT,
+      total_billed_hours  DECIMAL(8,2),
+      total_billed_amount DECIMAL(12,2),
+      complexity_score    DECIMAL(5,2),
+      processed_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/silver/legal/cases_enriched';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.silver.billings_validated (
+      billing_id          STRING      NOT NULL,
+      case_id             STRING      NOT NULL,
+      attorney_id         STRING      NOT NULL,
+      billing_date        DATE        NOT NULL,
+      hours               DECIMAL(5,2) NOT NULL CHECK (hours > 0),
+      hourly_rate         DECIMAL(8,2) NOT NULL CHECK (hourly_rate > 0),
+      amount              DECIMAL(10,2),
+      billable_flag       BOOLEAN     NOT NULL,
+      billing_type        STRING,
+      case_type           STRING,
+      practice_group      STRING,
+      partner_flag        BOOLEAN,
+      complexity_score    DECIMAL(5,2),
+      processed_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/silver/legal/billings_validated';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.silver.party_profiles (
+      party_id            STRING      NOT NULL,
+      party_name          STRING      NOT NULL,
+      party_type          STRING      NOT NULL,
+      cases_as_plaintiff  INT,
+      cases_as_defendant  INT,
+      cases_as_witness    INT,
+      cases_as_expert     INT,
+      total_involvement   INT,
+      processed_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/silver/legal/party_profiles';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.gold.dim_case (
+      case_key            INT         NOT NULL,
+      case_id             STRING      NOT NULL,
+      case_number         STRING      NOT NULL,
+      case_type           STRING      NOT NULL,
+      court               STRING,
+      filing_date         DATE,
+      close_date          DATE,
+      status              STRING,
+      priority            STRING,
+      complexity_score    DECIMAL(5,2),
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/gold/legal/dim_case';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.gold.dim_attorney (
+      attorney_key        INT         NOT NULL,
+      attorney_id         STRING      NOT NULL,
+      attorney_name       STRING      NOT NULL,
+      bar_number          STRING,
+      practice_group      STRING,
+      partner_flag        BOOLEAN,
+      years_experience    INT,
+      hourly_rate         DECIMAL(8,2),
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/gold/legal/dim_attorney';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.gold.dim_party (
+      party_key           INT         NOT NULL,
+      party_id            STRING      NOT NULL,
+      party_name          STRING      NOT NULL,
+      party_type          STRING      NOT NULL,
+      organization        STRING,
+      jurisdiction        STRING,
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/gold/legal/dim_party';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.gold.fact_billings (
+      billing_key         INT         NOT NULL,
+      case_key            INT         NOT NULL,
+      attorney_key        INT         NOT NULL,
+      billing_date        DATE        NOT NULL,
+      hours               DECIMAL(5,2) NOT NULL,
+      hourly_rate         DECIMAL(8,2) NOT NULL,
+      amount              DECIMAL(10,2),
+      billable_flag       BOOLEAN     NOT NULL,
+      case_complexity     DECIMAL(5,2),
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/gold/legal/fact_billings';
+
+  CREATE DELTA TABLE IF NOT EXISTS legal.gold.kpi_firm_performance (
+      attorney_id         STRING      NOT NULL,
+      attorney_name       STRING      NOT NULL,
+      practice_group      STRING,
+      partner_flag        BOOLEAN,
+      total_hours         DECIMAL(8,2),
+      billable_hours      DECIMAL(8,2),
+      utilization_pct     DECIMAL(5,2),
+      total_revenue       DECIMAL(12,2),
+      case_count          INT,
+      avg_case_complexity DECIMAL(5,2),
+      revenue_per_hour    DECIMAL(8,2),
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'legal/gold/legal/kpi_firm_performance';
 
 -- ===================== STEP 1: validate_bronze =====================
 
 STEP validate_bronze
+  DEPENDS ON (create_objects)
   TIMEOUT '2m'
 AS
   ASSERT ROW_COUNT = 15

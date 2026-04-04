@@ -12,7 +12,7 @@ SCHEDULE supply_chain_daily
   RETRIES 2
   TIMEOUT 7200
   MAX_CONCURRENT 1
-  ACTIVE;
+  INACTIVE;
 
 PIPELINE supply_chain_analytics
   DESCRIPTION 'End-to-end supply chain pipeline: procurement -> warehouse -> transport -> demand'

@@ -9,6 +9,7 @@
 
 PIPELINE government_tax_filing_cleanup
   DESCRIPTION 'Cleanup pipeline for Government Tax Filing — drops all objects. DISABLED by default.'
+  SCHEDULE 'tax_daily_schedule'
   TAGS 'cleanup', 'maintenance', 'government-tax-filing'
   STATUS disabled
   LIFECYCLE production

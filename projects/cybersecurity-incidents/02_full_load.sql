@@ -12,7 +12,7 @@ SCHEDULE cyber_15min_schedule
     RETRIES 3
     TIMEOUT 600
     MAX_CONCURRENT 1
-    ACTIVE;
+    INACTIVE;
 
 PIPELINE cyber_incident_pipeline
     DESCRIPTION 'Every-15-minute SIEM pipeline: 3-source ingestion, 5-min dedup, incident correlation, MITRE classification, threat dashboard'
@@ -22,10 +22,226 @@ PIPELINE cyber_incident_pipeline
     FAIL_FAST true
     LIFECYCLE production;
 
+-- ===================== STEP 0: create_objects =====================
+
+STEP create_objects
+  TIMEOUT '2m'
+AS
+  CREATE ZONE IF NOT EXISTS cyber TYPE EXTERNAL
+      COMMENT 'Security Operations Center SIEM analytics zone';
+
+  CREATE SCHEMA IF NOT EXISTS cyber.bronze COMMENT 'Raw SIEM alert feeds from 3 sources plus threat intelligence';
+  CREATE SCHEMA IF NOT EXISTS cyber.silver COMMENT 'Deduplicated alerts, correlated incidents, threat-enriched data';
+  CREATE SCHEMA IF NOT EXISTS cyber.gold   COMMENT 'Threat dashboard star schema with MITRE classification';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.bronze.raw_firewall_alerts (
+      alert_id         STRING      NOT NULL,
+      source_ip        STRING      NOT NULL,
+      target_host      STRING      NOT NULL,
+      rule_id          STRING      NOT NULL,
+      detected_at      TIMESTAMP   NOT NULL,
+      severity_score   INT         NOT NULL,
+      severity         STRING      NOT NULL,
+      bytes_transferred BIGINT,
+      protocol         STRING,
+      raw_log          STRING,
+      ingested_at      TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/bronze/raw_firewall_alerts';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.bronze.raw_ids_alerts (
+      alert_id         STRING      NOT NULL,
+      source_ip        STRING      NOT NULL,
+      target_host      STRING      NOT NULL,
+      rule_id          STRING      NOT NULL,
+      detected_at      TIMESTAMP   NOT NULL,
+      severity_score   INT         NOT NULL,
+      severity         STRING      NOT NULL,
+      signature_id     STRING,
+      protocol         STRING,
+      raw_log          STRING,
+      ingested_at      TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/bronze/raw_ids_alerts';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.bronze.raw_endpoint_alerts (
+      alert_id         STRING      NOT NULL,
+      source_ip        STRING      NOT NULL,
+      target_host      STRING      NOT NULL,
+      rule_id          STRING      NOT NULL,
+      detected_at      TIMESTAMP   NOT NULL,
+      severity_score   INT         NOT NULL,
+      severity         STRING      NOT NULL,
+      process_name     STRING,
+      file_hash        STRING,
+      raw_log          STRING,
+      ingested_at      TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/bronze/raw_endpoint_alerts';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.bronze.raw_threat_intel (
+      ip_address       STRING      NOT NULL,
+      subnet           STRING,
+      geo_country      STRING,
+      geo_city         STRING,
+      threat_score     INT         NOT NULL,
+      threat_category  STRING,
+      is_known_bad     BOOLEAN     NOT NULL,
+      first_seen       DATE,
+      last_seen        DATE,
+      ingested_at      TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/bronze/raw_threat_intel';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.bronze.raw_mitre_techniques (
+      technique_id     STRING      NOT NULL,
+      technique_name   STRING      NOT NULL,
+      tactic           STRING      NOT NULL,
+      tactic_id        STRING,
+      description      STRING,
+      severity_weight  INT,
+      ingested_at      TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/bronze/raw_mitre_techniques';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.silver.alerts_deduped (
+      alert_id         STRING      NOT NULL,
+      source           STRING      NOT NULL,
+      source_ip        STRING      NOT NULL,
+      target_host      STRING      NOT NULL,
+      rule_id          STRING      NOT NULL,
+      detected_at      TIMESTAMP   NOT NULL,
+      severity_score   INT         NOT NULL,
+      severity         STRING      NOT NULL,
+      protocol         STRING,
+      raw_log          STRING,
+      dedup_bucket     STRING,
+      deduped_at       TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/silver/alerts_deduped'
+  TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.silver.incidents_correlated (
+      incident_id       STRING      NOT NULL,
+      source_ip         STRING      NOT NULL,
+      primary_target    STRING      NOT NULL,
+      primary_rule_id   STRING      NOT NULL,
+      first_detected_at TIMESTAMP   NOT NULL,
+      last_detected_at  TIMESTAMP   NOT NULL,
+      max_severity      STRING      NOT NULL,
+      max_severity_score INT        NOT NULL,
+      alert_count       INT         NOT NULL,
+      distinct_targets  INT,
+      distinct_rules    INT,
+      duration_minutes  INT,
+      status            STRING      NOT NULL,
+      correlated_at     TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/silver/incidents_correlated';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.silver.threat_enriched (
+      incident_id       STRING      NOT NULL,
+      source_ip         STRING      NOT NULL,
+      primary_target    STRING,
+      primary_rule_id   STRING,
+      first_detected_at TIMESTAMP,
+      max_severity      STRING,
+      max_severity_score INT,
+      alert_count       INT,
+      threat_score      INT,
+      threat_category   STRING,
+      is_known_bad      BOOLEAN,
+      mitre_tactic      STRING,
+      mitre_technique   STRING,
+      technique_name    STRING,
+      combined_risk_score INT,
+      enriched_at       TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/silver/threat_enriched';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.gold.dim_source_ip (
+      source_ip_key    INT         NOT NULL,
+      ip_address       STRING      NOT NULL,
+      subnet           STRING,
+      geo_country      STRING,
+      geo_city         STRING,
+      threat_score     INT,
+      threat_category  STRING,
+      is_known_bad     BOOLEAN,
+      loaded_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/gold/dim_source_ip';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.gold.dim_target (
+      target_key       INT         NOT NULL,
+      hostname         STRING      NOT NULL,
+      environment      STRING,
+      criticality      STRING,
+      loaded_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/gold/dim_target';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.gold.dim_rule (
+      rule_key         INT         NOT NULL,
+      rule_id          STRING      NOT NULL,
+      rule_name        STRING,
+      category         STRING,
+      loaded_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/gold/dim_rule';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.gold.dim_mitre (
+      mitre_key        INT         NOT NULL,
+      technique_id     STRING      NOT NULL,
+      technique_name   STRING      NOT NULL,
+      tactic           STRING      NOT NULL,
+      tactic_id        STRING,
+      severity_weight  INT,
+      loaded_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/gold/dim_mitre';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.gold.fact_incidents (
+      incident_key        INT         NOT NULL,
+      source_ip_key       INT         NOT NULL,
+      target_key          INT         NOT NULL,
+      rule_key            INT         NOT NULL,
+      mitre_key           INT,
+      detected_at         TIMESTAMP   NOT NULL,
+      severity            STRING      NOT NULL,
+      severity_score      INT         NOT NULL,
+      alert_count         INT         NOT NULL,
+      distinct_targets    INT,
+      distinct_rules      INT,
+      duration_minutes    INT,
+      threat_score        INT,
+      combined_risk_score INT,
+      mitre_tactic        STRING,
+      status              STRING      NOT NULL,
+      loaded_at           TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/gold/fact_incidents';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.gold.kpi_threat_dashboard (
+      hour_bucket      TIMESTAMP   NOT NULL,
+      total_alerts     INT         NOT NULL,
+      unique_sources   INT,
+      unique_targets   INT,
+      critical_count   INT,
+      high_count       INT,
+      medium_count     INT,
+      low_count        INT,
+      avg_severity_score DECIMAL(5,1),
+      top_mitre_tactic STRING,
+      top_source_ip    STRING,
+      loaded_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/gold/kpi_threat_dashboard';
+
+  CREATE DELTA TABLE IF NOT EXISTS cyber.gold.kpi_response_metrics (
+      severity         STRING      NOT NULL,
+      period           STRING      NOT NULL,
+      incident_count   INT,
+      avg_alert_count  DECIMAL(5,1),
+      avg_duration_min DECIMAL(8,1),
+      max_duration_min INT,
+      escalated_count  INT,
+      escalated_pct    DECIMAL(5,2),
+      avg_threat_score DECIMAL(5,1),
+      loaded_at        TIMESTAMP   NOT NULL
+  ) LOCATION 'cyber/cyber/gold/kpi_response_metrics';
+
 -- ===================== STEP 1: validate_bronze_3_sources =====================
 -- Verify all 3 alert sources and reference tables have expected counts.
 
 STEP validate_bronze_3_sources
+  DEPENDS ON (create_objects)
   TIMEOUT '2m'
 AS
   ASSERT ROW_COUNT = 30

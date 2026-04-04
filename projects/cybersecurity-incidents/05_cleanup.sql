@@ -9,6 +9,7 @@
 
 PIPELINE cybersecurity_incidents_cleanup
   DESCRIPTION 'Cleanup pipeline for Cybersecurity Incidents — drops all objects. DISABLED by default.'
+  SCHEDULE 'cyber_15min_schedule'
   TAGS 'cleanup', 'maintenance', 'cybersecurity-incidents'
   STATUS disabled
   LIFECYCLE production

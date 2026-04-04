@@ -9,15 +9,227 @@
 
 -- ===================== SCHEDULE & PIPELINE =====================
 
-SCHEDULE telecom_daily_schedule CRON '0 2 * * *' TIMEZONE 'UTC' RETRIES 3 TIMEOUT 3600 MAX_CONCURRENT 1 ACTIVE;
+SCHEDULE telecom_daily_schedule CRON '0 2 * * *' TIMEZONE 'UTC' RETRIES 3 TIMEOUT 3600 MAX_CONCURRENT 1 INACTIVE;
 
 PIPELINE telecom_cdr_pipeline DESCRIPTION 'Daily CDR pipeline with schema evolution lifecycle, session reconstruction, and churn scoring' SCHEDULE 'telecom_daily_schedule' TAGS 'telecom,cdr,schema-evolution,churn,sessions' SLA 60 FAIL_FAST true LIFECYCLE production;
+
+-- ===================== STEP 0: create_objects =====================
+
+STEP create_objects
+  TIMEOUT '2m'
+AS
+  CREATE ZONE IF NOT EXISTS telco TYPE EXTERNAL
+      COMMENT 'Telecom CDR project zone — schema evolution, session reconstruction, churn scoring';
+
+  CREATE SCHEMA IF NOT EXISTS telco.bronze COMMENT 'Raw CDR feeds across 3 schema versions and reference data';
+  CREATE SCHEMA IF NOT EXISTS telco.silver COMMENT 'Unified CDR with schema evolution merge, subscriber profiles, reconstructed sessions';
+  CREATE SCHEMA IF NOT EXISTS telco.gold   COMMENT 'Star schema for network quality, churn risk, and revenue analytics';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cdr_v1 (
+      call_id         STRING      NOT NULL,
+      caller          STRING      NOT NULL,
+      callee          STRING      NOT NULL,
+      start_time      TIMESTAMP   NOT NULL,
+      end_time        TIMESTAMP,
+      tower_id        STRING,
+      duration_sec    INT,
+      ingested_at     TIMESTAMP
+  ) LOCATION 'telco/telecom/bronze/raw_cdr_v1';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cdr_v2 (
+      call_id         STRING      NOT NULL,
+      caller          STRING      NOT NULL,
+      callee          STRING      NOT NULL,
+      start_time      TIMESTAMP   NOT NULL,
+      end_time        TIMESTAMP,
+      tower_id        STRING,
+      duration_sec    INT,
+      call_type       STRING,
+      data_usage_mb   DECIMAL(10,2),
+      sms_count       INT,
+      ingested_at     TIMESTAMP
+  ) LOCATION 'telco/telecom/bronze/raw_cdr_v2';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cdr_v3 (
+      call_id         STRING      NOT NULL,
+      caller          STRING      NOT NULL,
+      callee          STRING      NOT NULL,
+      start_time      TIMESTAMP   NOT NULL,
+      end_time        TIMESTAMP,
+      tower_id        STRING,
+      duration_sec    BIGINT,
+      call_type       STRING,
+      data_usage_mb   DECIMAL(10,2),
+      sms_count       INT,
+      roaming_flag    BOOLEAN,
+      network_type    STRING,
+      handover_count  INT,
+      ingested_at     TIMESTAMP
+  ) LOCATION 'telco/telecom/bronze/raw_cdr_v3';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_subscribers (
+      subscriber_id   STRING      NOT NULL,
+      phone_number    STRING      NOT NULL,
+      plan_type       STRING,
+      plan_tier       STRING,
+      activation_date DATE,
+      status          STRING,
+      monthly_spend   DECIMAL(8,2),
+      balance         DECIMAL(8,2),
+      ingested_at     TIMESTAMP
+  ) LOCATION 'telco/telecom/bronze/raw_subscribers';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cell_towers (
+      tower_id       STRING      NOT NULL,
+      location       STRING,
+      city           STRING,
+      region         STRING,
+      technology     STRING,
+      capacity_mhz   INT,
+      ingested_at    TIMESTAMP
+  ) LOCATION 'telco/telecom/bronze/raw_cell_towers';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.silver.cdr_unified (
+      call_id         STRING      NOT NULL,
+      caller          STRING      NOT NULL,
+      callee          STRING      NOT NULL,
+      caller_id       STRING,
+      callee_id       STRING,
+      tower_id        STRING,
+      tower_city      STRING,
+      tower_region    STRING,
+      start_time      TIMESTAMP,
+      end_time        TIMESTAMP,
+      duration_sec    BIGINT,
+      call_type       STRING      DEFAULT 'voice',
+      data_usage_mb   DECIMAL(10,2) DEFAULT 0.00,
+      sms_count       INT         DEFAULT 0,
+      roaming_flag    BOOLEAN     DEFAULT false,
+      network_type    STRING,
+      handover_count  INT         DEFAULT 0,
+      drop_flag       BOOLEAN     DEFAULT false,
+      revenue         DECIMAL(8,2),
+      schema_version  INT,
+      unified_at      TIMESTAMP
+  ) LOCATION 'telco/telecom/silver/cdr_unified'
+  TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.silver.subscriber_profiles (
+      subscriber_id    STRING      NOT NULL,
+      phone_number     STRING,
+      plan_type        STRING,
+      plan_tier        STRING,
+      activation_date  DATE,
+      status           STRING,
+      monthly_spend    DECIMAL(8,2),
+      balance          DECIMAL(8,2),
+      total_calls      INT,
+      total_data_mb    DECIMAL(12,2),
+      total_sms        INT,
+      total_revenue    DECIMAL(10,2),
+      avg_call_duration BIGINT,
+      drop_rate        DECIMAL(5,4),
+      days_since_last_call INT,
+      monthly_usage_trend  DECIMAL(8,2),
+      last_activity    TIMESTAMP,
+      updated_at       TIMESTAMP
+  ) LOCATION 'telco/telecom/silver/subscriber_profiles';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.silver.sessions (
+      session_id      STRING      NOT NULL,
+      subscriber_id   STRING      NOT NULL,
+      session_start   TIMESTAMP,
+      session_end     TIMESTAMP,
+      event_count     INT,
+      total_duration  BIGINT,
+      total_data_mb   DECIMAL(12,2),
+      call_types      STRING,
+      roaming_events  INT,
+      drop_events     INT,
+      created_at      TIMESTAMP
+  ) LOCATION 'telco/telecom/silver/sessions';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.gold.dim_subscriber (
+      subscriber_key  STRING      NOT NULL,
+      phone_number    STRING,
+      plan_type       STRING,
+      plan_tier       STRING,
+      activation_date DATE,
+      status          STRING,
+      monthly_spend   DECIMAL(8,2),
+      balance         DECIMAL(8,2)
+  ) LOCATION 'telco/telecom/gold/dim_subscriber';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.gold.dim_tower (
+      tower_key      STRING      NOT NULL,
+      tower_id       STRING,
+      location       STRING,
+      city           STRING,
+      region         STRING,
+      technology     STRING,
+      capacity_mhz   INT
+  ) LOCATION 'telco/telecom/gold/dim_tower';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.gold.dim_plan (
+      plan_key       STRING      NOT NULL,
+      plan_type      STRING,
+      plan_tier      STRING,
+      monthly_spend  DECIMAL(8,2)
+  ) LOCATION 'telco/telecom/gold/dim_plan';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.gold.fact_calls (
+      call_key        STRING      NOT NULL,
+      caller_key      STRING,
+      callee_key      STRING,
+      tower_key       STRING,
+      plan_key        STRING,
+      start_time      TIMESTAMP,
+      duration_sec    BIGINT,
+      call_type       STRING,
+      data_usage_mb   DECIMAL(10,2),
+      roaming_flag    BOOLEAN,
+      drop_flag       BOOLEAN,
+      network_type    STRING,
+      schema_version  INT,
+      revenue         DECIMAL(8,2)
+  ) LOCATION 'telco/telecom/gold/fact_calls'
+  PARTITIONED BY (start_time);
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.gold.kpi_network_quality (
+      region          STRING,
+      hour_bucket     INT,
+      total_calls     INT,
+      dropped_calls   INT,
+      drop_rate       DECIMAL(5,4),
+      avg_duration    DECIMAL(8,1),
+      total_data_mb   DECIMAL(12,2),
+      avg_throughput_mb DECIMAL(8,2),
+      roaming_calls   INT,
+      fiveg_calls     INT,
+      revenue         DECIMAL(10,2)
+  ) LOCATION 'telco/telecom/gold/kpi_network_quality';
+
+  CREATE DELTA TABLE IF NOT EXISTS telco.gold.kpi_churn_risk (
+      subscriber_id    STRING      NOT NULL,
+      phone_number     STRING,
+      plan_type        STRING,
+      plan_tier        STRING,
+      status           STRING,
+      days_since_last_call INT,
+      monthly_usage_trend  DECIMAL(8,2),
+      drop_rate        DECIMAL(5,4),
+      balance          DECIMAL(8,2),
+      churn_score      INT,
+      churn_risk_level STRING,
+      scored_at        TIMESTAMP
+  ) LOCATION 'telco/telecom/gold/kpi_churn_risk';
 
 -- =============================================================================
 -- STEP 1: Validate bronze tables across all 3 schema versions
 -- =============================================================================
 
 STEP validate_bronze
+  DEPENDS ON (create_objects)
   TIMEOUT '2m'
 AS
   SELECT COUNT(*) AS v1_count FROM telco.bronze.raw_cdr_v1;

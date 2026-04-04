@@ -9,6 +9,7 @@
 
 PIPELINE real_estate_property_cleanup
   DESCRIPTION 'Cleanup pipeline for Real Estate Property — drops all objects. DISABLED by default.'
+  SCHEDULE 'realty_daily_schedule'
   TAGS 'cleanup', 'maintenance', 'real-estate-property'
   STATUS disabled
   LIFECYCLE production
