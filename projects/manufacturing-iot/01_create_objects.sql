@@ -9,8 +9,16 @@
 
 -- ===================== ZONES =====================
 
+PIPELINE manufacturing_create_objects
+  DESCRIPTION 'Creates zones, schemas, tables, seed data, and pseudonymisation rules for Manufacturing IoT'
+  SCHEDULE 'manufacturing_2hr_schedule'
+  TAGS 'setup', 'manufacturing-iot'
+  LIFECYCLE production
+;
+
+
 CREATE ZONE IF NOT EXISTS mfg TYPE EXTERNAL
-    COMMENT 'Manufacturing IoT project zone — anomaly detection, OEE, equipment status';
+  COMMENT 'Manufacturing IoT project zone — anomaly detection, OEE, equipment status';
 
 -- ===================== SCHEMAS =====================
 CREATE SCHEMA IF NOT EXISTS mfg.bronze COMMENT 'Raw IoT sensor readings, sensor metadata, production lines, shifts, and targets';
@@ -20,58 +28,58 @@ CREATE SCHEMA IF NOT EXISTS mfg.gold   COMMENT 'Star schema for OEE, anomaly tre
 -- ===================== BRONZE TABLES =====================
 
 CREATE DELTA TABLE IF NOT EXISTS mfg.bronze.raw_sensors (
-    sensor_id         STRING      NOT NULL,
-    sensor_type       STRING      NOT NULL,
-    manufacturer      STRING,
-    install_date      DATE,
-    calibration_date  DATE,
-    threshold_min     DECIMAL(10,2),
-    threshold_max     DECIMAL(10,2),
-    plant_id          STRING,
-    line_name         STRING,
-    ingested_at       TIMESTAMP
+  sensor_id         STRING      NOT NULL,
+  sensor_type       STRING      NOT NULL,
+  manufacturer      STRING,
+  install_date      DATE,
+  calibration_date  DATE,
+  threshold_min     DECIMAL(10,2),
+  threshold_max     DECIMAL(10,2),
+  plant_id          STRING,
+  line_name         STRING,
+  ingested_at       TIMESTAMP
 ) LOCATION 'mfg/manufacturing/bronze/raw_sensors';
 
 CREATE DELTA TABLE IF NOT EXISTS mfg.bronze.raw_production_lines (
-    line_id              STRING      NOT NULL,
-    plant_id             STRING      NOT NULL,
-    line_name            STRING,
-    product_type         STRING,
-    capacity_units_per_hour INT,
-    ingested_at          TIMESTAMP
+  line_id              STRING      NOT NULL,
+  plant_id             STRING      NOT NULL,
+  line_name            STRING,
+  product_type         STRING,
+  capacity_units_per_hour INT,
+  ingested_at          TIMESTAMP
 ) LOCATION 'mfg/manufacturing/bronze/raw_production_lines';
 
 CREATE DELTA TABLE IF NOT EXISTS mfg.bronze.raw_shifts (
-    shift_id     STRING      NOT NULL,
-    shift_name   STRING      NOT NULL,
-    start_hour   INT,
-    end_hour     INT,
-    supervisor   STRING,
-    ingested_at  TIMESTAMP
+  shift_id     STRING      NOT NULL,
+  shift_name   STRING      NOT NULL,
+  start_hour   INT,
+  end_hour     INT,
+  supervisor   STRING,
+  ingested_at  TIMESTAMP
 ) LOCATION 'mfg/manufacturing/bronze/raw_shifts';
 
 CREATE DELTA TABLE IF NOT EXISTS mfg.bronze.raw_production_targets (
-    target_id             STRING      NOT NULL,
-    plant_id              STRING      NOT NULL,
-    line_name             STRING      NOT NULL,
-    shift_id              STRING      NOT NULL,
-    target_units_per_shift INT,
-    max_acceptable_defect_pct DECIMAL(5,2),
-    ingested_at           TIMESTAMP
+  target_id             STRING      NOT NULL,
+  plant_id              STRING      NOT NULL,
+  line_name             STRING      NOT NULL,
+  shift_id              STRING      NOT NULL,
+  target_units_per_shift INT,
+  max_acceptable_defect_pct DECIMAL(5,2),
+  ingested_at           TIMESTAMP
 ) LOCATION 'mfg/manufacturing/bronze/raw_production_targets';
 
 CREATE DELTA TABLE IF NOT EXISTS mfg.bronze.raw_readings (
-    reading_id     STRING      NOT NULL,
-    sensor_id      STRING      NOT NULL,
-    plant_id       STRING      NOT NULL,
-    line_name      STRING      NOT NULL,
-    reading_time   TIMESTAMP   NOT NULL,
-    value          DECIMAL(10,2),
-    units_produced INT,
-    defect_units   INT,
-    downtime_min   INT         DEFAULT 0,
-    ingested_at    TIMESTAMP,
-    CHECK (value BETWEEN -50 AND 500 OR value BETWEEN 0 AND 200 OR value BETWEEN 0 AND 50000 OR value BETWEEN 0 AND 20000)
+  reading_id     STRING      NOT NULL,
+  sensor_id      STRING      NOT NULL,
+  plant_id       STRING      NOT NULL,
+  line_name      STRING      NOT NULL,
+  reading_time   TIMESTAMP   NOT NULL,
+  value          DECIMAL(10,2),
+  units_produced INT,
+  defect_units   INT,
+  downtime_min   INT         DEFAULT 0,
+  ingested_at    TIMESTAMP,
+  CHECK (value BETWEEN -50 AND 500 OR value BETWEEN 0 AND 200 OR value BETWEEN 0 AND 50000 OR value BETWEEN 0 AND 20000)
 ) LOCATION 'mfg/manufacturing/bronze/raw_readings'
 PARTITIONED BY (plant_id, line_name);
 
@@ -79,126 +87,126 @@ PARTITIONED BY (plant_id, line_name);
 
 -- Validated readings: CHECK constraints applied, out-of-range flagged
 CREATE DELTA TABLE IF NOT EXISTS mfg.silver.readings_validated (
-    reading_id       STRING      NOT NULL,
-    sensor_id        STRING,
-    sensor_type      STRING,
-    plant_id         STRING,
-    line_name        STRING,
-    reading_time     TIMESTAMP,
-    shift_id         STRING,
-    value            DECIMAL(10,2),
-    threshold_min    DECIMAL(10,2),
-    threshold_max    DECIMAL(10,2),
-    in_range_flag    BOOLEAN     DEFAULT true,
-    quality_score    DECIMAL(5,2),
-    units_produced   INT,
-    defect_units     INT,
-    downtime_min     INT,
-    validated_at     TIMESTAMP,
-    CHECK (value BETWEEN -50 AND 500 OR value BETWEEN 0 AND 200 OR value BETWEEN 0 AND 50000 OR value BETWEEN 0 AND 20000)
+  reading_id       STRING      NOT NULL,
+  sensor_id        STRING,
+  sensor_type      STRING,
+  plant_id         STRING,
+  line_name        STRING,
+  reading_time     TIMESTAMP,
+  shift_id         STRING,
+  value            DECIMAL(10,2),
+  threshold_min    DECIMAL(10,2),
+  threshold_max    DECIMAL(10,2),
+  in_range_flag    BOOLEAN     DEFAULT true,
+  quality_score    DECIMAL(5,2),
+  units_produced   INT,
+  defect_units     INT,
+  downtime_min     INT,
+  validated_at     TIMESTAMP,
+  CHECK (value BETWEEN -50 AND 500 OR value BETWEEN 0 AND 200 OR value BETWEEN 0 AND 50000 OR value BETWEEN 0 AND 20000)
 ) LOCATION 'mfg/manufacturing/silver/readings_validated';
 
 -- Smoothed readings: 5-reading moving avg, stddev, anomaly flag (2-sigma)
 CREATE DELTA TABLE IF NOT EXISTS mfg.silver.readings_smoothed (
-    reading_id       STRING      NOT NULL,
-    sensor_id        STRING,
-    sensor_type      STRING,
-    plant_id         STRING,
-    line_name        STRING,
-    reading_time     TIMESTAMP,
-    shift_id         STRING,
-    value            DECIMAL(10,2),
-    moving_avg       DECIMAL(10,2),
-    moving_stddev    DECIMAL(10,4),
-    anomaly_flag     BOOLEAN     DEFAULT false,
-    anomaly_reason   STRING,
-    smoothed_at      TIMESTAMP
+  reading_id       STRING      NOT NULL,
+  sensor_id        STRING,
+  sensor_type      STRING,
+  plant_id         STRING,
+  line_name        STRING,
+  reading_time     TIMESTAMP,
+  shift_id         STRING,
+  value            DECIMAL(10,2),
+  moving_avg       DECIMAL(10,2),
+  moving_stddev    DECIMAL(10,4),
+  anomaly_flag     BOOLEAN     DEFAULT false,
+  anomaly_reason   STRING,
+  smoothed_at      TIMESTAMP
 ) LOCATION 'mfg/manufacturing/silver/readings_smoothed';
 
 -- Equipment status: derived uptime/downtime per shift from gap analysis
 CREATE DELTA TABLE IF NOT EXISTS mfg.silver.equipment_status (
-    status_id        STRING      NOT NULL,
-    plant_id         STRING,
-    line_name        STRING,
-    shift_date       DATE,
-    shift_id         STRING,
-    planned_minutes  INT         DEFAULT 480,
-    downtime_minutes INT,
-    uptime_minutes   INT,
-    unplanned_stops  INT,
-    status           STRING,
-    computed_at      TIMESTAMP
+  status_id        STRING      NOT NULL,
+  plant_id         STRING,
+  line_name        STRING,
+  shift_date       DATE,
+  shift_id         STRING,
+  planned_minutes  INT         DEFAULT 480,
+  downtime_minutes INT,
+  uptime_minutes   INT,
+  unplanned_stops  INT,
+  status           STRING,
+  computed_at      TIMESTAMP
 ) LOCATION 'mfg/manufacturing/silver/equipment_status';
 
 -- ===================== GOLD TABLES =====================
 
 CREATE DELTA TABLE IF NOT EXISTS mfg.gold.dim_sensor (
-    sensor_key       STRING      NOT NULL,
-    sensor_id        STRING,
-    sensor_type      STRING,
-    manufacturer     STRING,
-    install_date     DATE,
-    calibration_date DATE,
-    threshold_min    DECIMAL(10,2),
-    threshold_max    DECIMAL(10,2),
-    plant_id         STRING,
-    line_name        STRING
+  sensor_key       STRING      NOT NULL,
+  sensor_id        STRING,
+  sensor_type      STRING,
+  manufacturer     STRING,
+  install_date     DATE,
+  calibration_date DATE,
+  threshold_min    DECIMAL(10,2),
+  threshold_max    DECIMAL(10,2),
+  plant_id         STRING,
+  line_name        STRING
 ) LOCATION 'mfg/manufacturing/gold/dim_sensor';
 
 CREATE DELTA TABLE IF NOT EXISTS mfg.gold.dim_line (
-    line_key                STRING      NOT NULL,
-    plant_id                STRING,
-    line_name               STRING,
-    product_type            STRING,
-    capacity_units_per_hour INT
+  line_key                STRING      NOT NULL,
+  plant_id                STRING,
+  line_name               STRING,
+  product_type            STRING,
+  capacity_units_per_hour INT
 ) LOCATION 'mfg/manufacturing/gold/dim_line';
 
 CREATE DELTA TABLE IF NOT EXISTS mfg.gold.dim_shift (
-    shift_key    STRING      NOT NULL,
-    shift_name   STRING,
-    start_hour   INT,
-    end_hour     INT,
-    supervisor   STRING
+  shift_key    STRING      NOT NULL,
+  shift_name   STRING,
+  start_hour   INT,
+  end_hour     INT,
+  supervisor   STRING
 ) LOCATION 'mfg/manufacturing/gold/dim_shift';
 
 CREATE DELTA TABLE IF NOT EXISTS mfg.gold.fact_readings (
-    reading_key    STRING      NOT NULL,
-    sensor_key     STRING,
-    line_key       STRING,
-    shift_key      STRING,
-    reading_time   TIMESTAMP,
-    value          DECIMAL(10,2),
-    smoothed_value DECIMAL(10,2),
-    anomaly_flag   BOOLEAN,
-    quality_score  DECIMAL(5,2)
+  reading_key    STRING      NOT NULL,
+  sensor_key     STRING,
+  line_key       STRING,
+  shift_key      STRING,
+  reading_time   TIMESTAMP,
+  value          DECIMAL(10,2),
+  smoothed_value DECIMAL(10,2),
+  anomaly_flag   BOOLEAN,
+  quality_score  DECIMAL(5,2)
 ) LOCATION 'mfg/manufacturing/gold/fact_readings';
 
 CREATE DELTA TABLE IF NOT EXISTS mfg.gold.kpi_oee (
-    plant_id          STRING,
-    line_name         STRING,
-    shift_date        DATE,
-    shift_name        STRING,
-    planned_minutes   INT,
-    downtime_minutes  INT,
-    availability_pct  DECIMAL(5,2),
-    actual_units      INT,
-    target_units      INT,
-    performance_pct   DECIMAL(5,2),
-    good_units        INT,
-    total_units       INT,
-    quality_pct       DECIMAL(5,2),
-    oee_pct           DECIMAL(5,2)
+  plant_id          STRING,
+  line_name         STRING,
+  shift_date        DATE,
+  shift_name        STRING,
+  planned_minutes   INT,
+  downtime_minutes  INT,
+  availability_pct  DECIMAL(5,2),
+  actual_units      INT,
+  target_units      INT,
+  performance_pct   DECIMAL(5,2),
+  good_units        INT,
+  total_units       INT,
+  quality_pct       DECIMAL(5,2),
+  oee_pct           DECIMAL(5,2)
 ) LOCATION 'mfg/manufacturing/gold/kpi_oee';
 
 CREATE DELTA TABLE IF NOT EXISTS mfg.gold.kpi_anomaly_trends (
-    sensor_type       STRING,
-    plant_id          STRING,
-    trend_month       STRING,
-    total_readings    INT,
-    anomaly_count     INT,
-    anomaly_rate_pct  DECIMAL(5,2),
-    avg_deviation     DECIMAL(10,4),
-    max_deviation     DECIMAL(10,4)
+  sensor_type       STRING,
+  plant_id          STRING,
+  trend_month       STRING,
+  total_readings    INT,
+  anomaly_count     INT,
+  anomaly_rate_pct  DECIMAL(5,2),
+  avg_deviation     DECIMAL(10,4),
+  max_deviation     DECIMAL(10,4)
 ) LOCATION 'mfg/manufacturing/gold/kpi_anomaly_trends';
 
 -- ===================== PSEUDONYMISATION =====================

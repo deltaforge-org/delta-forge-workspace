@@ -17,13 +17,13 @@ SELECT COUNT(*) AS row_count FROM ehr.gold.dim_diagnosis;
 -- Patients P1001, P1004, P1008 should have 2 versions each (original + address change)
 
 SELECT
-    patient_id,
-    address,
-    city,
-    insurance_id,
-    valid_from,
-    valid_to,
-    is_current
+  patient_id,
+  address,
+  city,
+  insurance_id,
+  valid_from,
+  valid_to,
+  is_current
 FROM ehr.silver.patient_dim
 WHERE patient_id IN ('P1001', 'P1004', 'P1008')
 ORDER BY patient_id, valid_from;
@@ -43,13 +43,13 @@ WHERE is_current = false;
 -- ===================== TEST 3: Star Schema Join - Department Admissions =====================
 
 SELECT
-    dd.department_name,
-    dd.floor,
-    dd.wing,
-    COUNT(f.admission_key) AS total_admissions,
-    SUM(CASE WHEN f.readmission_flag = true THEN 1 ELSE 0 END) AS readmissions,
-    ROUND(AVG(f.los_days), 1) AS avg_los,
-    ROUND(AVG(f.total_charges), 2) AS avg_charges
+  dd.department_name,
+  dd.floor,
+  dd.wing,
+  COUNT(f.admission_key) AS total_admissions,
+  SUM(CASE WHEN f.readmission_flag = true THEN 1 ELSE 0 END) AS readmissions,
+  ROUND(AVG(f.los_days), 1) AS avg_los,
+  ROUND(AVG(f.total_charges), 2) AS avg_charges
 FROM ehr.gold.fact_admissions f
 JOIN ehr.gold.dim_department dd ON f.department_key = dd.department_key
 GROUP BY dd.department_name, dd.floor, dd.wing
@@ -67,11 +67,11 @@ LIMIT 1;
 -- ===================== TEST 4: Diagnosis Severity - Critical Highest Charges =====================
 
 SELECT
-    dx.severity,
-    dx.category,
-    COUNT(f.admission_key) AS admission_count,
-    ROUND(AVG(f.total_charges), 2) AS avg_charges,
-    MAX(f.total_charges) AS max_charges
+  dx.severity,
+  dx.category,
+  COUNT(f.admission_key) AS admission_count,
+  ROUND(AVG(f.total_charges), 2) AS avg_charges,
+  MAX(f.total_charges) AS max_charges
 FROM ehr.gold.fact_admissions f
 JOIN ehr.gold.dim_diagnosis dx ON f.diagnosis_key = dx.diagnosis_key
 GROUP BY dx.severity, dx.category
@@ -86,12 +86,12 @@ WHERE dx.severity = 'Critical';
 -- ===================== TEST 5: LOS Percentile Analysis (NTILE Window Function) =====================
 
 SELECT
-    patient_id,
-    admission_date,
-    los_days,
-    los_percentile,
-    total_charges,
-    cost_rank
+  patient_id,
+  admission_date,
+  los_days,
+  los_percentile,
+  total_charges,
+  cost_rank
 FROM ehr.gold.fact_admissions
 WHERE los_percentile >= 90
 ORDER BY los_days DESC;
@@ -121,24 +121,24 @@ FROM ehr.gold.fact_admissions;
 ASSERT VALUE depts_with_readmissions >= 4
 SELECT COUNT(*) AS depts_with_readmissions
 FROM (
-    SELECT dd.department_name
-    FROM ehr.gold.fact_admissions f
-    JOIN ehr.gold.dim_department dd ON f.department_key = dd.department_key
-    WHERE f.readmission_flag = true
-    GROUP BY dd.department_name
+  SELECT dd.department_name
+  FROM ehr.gold.fact_admissions f
+  JOIN ehr.gold.dim_department dd ON f.department_key = dd.department_key
+  WHERE f.readmission_flag = true
+  GROUP BY dd.department_name
 );
 
 -- ===================== TEST 8: KPI Readmission Rates =====================
 
 SELECT
-    department_name,
-    period,
-    total_admissions,
-    readmissions,
-    readmission_pct,
-    avg_los,
-    avg_charges,
-    max_los
+  department_name,
+  period,
+  total_admissions,
+  readmissions,
+  readmission_pct,
+  avg_los,
+  avg_charges,
+  max_los
 FROM ehr.gold.kpi_readmission_rates
 ORDER BY department_name, period;
 
@@ -147,7 +147,7 @@ ASSERT VALUE kpi_math_errors = 0
 SELECT COUNT(*) AS kpi_math_errors
 FROM ehr.gold.kpi_readmission_rates
 WHERE total_admissions > 0
-  AND ABS(readmission_pct - ROUND(100.0 * readmissions / total_admissions, 2)) > 0.01;
+AND ABS(readmission_pct - ROUND(100.0 * readmissions / total_admissions, 2)) > 0.01;
 
 -- ===================== TEST 9: Fact Table Referential Integrity =====================
 
@@ -178,13 +178,13 @@ SELECT COUNT(*) AS audit_entries FROM ehr.silver.audit_log;
 
 -- Show audit log sample
 SELECT
-    audit_id,
-    table_name,
-    patient_id,
-    change_type,
-    changed_fields,
-    new_values,
-    change_timestamp
+  audit_id,
+  table_name,
+  patient_id,
+  change_type,
+  changed_fields,
+  new_values,
+  change_timestamp
 FROM ehr.silver.audit_log
 ORDER BY change_timestamp DESC
 LIMIT 10;
@@ -192,10 +192,10 @@ LIMIT 10;
 -- ===================== TEST 12: Monthly Admission Trends =====================
 
 SELECT
-    DATE_TRUNC('month', f.admission_date) AS month,
-    COUNT(*) AS admissions,
-    SUM(CASE WHEN f.readmission_flag = true THEN 1 ELSE 0 END) AS readmissions,
-    ROUND(SUM(f.total_charges), 2) AS total_revenue
+  DATE_TRUNC('month', f.admission_date) AS month,
+  COUNT(*) AS admissions,
+  SUM(CASE WHEN f.readmission_flag = true THEN 1 ELSE 0 END) AS readmissions,
+  ROUND(SUM(f.total_charges), 2) AS total_revenue
 FROM ehr.gold.fact_admissions f
 GROUP BY DATE_TRUNC('month', f.admission_date)
 ORDER BY month;
@@ -210,10 +210,10 @@ FROM ehr.gold.fact_admissions;
 ASSERT VALUE silver_duplicates = 0
 SELECT COUNT(*) AS silver_duplicates
 FROM (
-    SELECT record_id, COUNT(*) AS cnt
-    FROM ehr.silver.admissions_cleaned
-    GROUP BY record_id
-    HAVING COUNT(*) > 1
+  SELECT record_id, COUNT(*) AS cnt
+  FROM ehr.silver.admissions_cleaned
+  GROUP BY record_id
+  HAVING COUNT(*) > 1
 );
 
 -- ===================== VERIFICATION SUMMARY =====================

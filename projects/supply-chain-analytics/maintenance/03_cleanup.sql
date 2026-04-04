@@ -10,7 +10,8 @@ PIPELINE supply_chain_cleanup
   SCHEDULE 'supply_chain_daily'
   TAGS 'cleanup', 'maintenance', 'supply-chain-analytics'
   STATUS disabled
-  LIFECYCLE production;
+  LIFECYCLE production
+;
 
 -- Drop gold KPI tables
 DROP DELTA TABLE IF EXISTS sc.gold.kpi_demand_forecast WITH FILES;

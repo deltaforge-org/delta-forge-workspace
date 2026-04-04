@@ -14,6 +14,7 @@ PIPELINE banking_transactions_cleanup
   LIFECYCLE production
 ;
 
+
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
 DROP PSEUDONYMISATION RULE ON bank.silver.customer_dim (account_number);

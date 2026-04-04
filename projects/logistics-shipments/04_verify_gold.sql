@@ -53,18 +53,18 @@ ORDER BY customer_key;
 -- 6. Carrier performance scorecard with actual vs contracted on-time
 -- -----------------------------------------------------------------------------
 SELECT
-    dc.carrier_name,
-    dc.carrier_type,
-    dc.headquarters,
-    COUNT(*) AS total_shipments,
-    COUNT(CASE WHEN f.on_time_flag = true THEN 1 END) AS on_time,
-    CAST(
-        COUNT(CASE WHEN f.on_time_flag = true THEN 1 END) * 100.0 / COUNT(*)
-    AS DECIMAL(5,2)) AS actual_on_time_pct,
-    CAST(dc.on_time_rating * 100 AS DECIMAL(5,2)) AS contracted_on_time_pct,
-    CAST(AVG(f.transit_days) AS DECIMAL(5,1)) AS avg_transit_days,
-    CAST(AVG(f.cost / NULLIF(f.weight_kg, 0)) AS DECIMAL(8,2)) AS avg_cost_per_kg,
-    SUM(f.margin) AS total_margin
+  dc.carrier_name,
+  dc.carrier_type,
+  dc.headquarters,
+  COUNT(*) AS total_shipments,
+  COUNT(CASE WHEN f.on_time_flag = true THEN 1 END) AS on_time,
+  CAST(
+      COUNT(CASE WHEN f.on_time_flag = true THEN 1 END) * 100.0 / COUNT(*)
+  AS DECIMAL(5,2)) AS actual_on_time_pct,
+  CAST(dc.on_time_rating * 100 AS DECIMAL(5,2)) AS contracted_on_time_pct,
+  CAST(AVG(f.transit_days) AS DECIMAL(5,1)) AS avg_transit_days,
+  CAST(AVG(f.cost / NULLIF(f.weight_kg, 0)) AS DECIMAL(8,2)) AS avg_cost_per_kg,
+  SUM(f.margin) AS total_margin
 FROM logi.gold.fact_shipments f
 JOIN logi.gold.dim_carrier dc ON f.carrier_key = dc.carrier_key
 GROUP BY dc.carrier_name, dc.carrier_type, dc.headquarters, dc.on_time_rating
@@ -75,15 +75,15 @@ ORDER BY actual_on_time_pct DESC;
 -- -----------------------------------------------------------------------------
 ASSERT VALUE total_shipments > 0
 SELECT
-    sv.shipment_id,
-    dc.carrier_name,
-    sv.service_level,
-    sv.sla_max_days,
-    sv.actual_transit_days,
-    sv.days_over_sla,
-    sv.penalty_amount,
-    ol.city AS origin,
-    dl.city AS destination
+  sv.shipment_id,
+  dc.carrier_name,
+  sv.service_level,
+  sv.sla_max_days,
+  sv.actual_transit_days,
+  sv.days_over_sla,
+  sv.penalty_amount,
+  ol.city AS origin,
+  dl.city AS destination
 FROM logi.silver.sla_violations sv
 JOIN logi.gold.dim_carrier dc ON sv.carrier_id = dc.carrier_key
 JOIN logi.gold.dim_location ol ON sv.origin_id = ol.location_key
@@ -106,20 +106,20 @@ WHERE sla_violated = true;
 -- -----------------------------------------------------------------------------
 ASSERT VALUE total_penalty_exposure > 0
 SELECT
-    dr.origin_city,
-    dr.destination_city,
-    dr.distance_km,
-    dr.primary_mode,
-    dr.avg_transit_days,
-    dr.shipment_count,
-    SUM(f.weight_kg) AS total_weight_kg,
-    SUM(f.cost) AS total_cost,
-    SUM(f.margin) AS total_margin
+  dr.origin_city,
+  dr.destination_city,
+  dr.distance_km,
+  dr.primary_mode,
+  dr.avg_transit_days,
+  dr.shipment_count,
+  SUM(f.weight_kg) AS total_weight_kg,
+  SUM(f.cost) AS total_cost,
+  SUM(f.margin) AS total_margin
 FROM logi.gold.dim_route dr
 LEFT JOIN logi.gold.fact_shipments f
-    ON f.route_key = dr.route_key
+  ON f.route_key = dr.route_key
 GROUP BY dr.origin_city, dr.destination_city, dr.distance_km,
-         dr.primary_mode, dr.avg_transit_days, dr.shipment_count
+       dr.primary_mode, dr.avg_transit_days, dr.shipment_count
 ORDER BY total_cost DESC;
 
 -- -----------------------------------------------------------------------------
@@ -127,13 +127,13 @@ ORDER BY total_cost DESC;
 -- -----------------------------------------------------------------------------
 ASSERT VALUE origin_city IS NOT NULL
 SELECT
-    kp.month,
-    SUM(kp.total_shipments) AS total_shipments,
-    SUM(kp.on_time_count) AS on_time_total,
-    CAST(SUM(kp.on_time_count) * 100.0 / NULLIF(SUM(kp.total_shipments), 0)
-        AS DECIMAL(5,2)) AS on_time_pct,
-    SUM(kp.total_margin) AS monthly_margin,
-    SUM(SUM(kp.total_shipments)) OVER (ORDER BY kp.month) AS cumulative_shipments
+  kp.month,
+  SUM(kp.total_shipments) AS total_shipments,
+  SUM(kp.on_time_count) AS on_time_total,
+  CAST(SUM(kp.on_time_count) * 100.0 / NULLIF(SUM(kp.total_shipments), 0)
+      AS DECIMAL(5,2)) AS on_time_pct,
+  SUM(kp.total_margin) AS monthly_margin,
+  SUM(SUM(kp.total_shipments)) OVER (ORDER BY kp.month) AS cumulative_shipments
 FROM logi.gold.kpi_delivery_performance kp
 GROUP BY kp.month
 ORDER BY kp.month;
@@ -143,14 +143,14 @@ ORDER BY kp.month;
 -- -----------------------------------------------------------------------------
 ASSERT VALUE total_shipments > 0
 SELECT
-    carrier_name,
-    service_level,
-    SUM(total_shipments) AS total,
-    SUM(violated_count) AS violations,
-    CAST(SUM(violated_count) * 100.0 / NULLIF(SUM(total_shipments), 0)
-        AS DECIMAL(5,2)) AS violation_rate_pct,
-    SUM(total_penalty) AS penalty_exposure,
-    MAX(worst_violation) AS worst_days_over
+  carrier_name,
+  service_level,
+  SUM(total_shipments) AS total,
+  SUM(violated_count) AS violations,
+  CAST(SUM(violated_count) * 100.0 / NULLIF(SUM(total_shipments), 0)
+      AS DECIMAL(5,2)) AS violation_rate_pct,
+  SUM(total_penalty) AS penalty_exposure,
+  MAX(worst_violation) AS worst_days_over
 FROM logi.gold.kpi_sla_compliance
 GROUP BY carrier_name, service_level
 ORDER BY violation_rate_pct DESC;
@@ -160,19 +160,19 @@ ORDER BY violation_rate_pct DESC;
 -- -----------------------------------------------------------------------------
 ASSERT VALUE total > 0
 SELECT
-    f.shipment_key,
-    dc.carrier_name,
-    dcust.customer_name,
-    dcust.tier AS customer_tier,
-    ol.city AS origin,
-    dl.city AS destination,
-    f.service_level,
-    f.ship_date,
-    f.promised_date,
-    f.delivery_date,
-    f.transit_days,
-    DATEDIFF(f.delivery_date, f.promised_date) AS days_late,
-    f.penalty_amount
+  f.shipment_key,
+  dc.carrier_name,
+  dcust.customer_name,
+  dcust.tier AS customer_tier,
+  ol.city AS origin,
+  dl.city AS destination,
+  f.service_level,
+  f.ship_date,
+  f.promised_date,
+  f.delivery_date,
+  f.transit_days,
+  DATEDIFF(f.delivery_date, f.promised_date) AS days_late,
+  f.penalty_amount
 FROM logi.gold.fact_shipments f
 JOIN logi.gold.dim_carrier dc ON f.carrier_key = dc.carrier_key
 JOIN logi.gold.dim_customer dcust ON f.customer_key = dcust.customer_key
@@ -213,11 +213,11 @@ WHERE dr.route_key IS NULL;
 -- -----------------------------------------------------------------------------
 ASSERT VALUE orphaned_routes = 0
 SELECT
-    dcust.tier,
-    COUNT(*) AS shipments,
-    CAST(AVG(f.margin) AS DECIMAL(10,2)) AS avg_margin,
-    SUM(f.revenue) AS total_revenue,
-    CAST(AVG(f.transit_days) AS DECIMAL(5,1)) AS avg_transit
+  dcust.tier,
+  COUNT(*) AS shipments,
+  CAST(AVG(f.margin) AS DECIMAL(10,2)) AS avg_margin,
+  SUM(f.revenue) AS total_revenue,
+  CAST(AVG(f.transit_days) AS DECIMAL(5,1)) AS avg_transit
 FROM logi.gold.fact_shipments f
 JOIN logi.gold.dim_customer dcust ON f.customer_key = dcust.customer_key
 GROUP BY dcust.tier
@@ -228,9 +228,9 @@ ORDER BY avg_margin DESC;
 -- -----------------------------------------------------------------------------
 ASSERT VALUE shipments > 0
 SELECT
-    event_count,
-    COUNT(*) AS shipment_count,
-    CAST(AVG(total_transit_hours) AS DECIMAL(8,1)) AS avg_transit_hours
+  event_count,
+  COUNT(*) AS shipment_count,
+  CAST(AVG(total_transit_hours) AS DECIMAL(8,1)) AS avg_transit_hours
 FROM logi.silver.shipment_status
 GROUP BY event_count
 ORDER BY event_count;

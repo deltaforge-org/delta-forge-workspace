@@ -15,6 +15,7 @@ PIPELINE cybersecurity_incidents_cleanup
   LIFECYCLE production
 ;
 
+
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
 DROP PSEUDONYMISATION RULE ON cyber.gold.dim_source_ip (ip_address);

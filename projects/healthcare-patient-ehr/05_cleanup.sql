@@ -14,6 +14,7 @@ PIPELINE healthcare_patient_ehr_cleanup
   LIFECYCLE production
 ;
 
+
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
 DROP PSEUDONYMISATION RULE ON ehr.silver.patient_dim (ssn);

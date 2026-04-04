@@ -15,6 +15,7 @@ PIPELINE government_tax_filing_cleanup
   LIFECYCLE production
 ;
 
+
 -- ===================== GOLD TABLES =====================
 DROP TABLE IF EXISTS tax.gold.kpi_preparer_quality;
 DROP TABLE IF EXISTS tax.gold.kpi_revenue_analysis;

@@ -8,10 +8,18 @@
 -- analysis, and feeds inventory adjustments via CDF.
 -- =============================================================================
 
+PIPELINE ecommerce_create_objects
+  DESCRIPTION 'Creates zones, schemas, tables, seed data, and pseudonymisation rules for E-commerce Orders'
+  SCHEDULE 'ecommerce_30min_schedule'
+  TAGS 'setup', 'ecommerce-orders'
+  LIFECYCLE production
+;
+
+
 -- ===================== ZONE =====================
 
 CREATE ZONE IF NOT EXISTS ecom TYPE EXTERNAL
-    COMMENT 'Omnichannel e-commerce project zone';
+  COMMENT 'Omnichannel e-commerce project zone';
 
 -- ===================== SCHEMAS =====================
 
@@ -23,254 +31,254 @@ CREATE SCHEMA IF NOT EXISTS ecom.gold   COMMENT 'Star schema for sales, funnel, 
 
 -- Customers dimension feed (18 rows)
 CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_customers (
-    customer_id       STRING      NOT NULL,
-    email             STRING      NOT NULL,
-    first_name        STRING,
-    last_name         STRING,
-    segment           STRING,
-    city              STRING,
-    state             STRING,
-    country           STRING,
-    address           STRING,
-    loyalty_tier      STRING,
-    registration_date DATE,
-    source_system     STRING,
-    ingested_at       TIMESTAMP
+  customer_id       STRING      NOT NULL,
+  email             STRING      NOT NULL,
+  first_name        STRING,
+  last_name         STRING,
+  segment           STRING,
+  city              STRING,
+  state             STRING,
+  country           STRING,
+  address           STRING,
+  loyalty_tier      STRING,
+  registration_date DATE,
+  source_system     STRING,
+  ingested_at       TIMESTAMP
 ) LOCATION 'ecom/ecommerce/bronze/raw_customers';
 
 -- Products dimension feed (20 rows)
 CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_products (
-    product_id   STRING      NOT NULL,
-    sku          STRING      NOT NULL,
-    product_name STRING,
-    category     STRING,
-    subcategory  STRING,
-    brand        STRING,
-    unit_cost    DECIMAL(10,2),
-    list_price   DECIMAL(10,2),
-    weight_kg    DECIMAL(6,2),
-    ingested_at  TIMESTAMP
+  product_id   STRING      NOT NULL,
+  sku          STRING      NOT NULL,
+  product_name STRING,
+  category     STRING,
+  subcategory  STRING,
+  brand        STRING,
+  unit_cost    DECIMAL(10,2),
+  list_price   DECIMAL(10,2),
+  weight_kg    DECIMAL(6,2),
+  ingested_at  TIMESTAMP
 ) LOCATION 'ecom/ecommerce/bronze/raw_products';
 
 -- Web channel orders (30 rows)
 CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_web_orders (
-    order_id      STRING      NOT NULL,
-    customer_id   STRING      NOT NULL,
-    product_id    STRING      NOT NULL,
-    quantity      INT,
-    unit_price    DECIMAL(10,2),
-    discount_pct  DECIMAL(5,2),
-    shipping_cost DECIMAL(10,2),
-    order_date    DATE,
-    status        STRING,
-    session_id    STRING,
-    browser       STRING,
-    ingested_at   TIMESTAMP
+  order_id      STRING      NOT NULL,
+  customer_id   STRING      NOT NULL,
+  product_id    STRING      NOT NULL,
+  quantity      INT,
+  unit_price    DECIMAL(10,2),
+  discount_pct  DECIMAL(5,2),
+  shipping_cost DECIMAL(10,2),
+  order_date    DATE,
+  status        STRING,
+  session_id    STRING,
+  browser       STRING,
+  ingested_at   TIMESTAMP
 ) LOCATION 'ecom/ecommerce/bronze/raw_web_orders';
 
 -- Mobile app orders (20 rows)
 CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_mobile_orders (
-    order_id      STRING      NOT NULL,
-    customer_id   STRING      NOT NULL,
-    product_id    STRING      NOT NULL,
-    quantity      INT,
-    unit_price    DECIMAL(10,2),
-    discount_pct  DECIMAL(5,2),
-    shipping_cost DECIMAL(10,2),
-    order_date    DATE,
-    status        STRING,
-    session_id    STRING,
-    app_version   STRING,
-    ingested_at   TIMESTAMP
+  order_id      STRING      NOT NULL,
+  customer_id   STRING      NOT NULL,
+  product_id    STRING      NOT NULL,
+  quantity      INT,
+  unit_price    DECIMAL(10,2),
+  discount_pct  DECIMAL(5,2),
+  shipping_cost DECIMAL(10,2),
+  order_date    DATE,
+  status        STRING,
+  session_id    STRING,
+  app_version   STRING,
+  ingested_at   TIMESTAMP
 ) LOCATION 'ecom/ecommerce/bronze/raw_mobile_orders';
 
 -- POS terminal orders (25 rows)
 CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_pos_orders (
-    order_id      STRING      NOT NULL,
-    customer_id   STRING      NOT NULL,
-    product_id    STRING      NOT NULL,
-    quantity      INT,
-    unit_price    DECIMAL(10,2),
-    discount_pct  DECIMAL(5,2),
-    shipping_cost DECIMAL(10,2),
-    order_date    DATE,
-    status        STRING,
-    store_id      STRING,
-    terminal_id   STRING,
-    ingested_at   TIMESTAMP
+  order_id      STRING      NOT NULL,
+  customer_id   STRING      NOT NULL,
+  product_id    STRING      NOT NULL,
+  quantity      INT,
+  unit_price    DECIMAL(10,2),
+  discount_pct  DECIMAL(5,2),
+  shipping_cost DECIMAL(10,2),
+  order_date    DATE,
+  status        STRING,
+  store_id      STRING,
+  terminal_id   STRING,
+  ingested_at   TIMESTAMP
 ) LOCATION 'ecom/ecommerce/bronze/raw_pos_orders';
 
 -- Browsing events for funnel sessionization
 CREATE DELTA TABLE IF NOT EXISTS ecom.bronze.raw_browsing_events (
-    event_id      STRING      NOT NULL,
-    customer_id   STRING      NOT NULL,
-    session_id    STRING,
-    event_type    STRING      NOT NULL,
-    event_ts      TIMESTAMP   NOT NULL,
-    page_url      STRING,
-    product_id    STRING,
-    ingested_at   TIMESTAMP
+  event_id      STRING      NOT NULL,
+  customer_id   STRING      NOT NULL,
+  session_id    STRING,
+  event_type    STRING      NOT NULL,
+  event_ts      TIMESTAMP   NOT NULL,
+  page_url      STRING,
+  product_id    STRING,
+  ingested_at   TIMESTAMP
 ) LOCATION 'ecom/ecommerce/bronze/raw_browsing_events';
 
 -- ===================== SILVER TABLES =====================
 
 -- Unified orders from 3 channels, soft-delete for cancellations, CDF-enabled
 CREATE DELTA TABLE IF NOT EXISTS ecom.silver.orders_unified (
-    order_id        STRING      NOT NULL,
-    customer_id     STRING      NOT NULL,
-    product_id      STRING      NOT NULL,
-    channel         STRING      NOT NULL,
-    quantity        INT,
-    unit_price      DECIMAL(10,2),
-    discount_pct    DECIMAL(5,2),
-    line_total      DECIMAL(12,2),
-    shipping_cost   DECIMAL(10,2),
-    order_date      DATE,
-    status          STRING,
-    is_deleted      BOOLEAN     DEFAULT false,
-    cancelled_at    TIMESTAMP,
-    store_id        STRING,
-    session_id      STRING,
-    updated_at      TIMESTAMP
+  order_id        STRING      NOT NULL,
+  customer_id     STRING      NOT NULL,
+  product_id      STRING      NOT NULL,
+  channel         STRING      NOT NULL,
+  quantity        INT,
+  unit_price      DECIMAL(10,2),
+  discount_pct    DECIMAL(5,2),
+  line_total      DECIMAL(12,2),
+  shipping_cost   DECIMAL(10,2),
+  order_date      DATE,
+  status          STRING,
+  is_deleted      BOOLEAN     DEFAULT false,
+  cancelled_at    TIMESTAMP,
+  store_id        STRING,
+  session_id      STRING,
+  updated_at      TIMESTAMP
 ) LOCATION 'ecom/ecommerce/silver/orders_unified'
 TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
 
 -- Customer RFM segmentation with NTILE quartile scoring
 CREATE DELTA TABLE IF NOT EXISTS ecom.silver.customer_rfm (
-    customer_id      STRING      NOT NULL,
-    email            STRING,
-    first_name       STRING,
-    last_name        STRING,
-    segment          STRING,
-    city             STRING,
-    state            STRING,
-    country          STRING,
-    registration_date DATE,
-    total_orders     INT,
-    total_revenue    DECIMAL(14,2),
-    last_order_date  DATE,
-    recency_days     INT,
-    r_score          INT,
-    f_score          INT,
-    m_score          INT,
-    rfm_total        INT,
-    rfm_segment      STRING,
-    updated_at       TIMESTAMP
+  customer_id      STRING      NOT NULL,
+  email            STRING,
+  first_name       STRING,
+  last_name        STRING,
+  segment          STRING,
+  city             STRING,
+  state            STRING,
+  country          STRING,
+  registration_date DATE,
+  total_orders     INT,
+  total_revenue    DECIMAL(14,2),
+  last_order_date  DATE,
+  recency_days     INT,
+  r_score          INT,
+  f_score          INT,
+  m_score          INT,
+  rfm_total        INT,
+  rfm_segment      STRING,
+  updated_at       TIMESTAMP
 ) LOCATION 'ecom/ecommerce/silver/customer_rfm';
 
 -- Inventory adjustments driven by CDF on orders_unified
 CREATE DELTA TABLE IF NOT EXISTS ecom.silver.inventory_adjustments (
-    adjustment_id   STRING      NOT NULL,
-    product_id      STRING      NOT NULL,
-    order_id        STRING      NOT NULL,
-    change_type     STRING      NOT NULL,
-    quantity_delta  INT         NOT NULL,
-    reason          STRING,
-    captured_at     TIMESTAMP
+  adjustment_id   STRING      NOT NULL,
+  product_id      STRING      NOT NULL,
+  order_id        STRING      NOT NULL,
+  change_type     STRING      NOT NULL,
+  quantity_delta  INT         NOT NULL,
+  reason          STRING,
+  captured_at     TIMESTAMP
 ) LOCATION 'ecom/ecommerce/silver/inventory_adjustments';
 
 -- Sessionized browsing events for funnel analysis
 CREATE DELTA TABLE IF NOT EXISTS ecom.silver.sessions (
-    session_key     STRING      NOT NULL,
-    customer_id     STRING      NOT NULL,
-    session_id      STRING,
-    session_start   TIMESTAMP,
-    session_end     TIMESTAMP,
-    event_count     INT,
-    browse_count    INT,
-    cart_count      INT,
-    checkout_count  INT,
-    purchase_count  INT,
-    funnel_stage    STRING,
-    processed_at    TIMESTAMP
+  session_key     STRING      NOT NULL,
+  customer_id     STRING      NOT NULL,
+  session_id      STRING,
+  session_start   TIMESTAMP,
+  session_end     TIMESTAMP,
+  event_count     INT,
+  browse_count    INT,
+  cart_count      INT,
+  checkout_count  INT,
+  purchase_count  INT,
+  funnel_stage    STRING,
+  processed_at    TIMESTAMP
 ) LOCATION 'ecom/ecommerce/silver/sessions';
 
 -- ===================== GOLD TABLES =====================
 
 CREATE DELTA TABLE IF NOT EXISTS ecom.gold.dim_product (
-    product_key   STRING      NOT NULL,
-    sku           STRING,
-    product_name  STRING,
-    category      STRING,
-    subcategory   STRING,
-    brand         STRING,
-    unit_cost     DECIMAL(10,2),
-    list_price    DECIMAL(10,2)
+  product_key   STRING      NOT NULL,
+  sku           STRING,
+  product_name  STRING,
+  category      STRING,
+  subcategory   STRING,
+  brand         STRING,
+  unit_cost     DECIMAL(10,2),
+  list_price    DECIMAL(10,2)
 ) LOCATION 'ecom/ecommerce/gold/dim_product';
 
 CREATE DELTA TABLE IF NOT EXISTS ecom.gold.dim_customer (
-    customer_key      STRING      NOT NULL,
-    email             STRING,
-    full_name         STRING,
-    segment           STRING,
-    city              STRING,
-    state             STRING,
-    country           STRING,
-    loyalty_tier      STRING,
-    registration_date DATE,
-    lifetime_orders   INT,
-    lifetime_revenue  DECIMAL(14,2),
-    rfm_segment       STRING
+  customer_key      STRING      NOT NULL,
+  email             STRING,
+  full_name         STRING,
+  segment           STRING,
+  city              STRING,
+  state             STRING,
+  country           STRING,
+  loyalty_tier      STRING,
+  registration_date DATE,
+  lifetime_orders   INT,
+  lifetime_revenue  DECIMAL(14,2),
+  rfm_segment       STRING
 ) LOCATION 'ecom/ecommerce/gold/dim_customer';
 
 CREATE DELTA TABLE IF NOT EXISTS ecom.gold.dim_channel (
-    channel_key   STRING      NOT NULL,
-    channel_name  STRING,
-    channel_detail STRING
+  channel_key   STRING      NOT NULL,
+  channel_name  STRING,
+  channel_detail STRING
 ) LOCATION 'ecom/ecommerce/gold/dim_channel';
 
 CREATE DELTA TABLE IF NOT EXISTS ecom.gold.dim_date (
-    date_key      INT         NOT NULL,
-    full_date     DATE        NOT NULL,
-    year          INT,
-    quarter       INT,
-    month         INT,
-    month_name    STRING,
-    day_of_week   INT,
-    day_name      STRING,
-    is_weekend    BOOLEAN
+  date_key      INT         NOT NULL,
+  full_date     DATE        NOT NULL,
+  year          INT,
+  quarter       INT,
+  month         INT,
+  month_name    STRING,
+  day_of_week   INT,
+  day_name      STRING,
+  is_weekend    BOOLEAN
 ) LOCATION 'ecom/ecommerce/gold/dim_date';
 
 CREATE DELTA TABLE IF NOT EXISTS ecom.gold.fact_order_lines (
-    order_line_key STRING      NOT NULL,
-    order_key      STRING      NOT NULL,
-    product_key    STRING      NOT NULL,
-    customer_key   STRING      NOT NULL,
-    channel_key    STRING      NOT NULL,
-    date_key       INT,
-    order_date     DATE,
-    quantity       INT,
-    unit_price     DECIMAL(10,2),
-    discount_pct   DECIMAL(5,2),
-    line_total     DECIMAL(12,2),
-    shipping_cost  DECIMAL(10,2),
-    status         STRING
+  order_line_key STRING      NOT NULL,
+  order_key      STRING      NOT NULL,
+  product_key    STRING      NOT NULL,
+  customer_key   STRING      NOT NULL,
+  channel_key    STRING      NOT NULL,
+  date_key       INT,
+  order_date     DATE,
+  quantity       INT,
+  unit_price     DECIMAL(10,2),
+  discount_pct   DECIMAL(5,2),
+  line_total     DECIMAL(12,2),
+  shipping_cost  DECIMAL(10,2),
+  status         STRING
 ) LOCATION 'ecom/ecommerce/gold/fact_order_lines';
 
 CREATE DELTA TABLE IF NOT EXISTS ecom.gold.kpi_sales_dashboard (
-    report_month        DATE,
-    channel             STRING,
-    total_orders        INT,
-    total_revenue       DECIMAL(14,2),
-    avg_order_value     DECIMAL(10,2),
-    cancelled_orders    INT,
-    cancellation_rate   DECIMAL(5,4),
-    unique_customers    INT,
-    repeat_customers    INT,
-    repeat_rate_pct     DECIMAL(5,2)
+  report_month        DATE,
+  channel             STRING,
+  total_orders        INT,
+  total_revenue       DECIMAL(14,2),
+  avg_order_value     DECIMAL(10,2),
+  cancelled_orders    INT,
+  cancellation_rate   DECIMAL(5,4),
+  unique_customers    INT,
+  repeat_customers    INT,
+  repeat_rate_pct     DECIMAL(5,2)
 ) LOCATION 'ecom/ecommerce/gold/kpi_sales_dashboard';
 
 CREATE DELTA TABLE IF NOT EXISTS ecom.gold.kpi_funnel_analysis (
-    report_month        DATE,
-    total_sessions      INT,
-    browse_sessions     INT,
-    cart_sessions       INT,
-    checkout_sessions   INT,
-    purchase_sessions   INT,
-    browse_to_cart_pct  DECIMAL(5,2),
-    cart_to_checkout_pct DECIMAL(5,2),
-    checkout_to_purchase_pct DECIMAL(5,2),
-    overall_conversion_pct   DECIMAL(5,2)
+  report_month        DATE,
+  total_sessions      INT,
+  browse_sessions     INT,
+  cart_sessions       INT,
+  checkout_sessions   INT,
+  purchase_sessions   INT,
+  browse_to_cart_pct  DECIMAL(5,2),
+  cart_to_checkout_pct DECIMAL(5,2),
+  checkout_to_purchase_pct DECIMAL(5,2),
+  overall_conversion_pct   DECIMAL(5,2)
 ) LOCATION 'ecom/ecommerce/gold/kpi_funnel_analysis';
 
 -- ===================== PSEUDONYMISATION =====================

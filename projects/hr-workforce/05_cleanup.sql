@@ -12,6 +12,7 @@ PIPELINE hr_workforce_cleanup
   LIFECYCLE production
 ;
 
+
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
 DROP PSEUDONYMISATION RULE ON hr.silver.employee_dim (ssn);

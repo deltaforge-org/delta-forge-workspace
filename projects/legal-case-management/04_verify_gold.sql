@@ -83,15 +83,15 @@ SELECT 'C006 high-billing check passed' AS status;
 -- ===================== TEST 9: Attorney Utilization Rates =====================
 
 SELECT
-    kfp.attorney_name,
-    kfp.practice_group,
-    kfp.partner_flag,
-    kfp.total_hours,
-    kfp.billable_hours,
-    kfp.utilization_pct,
-    kfp.total_revenue,
-    kfp.case_count,
-    kfp.revenue_per_hour
+  kfp.attorney_name,
+  kfp.practice_group,
+  kfp.partner_flag,
+  kfp.total_hours,
+  kfp.billable_hours,
+  kfp.utilization_pct,
+  kfp.total_revenue,
+  kfp.case_count,
+  kfp.revenue_per_hour
 FROM legal.gold.kpi_firm_performance kfp
 ORDER BY kfp.total_revenue DESC;
 
@@ -101,15 +101,15 @@ SELECT COUNT(*) AS row_count FROM legal.gold.kpi_firm_performance;
 -- ===================== TEST 10: Case Profitability Breakdown =====================
 
 SELECT
-    dc.case_number,
-    dc.case_type,
-    dc.status,
-    dc.priority,
-    dc.complexity_score,
-    COUNT(fb.billing_key) AS billing_entries,
-    SUM(fb.hours) AS total_hours,
-    ROUND(SUM(fb.amount), 2) AS total_billed,
-    ROUND(SUM(fb.amount) / NULLIF(SUM(fb.hours), 0), 2) AS effective_rate
+  dc.case_number,
+  dc.case_type,
+  dc.status,
+  dc.priority,
+  dc.complexity_score,
+  COUNT(fb.billing_key) AS billing_entries,
+  SUM(fb.hours) AS total_hours,
+  ROUND(SUM(fb.amount), 2) AS total_billed,
+  ROUND(SUM(fb.amount) / NULLIF(SUM(fb.hours), 0), 2) AS effective_rate
 FROM legal.gold.fact_billings fb
 JOIN legal.gold.dim_case dc ON fb.case_key = dc.case_key
 GROUP BY dc.case_number, dc.case_type, dc.status, dc.priority, dc.complexity_score
@@ -118,10 +118,10 @@ ORDER BY total_billed DESC;
 -- ===================== TEST 11: Practice Group Revenue =====================
 
 SELECT
-    kfp.practice_group,
-    COUNT(*) AS attorneys,
-    ROUND(SUM(kfp.total_revenue), 2) AS group_revenue,
-    ROUND(AVG(kfp.utilization_pct), 2) AS avg_utilization
+  kfp.practice_group,
+  COUNT(*) AS attorneys,
+  ROUND(SUM(kfp.total_revenue), 2) AS group_revenue,
+  ROUND(AVG(kfp.utilization_pct), 2) AS avg_utilization
 FROM legal.gold.kpi_firm_performance kfp
 GROUP BY kfp.practice_group
 ORDER BY group_revenue DESC;
@@ -135,8 +135,8 @@ FROM legal.gold.kpi_firm_performance kfp;
 USE legal.gold.legal_network
 MATCH (a1)-[:co_counsel]->(a2)
 RETURN a1.party_name AS attorney_1,
-       a2.party_name AS attorney_2,
-       COUNT(*) AS collaborations
+     a2.party_name AS attorney_2,
+     COUNT(*) AS collaborations
 ORDER BY collaborations DESC;
 
 -- ===================== TEST 13: Graph - PageRank Top Influencers =====================
@@ -153,8 +153,8 @@ LIMIT 10;
 USE legal.gold.legal_network
 MATCH path = (start {party_id: 'P008'})-[*1..3]-(connected)
 RETURN DISTINCT connected.party_id AS connected_party,
-       connected.party_name AS name,
-       LENGTH(path) AS hops
+     connected.party_name AS name,
+     LENGTH(path) AS hops
 ORDER BY hops, connected_party;
 
 -- ===================== TEST 15: Graph - Adversarial Pairs =====================
@@ -164,9 +164,9 @@ USE legal.gold.legal_network
 MATCH (a1)-[:represents]->(p1)-[:opposes]->(p2)<-[:represents]-(a2)
 WHERE a1.party_id <> a2.party_id
 RETURN a1.party_name AS attorney_1,
-       p1.party_name AS party_1,
-       p2.party_name AS party_2,
-       a2.party_name AS attorney_2
+     p1.party_name AS party_1,
+     p2.party_name AS party_2,
+     a2.party_name AS attorney_2
 ORDER BY attorney_1, attorney_2;
 
 -- ===================== TEST 16: Graph - Community Detection (Louvain) =====================
@@ -180,13 +180,13 @@ ORDER BY size DESC;
 -- ===================== TEST 17: Silver Party Profiles =====================
 
 SELECT
-    pp.party_name,
-    pp.party_type,
-    pp.total_involvement,
-    pp.cases_as_plaintiff,
-    pp.cases_as_defendant,
-    pp.cases_as_witness,
-    pp.cases_as_expert
+  pp.party_name,
+  pp.party_type,
+  pp.total_involvement,
+  pp.cases_as_plaintiff,
+  pp.cases_as_defendant,
+  pp.cases_as_witness,
+  pp.cases_as_expert
 FROM legal.silver.party_profiles pp
 ORDER BY pp.total_involvement DESC
 LIMIT 10;

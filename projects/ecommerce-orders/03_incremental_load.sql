@@ -63,98 +63,98 @@ SELECT 'incremental batch inserted' AS status;
 
 MERGE INTO ecom.silver.orders_unified AS tgt
 USING (
-    SELECT
-        order_id, customer_id, product_id,
-        'web' AS channel,
-        quantity, unit_price, discount_pct,
-        CAST(quantity * unit_price * (1.0 - discount_pct) AS DECIMAL(12,2)) AS line_total,
-        shipping_cost, order_date, status,
-        CASE WHEN status = 'cancelled' THEN true ELSE false END AS is_deleted,
-        CASE WHEN status = 'cancelled' THEN ingested_at ELSE NULL END AS cancelled_at,
-        NULL AS store_id,
-        session_id,
-        ingested_at AS updated_at,
-        CAST(CAST(quantity * unit_price * (1.0 - discount_pct) AS DECIMAL(12,2)) / 10 AS INT) AS loyalty_points
-    FROM ecom.bronze.raw_web_orders
-    WHERE {{INCREMENTAL_FILTER(ecom.silver.orders_unified, order_id, order_date, 3)}}
-    UNION ALL
-    SELECT
-        order_id, customer_id, product_id,
-        'mobile' AS channel,
-        quantity, unit_price, discount_pct,
-        CAST(quantity * unit_price * (1.0 - discount_pct) AS DECIMAL(12,2)) AS line_total,
-        shipping_cost, order_date, status,
-        CASE WHEN status = 'cancelled' THEN true ELSE false END AS is_deleted,
-        CASE WHEN status = 'cancelled' THEN ingested_at ELSE NULL END AS cancelled_at,
-        NULL AS store_id,
-        session_id,
-        ingested_at AS updated_at,
-        CAST(CAST(quantity * unit_price * (1.0 - discount_pct) AS DECIMAL(12,2)) / 10 AS INT) AS loyalty_points
-    FROM ecom.bronze.raw_mobile_orders
-    WHERE {{INCREMENTAL_FILTER(ecom.silver.orders_unified, order_id, order_date, 3)}}
+  SELECT
+      order_id, customer_id, product_id,
+      'web' AS channel,
+      quantity, unit_price, discount_pct,
+      CAST(quantity * unit_price * (1.0 - discount_pct) AS DECIMAL(12,2)) AS line_total,
+      shipping_cost, order_date, status,
+      CASE WHEN status = 'cancelled' THEN true ELSE false END AS is_deleted,
+      CASE WHEN status = 'cancelled' THEN ingested_at ELSE NULL END AS cancelled_at,
+      NULL AS store_id,
+      session_id,
+      ingested_at AS updated_at,
+      CAST(CAST(quantity * unit_price * (1.0 - discount_pct) AS DECIMAL(12,2)) / 10 AS INT) AS loyalty_points
+  FROM ecom.bronze.raw_web_orders
+  WHERE {{INCREMENTAL_FILTER(ecom.silver.orders_unified, order_id, order_date, 3)}}
+  UNION ALL
+  SELECT
+      order_id, customer_id, product_id,
+      'mobile' AS channel,
+      quantity, unit_price, discount_pct,
+      CAST(quantity * unit_price * (1.0 - discount_pct) AS DECIMAL(12,2)) AS line_total,
+      shipping_cost, order_date, status,
+      CASE WHEN status = 'cancelled' THEN true ELSE false END AS is_deleted,
+      CASE WHEN status = 'cancelled' THEN ingested_at ELSE NULL END AS cancelled_at,
+      NULL AS store_id,
+      session_id,
+      ingested_at AS updated_at,
+      CAST(CAST(quantity * unit_price * (1.0 - discount_pct) AS DECIMAL(12,2)) / 10 AS INT) AS loyalty_points
+  FROM ecom.bronze.raw_mobile_orders
+  WHERE {{INCREMENTAL_FILTER(ecom.silver.orders_unified, order_id, order_date, 3)}}
 ) AS src
 ON tgt.order_id = src.order_id AND tgt.product_id = src.product_id
 WHEN MATCHED AND src.status = 'cancelled' THEN UPDATE SET
-    tgt.is_deleted   = true,
-    tgt.cancelled_at = CURRENT_TIMESTAMP,
-    tgt.status       = src.status,
-    tgt.updated_at   = src.updated_at,
-    tgt.loyalty_points = 0
+  tgt.is_deleted   = true,
+  tgt.cancelled_at = CURRENT_TIMESTAMP,
+  tgt.status       = src.status,
+  tgt.updated_at   = src.updated_at,
+  tgt.loyalty_points = 0
 WHEN MATCHED THEN UPDATE SET
-    tgt.status        = src.status,
-    tgt.quantity      = src.quantity,
-    tgt.unit_price    = src.unit_price,
-    tgt.discount_pct  = src.discount_pct,
-    tgt.line_total    = src.line_total,
-    tgt.shipping_cost = src.shipping_cost,
-    tgt.updated_at    = src.updated_at,
-    tgt.loyalty_points = src.loyalty_points
+  tgt.status        = src.status,
+  tgt.quantity      = src.quantity,
+  tgt.unit_price    = src.unit_price,
+  tgt.discount_pct  = src.discount_pct,
+  tgt.line_total    = src.line_total,
+  tgt.shipping_cost = src.shipping_cost,
+  tgt.updated_at    = src.updated_at,
+  tgt.loyalty_points = src.loyalty_points
 WHEN NOT MATCHED THEN INSERT (
-    order_id, customer_id, product_id, channel, quantity, unit_price, discount_pct,
-    line_total, shipping_cost, order_date, status, is_deleted, cancelled_at,
-    store_id, session_id, updated_at, loyalty_points
+  order_id, customer_id, product_id, channel, quantity, unit_price, discount_pct,
+  line_total, shipping_cost, order_date, status, is_deleted, cancelled_at,
+  store_id, session_id, updated_at, loyalty_points
 ) VALUES (
-    src.order_id, src.customer_id, src.product_id, src.channel, src.quantity,
-    src.unit_price, src.discount_pct, src.line_total, src.shipping_cost,
-    src.order_date, src.status, src.is_deleted, src.cancelled_at,
-    src.store_id, src.session_id, src.updated_at, src.loyalty_points
+  src.order_id, src.customer_id, src.product_id, src.channel, src.quantity,
+  src.unit_price, src.discount_pct, src.line_total, src.shipping_cost,
+  src.order_date, src.status, src.is_deleted, src.cancelled_at,
+  src.store_id, src.session_id, src.updated_at, src.loyalty_points
 );
 
 -- Refresh gold fact for new records
 MERGE INTO ecom.gold.fact_order_lines AS tgt
 USING (
-    SELECT
-        o.order_id || '-' || o.product_id AS order_line_key,
-        o.order_id AS order_key,
-        o.product_id AS product_key,
-        o.customer_id AS customer_key,
-        o.channel AS channel_key,
-        CAST(EXTRACT(YEAR FROM o.order_date) * 10000
-           + EXTRACT(MONTH FROM o.order_date) * 100
-           + EXTRACT(DAY FROM o.order_date) AS INT) AS date_key,
-        o.order_date,
-        o.quantity,
-        o.unit_price,
-        o.discount_pct,
-        o.line_total,
-        o.shipping_cost,
-        o.status
-    FROM ecom.silver.orders_unified o
-    WHERE o.is_deleted = false
-      AND o.order_date >= '2024-07-01'
+  SELECT
+      o.order_id || '-' || o.product_id AS order_line_key,
+      o.order_id AS order_key,
+      o.product_id AS product_key,
+      o.customer_id AS customer_key,
+      o.channel AS channel_key,
+      CAST(EXTRACT(YEAR FROM o.order_date) * 10000
+         + EXTRACT(MONTH FROM o.order_date) * 100
+         + EXTRACT(DAY FROM o.order_date) AS INT) AS date_key,
+      o.order_date,
+      o.quantity,
+      o.unit_price,
+      o.discount_pct,
+      o.line_total,
+      o.shipping_cost,
+      o.status
+  FROM ecom.silver.orders_unified o
+  WHERE o.is_deleted = false
+    AND o.order_date >= '2024-07-01'
 ) AS src
 ON tgt.order_line_key = src.order_line_key
 WHEN MATCHED THEN UPDATE SET
-    tgt.quantity      = src.quantity,
-    tgt.line_total    = src.line_total,
-    tgt.status        = src.status
+  tgt.quantity      = src.quantity,
+  tgt.line_total    = src.line_total,
+  tgt.status        = src.status
 WHEN NOT MATCHED THEN INSERT (
-    order_line_key, order_key, product_key, customer_key, channel_key, date_key,
-    order_date, quantity, unit_price, discount_pct, line_total, shipping_cost, status
+  order_line_key, order_key, product_key, customer_key, channel_key, date_key,
+  order_date, quantity, unit_price, discount_pct, line_total, shipping_cost, status
 ) VALUES (
-    src.order_line_key, src.order_key, src.product_key, src.customer_key,
-    src.channel_key, src.date_key, src.order_date, src.quantity, src.unit_price,
-    src.discount_pct, src.line_total, src.shipping_cost, src.status
+  src.order_line_key, src.order_key, src.product_key, src.customer_key,
+  src.channel_key, src.date_key, src.order_date, src.quantity, src.unit_price,
+  src.discount_pct, src.line_total, src.shipping_cost, src.status
 );
 
 -- =============================================================================
@@ -182,10 +182,10 @@ FROM table_changes('ecom.silver.orders_unified', 1);
 -- Verify no duplicate order-product combinations
 SELECT COUNT(*) AS dup_check
 FROM (
-    SELECT order_id, product_id, COUNT(*) AS cnt
-    FROM ecom.silver.orders_unified
-    GROUP BY order_id, product_id
-    HAVING COUNT(*) > 1
+  SELECT order_id, product_id, COUNT(*) AS cnt
+  FROM ecom.silver.orders_unified
+  GROUP BY order_id, product_id
+  HAVING COUNT(*) > 1
 );
 
 ASSERT VALUE dup_check = 0

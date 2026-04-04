@@ -21,12 +21,12 @@ SELECT COUNT(*) AS date_dim_count FROM bank.gold.dim_date;
 -- ACC002, ACC005, ACC008 should have 2 versions each (bronze + silver)
 
 SELECT
-    account_id,
-    customer_name,
-    customer_tier,
-    valid_from,
-    valid_to,
-    is_current
+  account_id,
+  customer_name,
+  customer_tier,
+  valid_from,
+  valid_to,
+  is_current
 FROM bank.silver.customer_dim
 WHERE account_id IN ('ACC002', 'ACC005', 'ACC008')
 ORDER BY account_id, valid_from;
@@ -44,13 +44,13 @@ WHERE is_current = false;
 -- ===================== TEST 3: Star Schema Join - Account Transaction Summary =====================
 
 SELECT
-    da.customer_name,
-    da.account_type,
-    da.branch,
-    da.customer_tier,
-    COUNT(f.transaction_key) AS txn_count,
-    ROUND(SUM(f.amount), 2) AS total_spend,
-    ROUND(AVG(f.fraud_score), 2) AS avg_fraud_score
+  da.customer_name,
+  da.account_type,
+  da.branch,
+  da.customer_tier,
+  COUNT(f.transaction_key) AS txn_count,
+  ROUND(SUM(f.amount), 2) AS total_spend,
+  ROUND(AVG(f.fraud_score), 2) AS avg_fraud_score
 FROM bank.gold.fact_transactions f
 JOIN bank.gold.dim_account da ON f.account_key = da.account_key
 GROUP BY da.customer_name, da.account_type, da.branch, da.customer_tier
@@ -68,11 +68,11 @@ LIMIT 1;
 -- ===================== TEST 4: Merchant Category Distribution =====================
 
 SELECT
-    dm.category,
-    dm.risk_level,
-    COUNT(*) AS txn_count,
-    ROUND(SUM(f.amount), 2) AS category_total,
-    ROUND(AVG(f.amount), 2) AS avg_txn_amount
+  dm.category,
+  dm.risk_level,
+  COUNT(*) AS txn_count,
+  ROUND(SUM(f.amount), 2) AS category_total,
+  ROUND(AVG(f.amount), 2) AS avg_txn_amount
 FROM bank.gold.fact_transactions f
 JOIN bank.gold.dim_merchant dm ON f.merchant_key = dm.merchant_key
 GROUP BY dm.category, dm.risk_level
@@ -88,14 +88,14 @@ WHERE dm.category = 'travel';
 -- ===================== TEST 5: Fraud Detection Scoring =====================
 
 SELECT
-    f.transaction_date,
-    f.amount,
-    f.fraud_score,
-    f.channel,
-    dm.merchant_name,
-    dm.category,
-    dm.risk_level,
-    PERCENT_RANK() OVER (ORDER BY f.fraud_score) AS fraud_percentile
+  f.transaction_date,
+  f.amount,
+  f.fraud_score,
+  f.channel,
+  dm.merchant_name,
+  dm.category,
+  dm.risk_level,
+  PERCENT_RANK() OVER (ORDER BY f.fraud_score) AS fraud_percentile
 FROM bank.gold.fact_transactions f
 LEFT JOIN bank.gold.dim_merchant dm ON f.merchant_key = dm.merchant_key
 WHERE f.fraud_score >= 40
@@ -117,14 +117,14 @@ WHERE dm.category = 'crypto' AND f.fraud_score >= 25;
 -- ===================== TEST 6: Daily Volume KPIs =====================
 
 SELECT
-    transaction_date,
-    total_txns,
-    total_amount,
-    avg_amount,
-    fraud_flagged_count,
-    fraud_pct,
-    running_7d_avg_txns,
-    running_7d_avg_amount
+  transaction_date,
+  total_txns,
+  total_amount,
+  avg_amount,
+  fraud_flagged_count,
+  fraud_pct,
+  running_7d_avg_txns,
+  running_7d_avg_amount
 FROM bank.gold.kpi_daily_volumes
 ORDER BY transaction_date;
 
@@ -135,9 +135,9 @@ SELECT COUNT(*) AS distinct_days FROM bank.gold.kpi_daily_volumes;
 -- ===================== TEST 7: 7-Day Moving Average Validation =====================
 
 SELECT
-    transaction_date,
-    total_txns,
-    running_7d_avg_txns
+  transaction_date,
+  total_txns,
+  running_7d_avg_txns
 FROM bank.gold.kpi_daily_volumes
 WHERE running_7d_avg_txns IS NOT NULL
 ORDER BY transaction_date;
@@ -152,13 +152,13 @@ SELECT MAX(running_7d_avg_txns) AS max_7d_avg FROM bank.gold.kpi_daily_volumes;
 -- ===================== TEST 8: Account Balance Trajectory (LAG/LEAD) =====================
 
 SELECT
-    da.customer_name,
-    f.transaction_date,
-    f.amount,
-    f.transaction_type,
-    f.running_balance,
-    LAG(f.running_balance) OVER (PARTITION BY f.account_key ORDER BY f.transaction_date) AS prev_balance,
-    LEAD(f.running_balance) OVER (PARTITION BY f.account_key ORDER BY f.transaction_date) AS next_balance
+  da.customer_name,
+  f.transaction_date,
+  f.amount,
+  f.transaction_type,
+  f.running_balance,
+  LAG(f.running_balance) OVER (PARTITION BY f.account_key ORDER BY f.transaction_date) AS prev_balance,
+  LEAD(f.running_balance) OVER (PARTITION BY f.account_key ORDER BY f.transaction_date) AS next_balance
 FROM bank.gold.fact_transactions f
 JOIN bank.gold.dim_account da ON f.account_key = da.account_key
 WHERE da.customer_name = 'Alice Whitmore'
@@ -185,13 +185,13 @@ SELECT COUNT(*) AS snapshot_count FROM bank.silver.balance_snapshots;
 
 -- Show CDF snapshot details
 SELECT
-    snapshot_id,
-    account_id,
-    customer_name,
-    old_tier,
-    new_tier,
-    change_type,
-    snapshot_timestamp
+  snapshot_id,
+  account_id,
+  customer_name,
+  old_tier,
+  new_tier,
+  change_type,
+  snapshot_timestamp
 FROM bank.silver.balance_snapshots
 ORDER BY snapshot_timestamp DESC
 LIMIT 20;
@@ -199,11 +199,11 @@ LIMIT 20;
 -- ===================== TEST 11: Tier Migration Matrix =====================
 
 SELECT
-    from_tier,
-    to_tier,
-    migration_count,
-    period,
-    ROUND(avg_balance, 2) AS avg_balance
+  from_tier,
+  to_tier,
+  migration_count,
+  period,
+  ROUND(avg_balance, 2) AS avg_balance
 FROM bank.gold.kpi_customer_health
 ORDER BY from_tier, to_tier;
 
@@ -225,10 +225,10 @@ FROM bank.silver.customer_dim;
 -- Current should have more rows than version 1 (due to SCD2 expansion)
 ASSERT VALUE version_growth >= 0
 SELECT
-    curr.cnt - v1.cnt AS version_growth
+  curr.cnt - v1.cnt AS version_growth
 FROM
-    (SELECT COUNT(*) AS cnt FROM bank.silver.customer_dim) curr,
-    (SELECT COUNT(*) AS cnt FROM bank.silver.customer_dim VERSION AS OF 1) v1;
+  (SELECT COUNT(*) AS cnt FROM bank.silver.customer_dim) curr,
+  (SELECT COUNT(*) AS cnt FROM bank.silver.customer_dim VERSION AS OF 1) v1;
 
 -- ===================== TEST 13: dim_date Weekend/Weekday Distribution =====================
 

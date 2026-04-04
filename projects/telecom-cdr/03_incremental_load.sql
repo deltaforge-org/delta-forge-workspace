@@ -26,7 +26,7 @@ SELECT MAX(unified_at) AS current_watermark
 FROM telco.silver.cdr_unified;
 
 SELECT
-    'silver.cdr_unified' AS table_name, COUNT(*) AS row_count
+  'silver.cdr_unified' AS table_name, COUNT(*) AS row_count
 FROM telco.silver.cdr_unified
 UNION ALL
 SELECT 'gold.fact_calls', COUNT(*)
@@ -41,8 +41,8 @@ FROM telco.gold.kpi_churn_risk;
 -- Includes 1 roaming event, 1 dropped call, 1 5G handover, long data session.
 
 INSERT INTO telco.bronze.raw_cdr_v3 (
-    call_id, caller, callee, start_time, end_time, tower_id, duration_sec,
-    call_type, data_usage_mb, sms_count, roaming_flag, network_type, handover_count, ingested_at
+  call_id, caller, callee, start_time, end_time, tower_id, duration_sec,
+  call_type, data_usage_mb, sms_count, roaming_flag, network_type, handover_count, ingested_at
 ) VALUES
 ('V3-021', '+1-212-555-1001', '+1-415-555-2002', '2024-10-01T08:00:00', '2024-10-01T08:22:45', 'TWR-NE-01', 1365, 'voice', 0.00,   0, false, '5G',  0, '2024-10-01T12:00:00'),
 ('V3-022', '+1-415-555-2002', '+1-305-555-9009', '2024-10-01T09:00:00', NULL,                  'TWR-W-01',  NULL, 'data',  680.00, 0, true,  '5G',  0, '2024-10-01T12:00:00'),
@@ -66,56 +66,56 @@ WHERE ingested_at >= '2024-10-01T00:00:00';
 
 MERGE INTO telco.silver.cdr_unified AS tgt
 USING (
-    WITH subscriber_lookup AS (
-        SELECT subscriber_id, phone_number
-        FROM telco.bronze.raw_subscribers
-    )
-    SELECT
-        v.call_id,
-        v.caller,
-        v.callee,
-        caller_sub.subscriber_id AS caller_id,
-        callee_sub.subscriber_id AS callee_id,
-        v.tower_id,
-        t.city          AS tower_city,
-        t.region        AS tower_region,
-        v.start_time,
-        v.end_time,
-        v.duration_sec,
-        v.call_type,
-        COALESCE(v.data_usage_mb, 0.00) AS data_usage_mb,
-        COALESCE(v.sms_count, 0)        AS sms_count,
-        COALESCE(v.roaming_flag, false)  AS roaming_flag,
-        v.network_type,
-        COALESCE(v.handover_count, 0)    AS handover_count,
-        CASE
-            WHEN v.call_type = 'voice' AND v.duration_sec IS NOT NULL AND v.duration_sec < 10
-            THEN true ELSE false
-        END AS drop_flag,
-        CASE
-            WHEN v.call_type = 'voice' THEN CAST(COALESCE(v.duration_sec, 0) * 0.01 AS DECIMAL(8,2))
-            WHEN v.call_type = 'data'  THEN CAST(COALESCE(v.data_usage_mb, 0) * 0.01 AS DECIMAL(8,2))
-            WHEN v.call_type = 'sms'   THEN CAST(COALESCE(v.sms_count, 0) * 0.05 AS DECIMAL(8,2))
-            ELSE 0.00
-        END AS revenue,
-        3               AS schema_version,
-        v.ingested_at   AS unified_at
-    FROM telco.bronze.raw_cdr_v3 v
-    LEFT JOIN subscriber_lookup caller_sub ON v.caller = caller_sub.phone_number
-    LEFT JOIN subscriber_lookup callee_sub ON v.callee = callee_sub.phone_number
-    LEFT JOIN telco.bronze.raw_cell_towers t ON v.tower_id = t.tower_id
-    WHERE {{INCREMENTAL_FILTER(telco.silver.cdr_unified, call_id, start_time, 1)}}
+  WITH subscriber_lookup AS (
+      SELECT subscriber_id, phone_number
+      FROM telco.bronze.raw_subscribers
+  )
+  SELECT
+      v.call_id,
+      v.caller,
+      v.callee,
+      caller_sub.subscriber_id AS caller_id,
+      callee_sub.subscriber_id AS callee_id,
+      v.tower_id,
+      t.city          AS tower_city,
+      t.region        AS tower_region,
+      v.start_time,
+      v.end_time,
+      v.duration_sec,
+      v.call_type,
+      COALESCE(v.data_usage_mb, 0.00) AS data_usage_mb,
+      COALESCE(v.sms_count, 0)        AS sms_count,
+      COALESCE(v.roaming_flag, false)  AS roaming_flag,
+      v.network_type,
+      COALESCE(v.handover_count, 0)    AS handover_count,
+      CASE
+          WHEN v.call_type = 'voice' AND v.duration_sec IS NOT NULL AND v.duration_sec < 10
+          THEN true ELSE false
+      END AS drop_flag,
+      CASE
+          WHEN v.call_type = 'voice' THEN CAST(COALESCE(v.duration_sec, 0) * 0.01 AS DECIMAL(8,2))
+          WHEN v.call_type = 'data'  THEN CAST(COALESCE(v.data_usage_mb, 0) * 0.01 AS DECIMAL(8,2))
+          WHEN v.call_type = 'sms'   THEN CAST(COALESCE(v.sms_count, 0) * 0.05 AS DECIMAL(8,2))
+          ELSE 0.00
+      END AS revenue,
+      3               AS schema_version,
+      v.ingested_at   AS unified_at
+  FROM telco.bronze.raw_cdr_v3 v
+  LEFT JOIN subscriber_lookup caller_sub ON v.caller = caller_sub.phone_number
+  LEFT JOIN subscriber_lookup callee_sub ON v.callee = callee_sub.phone_number
+  LEFT JOIN telco.bronze.raw_cell_towers t ON v.tower_id = t.tower_id
+  WHERE {{INCREMENTAL_FILTER(telco.silver.cdr_unified, call_id, start_time, 1)}}
 ) AS src
 ON tgt.call_id = src.call_id
 WHEN NOT MATCHED THEN INSERT (
-    call_id, caller, callee, caller_id, callee_id, tower_id, tower_city, tower_region,
-    start_time, end_time, duration_sec, call_type, data_usage_mb, sms_count,
-    roaming_flag, network_type, handover_count, drop_flag, revenue, schema_version, unified_at
+  call_id, caller, callee, caller_id, callee_id, tower_id, tower_city, tower_region,
+  start_time, end_time, duration_sec, call_type, data_usage_mb, sms_count,
+  roaming_flag, network_type, handover_count, drop_flag, revenue, schema_version, unified_at
 ) VALUES (
-    src.call_id, src.caller, src.callee, src.caller_id, src.callee_id, src.tower_id,
-    src.tower_city, src.tower_region, src.start_time, src.end_time, src.duration_sec,
-    src.call_type, src.data_usage_mb, src.sms_count, src.roaming_flag, src.network_type,
-    src.handover_count, src.drop_flag, src.revenue, src.schema_version, src.unified_at
+  src.call_id, src.caller, src.callee, src.caller_id, src.callee_id, src.tower_id,
+  src.tower_city, src.tower_region, src.start_time, src.end_time, src.duration_sec,
+  src.call_type, src.data_usage_mb, src.sms_count, src.roaming_flag, src.network_type,
+  src.handover_count, src.drop_flag, src.revenue, src.schema_version, src.unified_at
 );
 
 -- =============================================================================

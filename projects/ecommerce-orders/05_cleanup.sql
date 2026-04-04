@@ -13,6 +13,7 @@ PIPELINE ecommerce_orders_cleanup
   LIFECYCLE production
 ;
 
+
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
 DROP PSEUDONYMISATION RULE ON ecom.bronze.raw_customers (email);

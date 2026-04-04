@@ -29,23 +29,23 @@ SELECT MAX(processed_at) AS current_watermark FROM ins.silver.claims_enriched;
 
 -- POL003 gets a premium increase, POL010 gets a coverage upgrade
 INSERT INTO ins.bronze.raw_policies VALUES
-    ('POL003', 'Chris Okafor', '345-67-8901', 'auto', 1150.00, 'South', 'TX', 3.1, '2024-01-15', 'premium_increase', '2024-02-01T00:00:00'),
-    ('POL010', 'Julia Fernandez', '012-34-5678', 'auto_plus', 1200.00, 'West', 'CO', 2.2, '2024-01-15', 'coverage_upgrade', '2024-02-01T00:00:00');
+  ('POL003', 'Chris Okafor', '345-67-8901', 'auto', 1150.00, 'South', 'TX', 3.1, '2024-01-15', 'premium_increase', '2024-02-01T00:00:00'),
+  ('POL010', 'Julia Fernandez', '012-34-5678', 'auto_plus', 1200.00, 'West', 'CO', 2.2, '2024-01-15', 'coverage_upgrade', '2024-02-01T00:00:00');
 
 -- =============================================================================
 -- New claims arriving (5 new + 1 updated settlement)
 -- =============================================================================
 
 INSERT INTO ins.bronze.raw_claims VALUES
-    ('C0046', 'POL003', 'CLM03', 'ADJ02', '2024-01-18', '2024-01-19',  4800.00,     NULL, 'filed',  NULL,         'Rear bumper damage parking lot',  '2024-02-01T00:00:00'),
-    ('C0047', 'POL010', 'CLM10', 'ADJ02', '2024-01-20', '2024-01-21',  8200.00,     NULL, 'filed',  NULL,         'Collision at intersection',       '2024-02-01T00:00:00'),
-    ('C0048', 'POL004', 'CLM04', 'ADJ04', '2024-01-15', '2024-01-16', 12500.00,     NULL, 'under_review', NULL,   'MRI and specialist referral',     '2024-02-01T00:00:00'),
-    ('C0049', 'POL011', 'CLM11', 'ADJ06', '2024-01-12', '2024-01-14', 16000.00,     NULL, 'filed',  NULL,         'Bathroom flood damage',           '2024-02-01T00:00:00'),
-    ('C0050', 'POL005', 'CLM05', 'ADJ03', '2024-01-16', '2024-01-18', 55000.00,     NULL, 'filed',  NULL,         'Major liability incident',        '2024-02-01T00:00:00');
+  ('C0046', 'POL003', 'CLM03', 'ADJ02', '2024-01-18', '2024-01-19',  4800.00,     NULL, 'filed',  NULL,         'Rear bumper damage parking lot',  '2024-02-01T00:00:00'),
+  ('C0047', 'POL010', 'CLM10', 'ADJ02', '2024-01-20', '2024-01-21',  8200.00,     NULL, 'filed',  NULL,         'Collision at intersection',       '2024-02-01T00:00:00'),
+  ('C0048', 'POL004', 'CLM04', 'ADJ04', '2024-01-15', '2024-01-16', 12500.00,     NULL, 'under_review', NULL,   'MRI and specialist referral',     '2024-02-01T00:00:00'),
+  ('C0049', 'POL011', 'CLM11', 'ADJ06', '2024-01-12', '2024-01-14', 16000.00,     NULL, 'filed',  NULL,         'Bathroom flood damage',           '2024-02-01T00:00:00'),
+  ('C0050', 'POL005', 'CLM05', 'ADJ03', '2024-01-16', '2024-01-18', 55000.00,     NULL, 'filed',  NULL,         'Major liability incident',        '2024-02-01T00:00:00');
 
 -- Update C0025 to settled (was under_review)
 INSERT INTO ins.bronze.raw_claims VALUES
-    ('C0025', 'POL001', 'CLM01', 'ADJ02', '2023-12-10', '2023-12-12', 11000.00,  9200.00, 'settled', '2024-01-18', 'Multi-vehicle accident - SETTLED', '2024-02-01T00:00:00');
+  ('C0025', 'POL001', 'CLM01', 'ADJ02', '2023-12-10', '2023-12-12', 11000.00,  9200.00, 'settled', '2024-01-18', 'Multi-vehicle accident - SETTLED', '2024-02-01T00:00:00');
 
 -- =============================================================================
 -- Re-run SCD2 two-pass MERGE for policy changes
@@ -54,58 +54,58 @@ INSERT INTO ins.bronze.raw_claims VALUES
 -- PASS 1: Expire old versions
 MERGE INTO ins.silver.policy_dim AS target
 USING (
-    WITH ranked AS (
-        SELECT
-            policy_id, holder_name, coverage_type, annual_premium,
-            region, state, risk_score, effective_date,
-            LEAD(effective_date) OVER (PARTITION BY policy_id ORDER BY effective_date) AS next_effective_date,
-            ROW_NUMBER() OVER (ORDER BY policy_id, effective_date) AS surrogate_key
-        FROM ins.bronze.raw_policies
-    )
-    SELECT
-        surrogate_key, policy_id, holder_name, coverage_type, annual_premium,
-        region, state, risk_score,
-        effective_date AS valid_from,
-        next_effective_date AS valid_to,
-        CASE WHEN next_effective_date IS NULL THEN 1 ELSE 0 END AS is_current
-    FROM ranked
+  WITH ranked AS (
+      SELECT
+          policy_id, holder_name, coverage_type, annual_premium,
+          region, state, risk_score, effective_date,
+          LEAD(effective_date) OVER (PARTITION BY policy_id ORDER BY effective_date) AS next_effective_date,
+          ROW_NUMBER() OVER (ORDER BY policy_id, effective_date) AS surrogate_key
+      FROM ins.bronze.raw_policies
+  )
+  SELECT
+      surrogate_key, policy_id, holder_name, coverage_type, annual_premium,
+      region, state, risk_score,
+      effective_date AS valid_from,
+      next_effective_date AS valid_to,
+      CASE WHEN next_effective_date IS NULL THEN 1 ELSE 0 END AS is_current
+  FROM ranked
 ) AS source
 ON target.policy_id = source.policy_id AND target.valid_from = source.valid_from
 WHEN MATCHED THEN UPDATE SET
-    valid_to       = source.valid_to,
-    is_current     = source.is_current,
-    annual_premium = source.annual_premium,
-    coverage_type  = source.coverage_type,
-    risk_score     = source.risk_score,
-    processed_at   = CURRENT_TIMESTAMP
+  valid_to       = source.valid_to,
+  is_current     = source.is_current,
+  annual_premium = source.annual_premium,
+  coverage_type  = source.coverage_type,
+  risk_score     = source.risk_score,
+  processed_at   = CURRENT_TIMESTAMP
 WHEN NOT MATCHED THEN INSERT (
-    surrogate_key, policy_id, holder_name, coverage_type, annual_premium,
-    region, state, risk_score, valid_from, valid_to, is_current, processed_at
+  surrogate_key, policy_id, holder_name, coverage_type, annual_premium,
+  region, state, risk_score, valid_from, valid_to, is_current, processed_at
 ) VALUES (
-    source.surrogate_key, source.policy_id, source.holder_name, source.coverage_type,
-    source.annual_premium, source.region, source.state, source.risk_score,
-    source.valid_from, source.valid_to, source.is_current, CURRENT_TIMESTAMP
+  source.surrogate_key, source.policy_id, source.holder_name, source.coverage_type,
+  source.annual_premium, source.region, source.state, source.risk_score,
+  source.valid_from, source.valid_to, source.is_current, CURRENT_TIMESTAMP
 );
 
 -- PASS 2: Ensure current versions are up to date
 MERGE INTO ins.silver.policy_dim AS target
 USING (
-    WITH latest AS (
-        SELECT policy_id, holder_name, coverage_type, annual_premium,
-               region, state, risk_score, effective_date AS valid_from,
-               ROW_NUMBER() OVER (PARTITION BY policy_id ORDER BY effective_date DESC) AS rn
-        FROM ins.bronze.raw_policies
-    )
-    SELECT * FROM latest WHERE rn = 1
+  WITH latest AS (
+      SELECT policy_id, holder_name, coverage_type, annual_premium,
+             region, state, risk_score, effective_date AS valid_from,
+             ROW_NUMBER() OVER (PARTITION BY policy_id ORDER BY effective_date DESC) AS rn
+      FROM ins.bronze.raw_policies
+  )
+  SELECT * FROM latest WHERE rn = 1
 ) AS source
 ON target.policy_id = source.policy_id AND target.valid_from = source.valid_from AND target.is_current = 1
 WHEN MATCHED THEN UPDATE SET
-    coverage_type  = source.coverage_type,
-    annual_premium = source.annual_premium,
-    risk_score     = source.risk_score,
-    valid_to       = NULL,
-    is_current     = 1,
-    processed_at   = CURRENT_TIMESTAMP;
+  coverage_type  = source.coverage_type,
+  annual_premium = source.annual_premium,
+  risk_score     = source.risk_score,
+  valid_to       = NULL,
+  is_current     = 1,
+  processed_at   = CURRENT_TIMESTAMP;
 
 -- =============================================================================
 -- Incremental claims enrichment using INCREMENTAL_FILTER
@@ -113,67 +113,67 @@ WHEN MATCHED THEN UPDATE SET
 
 MERGE INTO ins.silver.claims_enriched AS target
 USING (
-    WITH claim_with_policy AS (
-        SELECT
-            c.claim_id, c.policy_id, c.claimant_id, c.adjuster_id,
-            c.incident_date, c.reported_date, c.claim_amount, c.approved_amount,
-            c.status, c.settlement_date,
-            CASE WHEN c.settlement_date IS NOT NULL THEN DATEDIFF(c.settlement_date, c.incident_date) ELSE NULL END AS days_to_settle,
-            DATEDIFF(c.reported_date, c.incident_date) AS days_to_report,
-            p.coverage_type, p.annual_premium AS annual_premium_at_incident,
-            p.region, p.risk_score AS risk_score_at_incident
-        FROM ins.bronze.raw_claims c
-        JOIN ins.silver.policy_dim p
-            ON c.policy_id = p.policy_id
-            AND c.incident_date >= p.valid_from
-            AND (p.valid_to IS NULL OR c.incident_date < p.valid_to)
-        WHERE {{INCREMENTAL_FILTER(ins.silver.claims_enriched, claim_id, incident_date, 7)}}
-    ),
-    coverage_stats AS (
-        SELECT coverage_type, AVG(claim_amount) AS avg_claim, STDDEV(claim_amount) AS stddev_claim
-        FROM claim_with_policy
-        GROUP BY coverage_type
-    )
-    SELECT
-        cp.*,
-        CASE
-            WHEN cp.claim_amount > cs.avg_claim * 2.5 THEN 'high_risk'
-            WHEN cp.claim_amount > cs.avg_claim * 1.5 THEN 'medium_risk'
-            ELSE 'low_risk'
-        END AS fraud_risk,
-        CASE
-            WHEN cs.stddev_claim > 0
-            THEN CAST((cp.claim_amount - cs.avg_claim) / cs.stddev_claim AS DECIMAL(5,2))
-            ELSE 0
-        END AS fraud_score
-    FROM claim_with_policy cp
-    JOIN coverage_stats cs ON cp.coverage_type = cs.coverage_type
+  WITH claim_with_policy AS (
+      SELECT
+          c.claim_id, c.policy_id, c.claimant_id, c.adjuster_id,
+          c.incident_date, c.reported_date, c.claim_amount, c.approved_amount,
+          c.status, c.settlement_date,
+          CASE WHEN c.settlement_date IS NOT NULL THEN DATEDIFF(c.settlement_date, c.incident_date) ELSE NULL END AS days_to_settle,
+          DATEDIFF(c.reported_date, c.incident_date) AS days_to_report,
+          p.coverage_type, p.annual_premium AS annual_premium_at_incident,
+          p.region, p.risk_score AS risk_score_at_incident
+      FROM ins.bronze.raw_claims c
+      JOIN ins.silver.policy_dim p
+          ON c.policy_id = p.policy_id
+          AND c.incident_date >= p.valid_from
+          AND (p.valid_to IS NULL OR c.incident_date < p.valid_to)
+      WHERE {{INCREMENTAL_FILTER(ins.silver.claims_enriched, claim_id, incident_date, 7)}}
+  ),
+  coverage_stats AS (
+      SELECT coverage_type, AVG(claim_amount) AS avg_claim, STDDEV(claim_amount) AS stddev_claim
+      FROM claim_with_policy
+      GROUP BY coverage_type
+  )
+  SELECT
+      cp.*,
+      CASE
+          WHEN cp.claim_amount > cs.avg_claim * 2.5 THEN 'high_risk'
+          WHEN cp.claim_amount > cs.avg_claim * 1.5 THEN 'medium_risk'
+          ELSE 'low_risk'
+      END AS fraud_risk,
+      CASE
+          WHEN cs.stddev_claim > 0
+          THEN CAST((cp.claim_amount - cs.avg_claim) / cs.stddev_claim AS DECIMAL(5,2))
+          ELSE 0
+      END AS fraud_score
+  FROM claim_with_policy cp
+  JOIN coverage_stats cs ON cp.coverage_type = cs.coverage_type
 ) AS source
 ON target.claim_id = source.claim_id
 WHEN MATCHED THEN UPDATE SET
-    approved_amount            = source.approved_amount,
-    status                     = source.status,
-    settlement_date            = source.settlement_date,
-    days_to_settle             = source.days_to_settle,
-    coverage_type              = source.coverage_type,
-    annual_premium_at_incident = source.annual_premium_at_incident,
-    region                     = source.region,
-    risk_score_at_incident     = source.risk_score_at_incident,
-    fraud_risk                 = source.fraud_risk,
-    fraud_score                = source.fraud_score,
-    processed_at               = CURRENT_TIMESTAMP
+  approved_amount            = source.approved_amount,
+  status                     = source.status,
+  settlement_date            = source.settlement_date,
+  days_to_settle             = source.days_to_settle,
+  coverage_type              = source.coverage_type,
+  annual_premium_at_incident = source.annual_premium_at_incident,
+  region                     = source.region,
+  risk_score_at_incident     = source.risk_score_at_incident,
+  fraud_risk                 = source.fraud_risk,
+  fraud_score                = source.fraud_score,
+  processed_at               = CURRENT_TIMESTAMP
 WHEN NOT MATCHED THEN INSERT (
-    claim_id, policy_id, claimant_id, adjuster_id, incident_date, reported_date,
-    claim_amount, approved_amount, status, settlement_date, days_to_settle,
-    days_to_report, coverage_type, annual_premium_at_incident, region,
-    risk_score_at_incident, fraud_risk, fraud_score, processed_at
+  claim_id, policy_id, claimant_id, adjuster_id, incident_date, reported_date,
+  claim_amount, approved_amount, status, settlement_date, days_to_settle,
+  days_to_report, coverage_type, annual_premium_at_incident, region,
+  risk_score_at_incident, fraud_risk, fraud_score, processed_at
 ) VALUES (
-    source.claim_id, source.policy_id, source.claimant_id, source.adjuster_id,
-    source.incident_date, source.reported_date, source.claim_amount,
-    source.approved_amount, source.status, source.settlement_date,
-    source.days_to_settle, source.days_to_report, source.coverage_type,
-    source.annual_premium_at_incident, source.region, source.risk_score_at_incident,
-    source.fraud_risk, source.fraud_score, CURRENT_TIMESTAMP
+  source.claim_id, source.policy_id, source.claimant_id, source.adjuster_id,
+  source.incident_date, source.reported_date, source.claim_amount,
+  source.approved_amount, source.status, source.settlement_date,
+  source.days_to_settle, source.days_to_report, source.coverage_type,
+  source.annual_premium_at_incident, source.region, source.risk_score_at_incident,
+  source.fraud_risk, source.fraud_score, CURRENT_TIMESTAMP
 );
 
 -- =============================================================================
@@ -182,25 +182,25 @@ WHEN NOT MATCHED THEN INSERT (
 
 MERGE INTO ins.silver.actuarial_snapshots AS tgt
 USING (
-    SELECT
-        claim_id || '-' || status || '-INC' AS snapshot_id,
-        claim_id,
-        policy_id,
-        status,
-        claim_amount,
-        approved_amount,
-        coverage_type,
-        'incremental_load' AS change_type
-    FROM ins.silver.claims_enriched
-    WHERE processed_at >= (SELECT MAX(processed_at) FROM ins.silver.claims_enriched)
+  SELECT
+      claim_id || '-' || status || '-INC' AS snapshot_id,
+      claim_id,
+      policy_id,
+      status,
+      claim_amount,
+      approved_amount,
+      coverage_type,
+      'incremental_load' AS change_type
+  FROM ins.silver.claims_enriched
+  WHERE processed_at >= (SELECT MAX(processed_at) FROM ins.silver.claims_enriched)
 ) AS src
 ON tgt.snapshot_id = src.snapshot_id
 WHEN NOT MATCHED THEN INSERT (
-    snapshot_id, claim_id, policy_id, status, claim_amount, approved_amount,
-    coverage_type, change_type, captured_at
+  snapshot_id, claim_id, policy_id, status, claim_amount, approved_amount,
+  coverage_type, change_type, captured_at
 ) VALUES (
-    src.snapshot_id, src.claim_id, src.policy_id, src.status, src.claim_amount,
-    src.approved_amount, src.coverage_type, src.change_type, CURRENT_TIMESTAMP
+  src.snapshot_id, src.claim_id, src.policy_id, src.status, src.claim_amount,
+  src.approved_amount, src.coverage_type, src.change_type, CURRENT_TIMESTAMP
 );
 
 -- =============================================================================
@@ -225,10 +225,10 @@ SELECT 'SCD2 grew: 23 -> 25 (2 new changes)' AS status;
 -- Verify no duplicate claims
 SELECT COUNT(*) AS dup_check
 FROM (
-    SELECT claim_id, COUNT(*) AS cnt
-    FROM ins.silver.claims_enriched
-    GROUP BY claim_id
-    HAVING COUNT(*) > 1
+  SELECT claim_id, COUNT(*) AS cnt
+  FROM ins.silver.claims_enriched
+  GROUP BY claim_id
+  HAVING COUNT(*) > 1
 );
 
 ASSERT VALUE dup_check = 0
