@@ -41,17 +41,28 @@ FROM mfg.gold.fact_readings;
 -- Includes 1 temperature anomaly (R-093: 91.0C spike on P1LA),
 -- 1 downtime event (R-100: 5min), normal readings across 4 plants.
 
-INSERT INTO mfg.bronze.raw_readings VALUES
-('R-091', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:00:00', 43.00,  31, 0, 0,  '2024-06-02T08:00:00'),
-('R-092', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:15:00', 43.50,  30, 1, 0,  '2024-06-02T08:00:00'),
-('R-093', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:30:00', 91.00,  28, 2, 0,  '2024-06-02T08:00:00'),
-('R-094', 'SEN-P2LA-TEMP', 'PLANT-02', 'Line-A', '2024-06-02T06:00:00', 55.50,  15, 0, 0,  '2024-06-02T08:00:00'),
-('R-095', 'SEN-P2LA-TEMP', 'PLANT-02', 'Line-A', '2024-06-02T06:15:00', 56.00,  14, 0, 0,  '2024-06-02T08:00:00'),
-('R-096', 'SEN-P3LA-TEMP', 'PLANT-03', 'Line-A', '2024-06-02T06:00:00', 32.50,  38, 0, 0,  '2024-06-02T08:00:00'),
-('R-097', 'SEN-P3LA-TEMP', 'PLANT-03', 'Line-A', '2024-06-02T06:15:00', 33.00,  37, 1, 0,  '2024-06-02T08:00:00'),
-('R-098', 'SEN-P4LA-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:00:00', 48.00,  22, 0, 0,  '2024-06-02T08:00:00'),
-('R-099', 'SEN-P4LA-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:15:00', 48.80,  23, 0, 0,  '2024-06-02T08:00:00'),
-('R-100', 'SEN-P4LA-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:30:00', 49.20,  22, 1, 5,  '2024-06-02T08:00:00');
+MERGE INTO mfg.bronze.raw_readings AS tgt
+USING (
+    VALUES
+    ('R-091', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:00:00', 43.00,  31, 0, 0,  '2024-06-02T08:00:00'),
+    ('R-092', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:15:00', 43.50,  30, 1, 0,  '2024-06-02T08:00:00'),
+    ('R-093', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-02T06:30:00', 91.00,  28, 2, 0,  '2024-06-02T08:00:00'),
+    ('R-094', 'SEN-P2LA-TEMP', 'PLANT-02', 'Line-A', '2024-06-02T06:00:00', 55.50,  15, 0, 0,  '2024-06-02T08:00:00'),
+    ('R-095', 'SEN-P2LA-TEMP', 'PLANT-02', 'Line-A', '2024-06-02T06:15:00', 56.00,  14, 0, 0,  '2024-06-02T08:00:00'),
+    ('R-096', 'SEN-P3LA-TEMP', 'PLANT-03', 'Line-A', '2024-06-02T06:00:00', 32.50,  38, 0, 0,  '2024-06-02T08:00:00'),
+    ('R-097', 'SEN-P3LA-TEMP', 'PLANT-03', 'Line-A', '2024-06-02T06:15:00', 33.00,  37, 1, 0,  '2024-06-02T08:00:00'),
+    ('R-098', 'SEN-P4LA-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:00:00', 48.00,  22, 0, 0,  '2024-06-02T08:00:00'),
+    ('R-099', 'SEN-P4LA-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:15:00', 48.80,  23, 0, 0,  '2024-06-02T08:00:00'),
+    ('R-100', 'SEN-P4LA-TEMP', 'PLANT-04', 'Line-A', '2024-06-02T06:30:00', 49.20,  22, 1, 5,  '2024-06-02T08:00:00')
+) AS src(reading_id, sensor_id, plant_id, line_name, reading_time, value, units_produced, defect_units, downtime_min, ingested_at)
+ON tgt.reading_id = src.reading_id
+WHEN NOT MATCHED THEN INSERT (
+    reading_id, sensor_id, plant_id, line_name, reading_time, value,
+    units_produced, defect_units, downtime_min, ingested_at
+) VALUES (
+    src.reading_id, src.sensor_id, src.plant_id, src.line_name, src.reading_time, src.value,
+    src.units_produced, src.defect_units, src.downtime_min, src.ingested_at
+);
 
 ASSERT ROW_COUNT = 10
 SELECT COUNT(*) AS new_reading_count

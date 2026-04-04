@@ -12,7 +12,8 @@ PIPELINE bank_bronze_seed
 -- ===================== BRONZE SEED: ACCOUNTS (12 rows) =====================
 -- 3 customers (ACC002, ACC005, ACC008) have tier upgrades from bronze->silver during the period
 
-INSERT INTO bank.bronze.raw_accounts VALUES
+MERGE INTO bank.bronze.raw_accounts AS target
+USING (VALUES
   ('ACC001', '4521-0001-8834-2210', 'checking', 'Alice Whitmore', 'Downtown', '2021-03-15', 'active', 12450.75, 'silver', '2024-01-15T00:00:00'),
   ('ACC002', '4521-0002-7712-3301', 'checking', 'Brian Kowalski', 'Midtown', '2020-08-22', 'active', 8920.30, 'bronze', '2024-01-15T00:00:00'),
   ('ACC003', '4521-0003-6698-4402', 'savings', 'Catherine Zhao', 'Westside', '2019-11-10', 'active', 45600.00, 'gold', '2024-01-15T00:00:00'),
@@ -24,22 +25,50 @@ INSERT INTO bank.bronze.raw_accounts VALUES
   ('ACC009', '4521-0009-0043-1108', 'savings', 'Irene Johansson', 'Westside', '2021-12-01', 'active', 32100.80, 'silver', '2024-01-15T00:00:00'),
   ('ACC010', '4521-0010-9921-2209', 'business', 'James Fernandez', 'Downtown', '2019-07-15', 'dormant', 890.00, 'bronze', '2024-01-15T00:00:00'),
   ('ACC011', '4521-0011-4455-6610', 'checking', 'Karen Mitchell', 'Northside', '2022-05-10', 'active', 9340.20, 'silver', '2024-01-15T00:00:00'),
-  ('ACC012', '4521-0012-3322-7711', 'savings', 'Luis Ramirez', 'Eastside', '2023-08-01', 'active', 18750.00, 'bronze', '2024-01-15T00:00:00');
+  ('ACC012', '4521-0012-3322-7711', 'savings', 'Luis Ramirez', 'Eastside', '2023-08-01', 'active', 18750.00, 'bronze', '2024-01-15T00:00:00')
+) AS source(account_id, account_number, account_type, customer_name, branch, open_date, status, current_balance, customer_tier, ingested_at)
+ON target.account_id = source.account_id AND target.ingested_at = source.ingested_at
+WHEN MATCHED THEN UPDATE SET
+  account_number = source.account_number,
+  account_type = source.account_type,
+  customer_name = source.customer_name,
+  branch = source.branch,
+  open_date = source.open_date,
+  status = source.status,
+  current_balance = source.current_balance,
+  customer_tier = source.customer_tier
+WHEN NOT MATCHED THEN INSERT (account_id, account_number, account_type, customer_name, branch, open_date, status, current_balance, customer_tier, ingested_at)
+VALUES (source.account_id, source.account_number, source.account_type, source.customer_name, source.branch, source.open_date, source.status, source.current_balance, source.customer_tier, source.ingested_at);
 
 ASSERT ROW_COUNT = 12
 SELECT COUNT(*) AS row_count FROM bank.bronze.raw_accounts;
 
 -- Tier upgrade records for SCD2 (3 customers upgraded bronze->silver)
 -- These will be ingested later to simulate the upgrade event
-INSERT INTO bank.bronze.raw_accounts VALUES
+MERGE INTO bank.bronze.raw_accounts AS target
+USING (VALUES
   ('ACC002', '4521-0002-7712-3301', 'checking', 'Brian Kowalski', 'Midtown', '2020-08-22', 'active', 12450.00, 'silver', '2024-02-01T00:00:00'),
   ('ACC005', '4521-0005-4421-6604', 'savings', 'Elena Petrova', 'Downtown', '2020-06-18', 'active', 85000.00, 'silver', '2024-02-01T00:00:00'),
-  ('ACC008', '4521-0008-1165-9907', 'checking', 'Hassan Al-Rashid', 'Southside', '2023-02-28', 'active', 11200.00, 'silver', '2024-02-01T00:00:00');
+  ('ACC008', '4521-0008-1165-9907', 'checking', 'Hassan Al-Rashid', 'Southside', '2023-02-28', 'active', 11200.00, 'silver', '2024-02-01T00:00:00')
+) AS source(account_id, account_number, account_type, customer_name, branch, open_date, status, current_balance, customer_tier, ingested_at)
+ON target.account_id = source.account_id AND target.ingested_at = source.ingested_at
+WHEN MATCHED THEN UPDATE SET
+  account_number = source.account_number,
+  account_type = source.account_type,
+  customer_name = source.customer_name,
+  branch = source.branch,
+  open_date = source.open_date,
+  status = source.status,
+  current_balance = source.current_balance,
+  customer_tier = source.customer_tier
+WHEN NOT MATCHED THEN INSERT (account_id, account_number, account_type, customer_name, branch, open_date, status, current_balance, customer_tier, ingested_at)
+VALUES (source.account_id, source.account_number, source.account_type, source.customer_name, source.branch, source.open_date, source.status, source.current_balance, source.customer_tier, source.ingested_at);
 
 
 -- ===================== BRONZE SEED: MERCHANTS (15 rows) =====================
 
-INSERT INTO bank.bronze.raw_merchants VALUES
+MERGE INTO bank.bronze.raw_merchants AS target
+USING (VALUES
   ('M001', 'FreshMart Groceries', 'groceries', 'New York', 'US', 'low', '2024-01-15T00:00:00'),
   ('M002', 'Bistro Roma', 'dining', 'New York', 'US', 'low', '2024-01-15T00:00:00'),
   ('M003', 'JetBlue Airways', 'travel', 'Boston', 'US', 'medium', '2024-01-15T00:00:00'),
@@ -54,7 +83,18 @@ INSERT INTO bank.bronze.raw_merchants VALUES
   ('M012', 'Best Buy Electronics', 'electronics', 'Minneapolis', 'US', 'low', '2024-01-15T00:00:00'),
   ('M013', 'Marriott Hotels', 'travel', 'Miami', 'US', 'medium', '2024-01-15T00:00:00'),
   ('M014', 'Crypto Exchange XYZ', 'crypto', 'Offshore', 'KY', 'high', '2024-01-15T00:00:00'),
-  ('M015', 'Target Retail', 'retail', 'Minneapolis', 'US', 'low', '2024-01-15T00:00:00');
+  ('M015', 'Target Retail', 'retail', 'Minneapolis', 'US', 'low', '2024-01-15T00:00:00')
+) AS source(merchant_id, merchant_name, category, city, country, risk_level, ingested_at)
+ON target.merchant_id = source.merchant_id
+WHEN MATCHED THEN UPDATE SET
+  merchant_name = source.merchant_name,
+  category = source.category,
+  city = source.city,
+  country = source.country,
+  risk_level = source.risk_level,
+  ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (merchant_id, merchant_name, category, city, country, risk_level, ingested_at)
+VALUES (source.merchant_id, source.merchant_name, source.category, source.city, source.country, source.risk_level, source.ingested_at);
 
 ASSERT ROW_COUNT = 15
 SELECT COUNT(*) AS row_count FROM bank.bronze.raw_merchants;
@@ -64,7 +104,8 @@ SELECT COUNT(*) AS row_count FROM bank.bronze.raw_merchants;
 -- Spans 2024-01-02 through 2024-01-31 (3 months of data)
 -- Includes: 5 high-fraud-score transactions, 3 velocity clusters, 2 late-night transactions
 
-INSERT INTO bank.bronze.raw_transactions VALUES
+MERGE INTO bank.bronze.raw_transactions AS target
+USING (VALUES
   -- Day 1: Jan 2 (7 txns)
   ('TXN00001', 'ACC001', 'M001', '2024-01-02T09:15:00', 87.42, 'debit', 'pos', false, '2024-01-15T00:00:00'),
   ('TXN00002', 'ACC001', 'M002', '2024-01-02T12:30:00', 45.80, 'debit', 'pos', false, '2024-01-15T00:00:00'),
@@ -150,7 +191,20 @@ INSERT INTO bank.bronze.raw_transactions VALUES
   ('TXN00067', 'ACC005', 'M008', '2024-01-14T10:20:00', 267.34, 'debit', 'pos', false, '2024-01-15T00:00:00'),
   ('TXN00068', 'ACC009', 'M002', '2024-01-14T13:00:00', 88.50, 'debit', 'pos', false, '2024-01-15T00:00:00'),
   ('TXN00069', 'ACC010', 'M005', '2024-01-14T16:00:00', 29.99, 'debit', 'online', false, '2024-01-15T00:00:00'),
-  ('TXN00070', 'ACC002', 'M009', '2024-01-14T07:30:00', 2100.00, 'debit', 'online', false, '2024-01-15T00:00:00');
+  ('TXN00070', 'ACC002', 'M009', '2024-01-14T07:30:00', 2100.00, 'debit', 'online', false, '2024-01-15T00:00:00')
+) AS source(transaction_id, account_id, merchant_id, transaction_date, amount, transaction_type, channel, is_suspicious, ingested_at)
+ON target.transaction_id = source.transaction_id
+WHEN MATCHED THEN UPDATE SET
+  account_id = source.account_id,
+  merchant_id = source.merchant_id,
+  transaction_date = source.transaction_date,
+  amount = source.amount,
+  transaction_type = source.transaction_type,
+  channel = source.channel,
+  is_suspicious = source.is_suspicious,
+  ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (transaction_id, account_id, merchant_id, transaction_date, amount, transaction_type, channel, is_suspicious, ingested_at)
+VALUES (source.transaction_id, source.account_id, source.merchant_id, source.transaction_date, source.amount, source.transaction_type, source.channel, source.is_suspicious, source.ingested_at);
 
 ASSERT ROW_COUNT = 70
 SELECT COUNT(*) AS row_count FROM bank.bronze.raw_transactions;

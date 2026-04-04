@@ -39,6 +39,8 @@ SELECT COUNT(*) AS row_count FROM realty.bronze.raw_agents;
 -- Batch 1: 2022 assessments for all 18 properties.
 -- Initial load: all records start as is_current = true.
 
+DELETE FROM realty.silver.property_dim WHERE 1=1;
+
 INSERT INTO realty.silver.property_dim
 SELECT
     ROW_NUMBER() OVER (ORDER BY p.parcel_id)                     AS surrogate_key,
@@ -181,6 +183,8 @@ SELECT COUNT(*) AS row_count FROM realty.silver.property_dim WHERE is_current = 
 -- Assessed value at time of sale = the assessment that was current on transaction_date.
 -- Also calculate assessed_vs_sale_ratio and flag assessment outliers (|ratio - 1| > 0.20).
 
+DELETE FROM realty.silver.transactions_enriched WHERE 1=1;
+
 INSERT INTO realty.silver.transactions_enriched
 SELECT
     t.transaction_id,
@@ -218,6 +222,8 @@ SELECT COUNT(*) AS row_count FROM realty.silver.transactions_enriched;
 
 -- ===================== dim_neighborhood =====================
 
+DELETE FROM realty.gold.dim_neighborhood WHERE 1=1;
+
 INSERT INTO realty.gold.dim_neighborhood
 SELECT
     ROW_NUMBER() OVER (ORDER BY n.neighborhood_id)               AS neighborhood_key,
@@ -234,6 +240,8 @@ FROM realty.bronze.raw_neighborhoods n;
 
 -- ===================== dim_agent =====================
 
+DELETE FROM realty.gold.dim_agent WHERE 1=1;
+
 INSERT INTO realty.gold.dim_agent
 SELECT
     ROW_NUMBER() OVER (ORDER BY a.agent_id)                     AS agent_key,
@@ -248,6 +256,8 @@ FROM realty.bronze.raw_agents a;
 
 -- ===================== dim_property_type =====================
 
+DELETE FROM realty.gold.dim_property_type WHERE 1=1;
+
 INSERT INTO realty.gold.dim_property_type
 SELECT
     ROW_NUMBER() OVER (ORDER BY pd.property_type)                AS property_type_key,
@@ -261,6 +271,8 @@ GROUP BY pd.property_type;
 
 -- ===================== build_fact_transactions =====================
 -- Star schema fact joining enriched transactions with all dimensions.
+
+DELETE FROM realty.gold.fact_transactions WHERE 1=1;
 
 INSERT INTO realty.gold.fact_transactions
 SELECT
@@ -291,6 +303,8 @@ JOIN realty.gold.dim_property_type dpt
 
 -- ===================== kpi_market_trends =====================
 -- Market trends by city x property_type x quarter.
+
+DELETE FROM realty.gold.kpi_market_trends WHERE 1=1;
 
 INSERT INTO realty.gold.kpi_market_trends
 SELECT
@@ -336,6 +350,8 @@ GROUP BY pd.city, dpt.property_type,
 -- ===================== kpi_assessment_accuracy =====================
 -- Assessed value vs actual sale price analysis by county x property_type x assessment_year.
 -- COD (Coefficient of Dispersion) = avg absolute deviation from median ratio.
+
+DELETE FROM realty.gold.kpi_assessment_accuracy WHERE 1=1;
 
 INSERT INTO realty.gold.kpi_assessment_accuracy
 SELECT
@@ -402,6 +418,8 @@ ASSERT ROW_COUNT = 38
 SELECT COUNT(*) AS row_count FROM realty.silver.property_dim;
 
 -- Log the correction event
+DELETE FROM realty.silver.correction_log WHERE 1=1;
+
 INSERT INTO realty.silver.correction_log VALUES (
     1,
     'silver.property_dim',

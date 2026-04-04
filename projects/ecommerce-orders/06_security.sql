@@ -11,8 +11,11 @@ PIPELINE ecommerce_security
 
 -- ===================== PSEUDONYMISATION =====================
 
+DROP PSEUDONYMISATION RULE IF EXISTS ON ecom.bronze.raw_customers (email);
 CREATE PSEUDONYMISATION RULE ON ecom.bronze.raw_customers (email) TRANSFORM redact PARAMS (mask = '***@***.***');
+DROP PSEUDONYMISATION RULE IF EXISTS ON ecom.silver.customer_rfm (email);
 CREATE PSEUDONYMISATION RULE ON ecom.silver.customer_rfm (email) TRANSFORM redact PARAMS (mask = '***@***.***');
+DROP PSEUDONYMISATION RULE IF EXISTS ON ecom.bronze.raw_customers (address);
 CREATE PSEUDONYMISATION RULE ON ecom.bronze.raw_customers (address) TRANSFORM mask PARAMS (show = 5);
 
 -- ===================== GRANTS =====================

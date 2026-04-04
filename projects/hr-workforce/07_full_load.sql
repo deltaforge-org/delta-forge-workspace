@@ -35,6 +35,8 @@ SELECT COUNT(*) AS row_count FROM hr.bronze.raw_positions;
 -- ===================== build_employee_scd2_initial =====================
 -- Pass 1 of 3: Load initial hire records for each employee
 
+DELETE FROM hr.silver.employee_dim WHERE 1=1;
+
 INSERT INTO hr.silver.employee_dim
 SELECT
     ROW_NUMBER() OVER (ORDER BY e.employee_id) AS surrogate_key,
@@ -93,33 +95,45 @@ WHEN MATCHED THEN UPDATE SET
 -- Pass 3 of 3: Insert new current version for each changed employee
 -- Takes the LATEST change event per employee as the current state
 
-INSERT INTO hr.silver.employee_dim
-SELECT
-    20 + ROW_NUMBER() OVER (ORDER BY ce.employee_id, ce.event_date) AS surrogate_key,
-    ce.employee_id,
-    TRIM(e.employee_name) AS employee_name,
-    e.ssn,
-    e.email,
-    CAST(e.hire_date AS DATE) AS hire_date,
-    CAST(e.termination_date AS DATE) AS termination_date,
-    ce.department_id,
-    ce.position_id,
-    e.education_level,
-    e.gender,
-    CAST(e.date_of_birth AS DATE) AS date_of_birth,
-    ce.base_salary,
-    e.status,
-    CAST(ce.event_date AS DATE) AS valid_from,
-    CAST(NULL AS DATE) AS valid_to,
-    true AS is_current
-FROM (
-    SELECT employee_id, department_id, position_id, base_salary, event_date,
-           ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date DESC) AS rn
-    FROM hr.bronze.raw_comp_events
-    WHERE event_type IN ('promotion', 'salary_adjustment', 'transfer')
-) ce
-JOIN hr.bronze.raw_employees e ON ce.employee_id = e.employee_id
-WHERE ce.rn = 1;
+MERGE INTO hr.silver.employee_dim AS tgt
+USING (
+    SELECT
+        20 + ROW_NUMBER() OVER (ORDER BY ce.employee_id, ce.event_date) AS surrogate_key,
+        ce.employee_id,
+        TRIM(e.employee_name) AS employee_name,
+        e.ssn,
+        e.email,
+        CAST(e.hire_date AS DATE) AS hire_date,
+        CAST(e.termination_date AS DATE) AS termination_date,
+        ce.department_id,
+        ce.position_id,
+        e.education_level,
+        e.gender,
+        CAST(e.date_of_birth AS DATE) AS date_of_birth,
+        ce.base_salary,
+        e.status,
+        CAST(ce.event_date AS DATE) AS valid_from,
+        CAST(NULL AS DATE) AS valid_to,
+        true AS is_current
+    FROM (
+        SELECT employee_id, department_id, position_id, base_salary, event_date,
+               ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date DESC) AS rn
+        FROM hr.bronze.raw_comp_events
+        WHERE event_type IN ('promotion', 'salary_adjustment', 'transfer')
+    ) ce
+    JOIN hr.bronze.raw_employees e ON ce.employee_id = e.employee_id
+    WHERE ce.rn = 1
+) AS src
+ON tgt.employee_id = src.employee_id AND tgt.valid_from = src.valid_from AND tgt.is_current = true
+WHEN NOT MATCHED THEN INSERT (
+    surrogate_key, employee_id, employee_name, ssn, email, hire_date, termination_date,
+    department_id, position_id, education_level, gender, date_of_birth, base_salary,
+    status, valid_from, valid_to, is_current
+) VALUES (
+    src.surrogate_key, src.employee_id, src.employee_name, src.ssn, src.email, src.hire_date,
+    src.termination_date, src.department_id, src.position_id, src.education_level, src.gender,
+    src.date_of_birth, src.base_salary, src.status, src.valid_from, src.valid_to, src.is_current
+);
 
 -- SCD2 should have 20 initial + dimension-change rows
 ASSERT ROW_COUNT >= 32
@@ -127,6 +141,8 @@ SELECT COUNT(*) AS row_count FROM hr.silver.employee_dim;
 
 -- ===================== enrich_comp_events =====================
 -- Calculate total comp, salary change pct, compa-ratio
+
+DELETE FROM hr.silver.comp_events_enriched WHERE 1=1;
 
 INSERT INTO hr.silver.comp_events_enriched
 SELECT
@@ -166,6 +182,8 @@ SELECT COUNT(*) AS row_count FROM hr.silver.comp_events_enriched;
 -- ===================== enable_cdf_org_log =====================
 -- Populate org change log from SCD2 dimension changes via CDF
 
+DELETE FROM hr.silver.org_change_log WHERE 1=1;
+
 INSERT INTO hr.silver.org_change_log
 SELECT
     ROW_NUMBER() OVER (ORDER BY expired.employee_id, expired.valid_to) AS change_id,
@@ -200,6 +218,8 @@ SELECT COUNT(*) AS row_count FROM hr.silver.org_change_log;
 
 -- ===================== dim_department =====================
 
+DELETE FROM hr.gold.dim_department WHERE 1=1;
+
 INSERT INTO hr.gold.dim_department
 SELECT
     ROW_NUMBER() OVER (ORDER BY d.department_id) AS department_key,
@@ -217,6 +237,8 @@ ASSERT ROW_COUNT = 6
 SELECT COUNT(*) AS row_count FROM hr.gold.dim_department;
 
 -- ===================== dim_position =====================
+
+DELETE FROM hr.gold.dim_position WHERE 1=1;
 
 INSERT INTO hr.gold.dim_position
 SELECT
@@ -237,6 +259,8 @@ SELECT COUNT(*) AS row_count FROM hr.gold.dim_position;
 
 -- ===================== build_fact_compensation =====================
 -- Star schema fact: joins enriched events with dimension keys
+
+DELETE FROM hr.gold.fact_compensation WHERE 1=1;
 
 INSERT INTO hr.gold.fact_compensation
 SELECT
@@ -267,6 +291,8 @@ SELECT COUNT(*) AS row_count FROM hr.gold.fact_compensation;
 
 -- ===================== kpi_workforce_analytics =====================
 -- Headcount, avg/median salary, turnover, promotion rate, gender pay gap, compa-ratio
+
+DELETE FROM hr.gold.kpi_workforce_analytics WHERE 1=1;
 
 INSERT INTO hr.gold.kpi_workforce_analytics
 SELECT
@@ -323,6 +349,8 @@ SELECT COUNT(*) AS row_count FROM hr.gold.kpi_workforce_analytics;
 -- ===================== kpi_retention_risk =====================
 -- Risk scoring: tenure < 1yr (25pts) + salary_change < 3% (20pts) +
 -- no promotions in 3yr (25pts) + compa_ratio < 0.85 (30pts)
+
+DELETE FROM hr.gold.kpi_retention_risk WHERE 1=1;
 
 INSERT INTO hr.gold.kpi_retention_risk
 SELECT

@@ -11,20 +11,32 @@ PIPELINE ins_bronze_seed
 
 -- SEED DATA: ADJUSTERS (6 rows)
 
-INSERT INTO ins.bronze.raw_adjusters VALUES
+MERGE INTO ins.bronze.raw_adjusters AS target
+USING (VALUES
   ('ADJ01', 'Margaret O''Brien',  'property',     12, 'Northeast', '2024-01-15T00:00:00'),
   ('ADJ02', 'Richard Townsend',   'auto',          8, 'West',      '2024-01-15T00:00:00'),
   ('ADJ03', 'Yuki Tanaka',        'liability',    15, 'Midwest',   '2024-01-15T00:00:00'),
   ('ADJ04', 'Carlos Mendez',      'health',        6, 'Southeast', '2024-01-15T00:00:00'),
   ('ADJ05', 'Priya Sharma',       'workers_comp', 10, 'South',     '2024-01-15T00:00:00'),
-  ('ADJ06', 'James Whitfield',    'multi_peril',  20, 'Northeast', '2024-01-15T00:00:00');
+  ('ADJ06', 'James Whitfield',    'multi_peril',  20, 'Northeast', '2024-01-15T00:00:00')
+) AS source(adjuster_id, name, specialization, years_experience, region, ingested_at)
+ON target.adjuster_id = source.adjuster_id
+WHEN MATCHED THEN UPDATE SET
+  name             = source.name,
+  specialization   = source.specialization,
+  years_experience = source.years_experience,
+  region           = source.region,
+  ingested_at      = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (adjuster_id, name, specialization, years_experience, region, ingested_at)
+  VALUES (source.adjuster_id, source.name, source.specialization, source.years_experience, source.region, source.ingested_at);
 
 ASSERT ROW_COUNT = 6
 SELECT COUNT(*) AS row_count FROM ins.bronze.raw_adjusters;
 
 -- SEED DATA: CLAIMANTS (12 rows) — with SSN for pseudonymisation demo
 
-INSERT INTO ins.bronze.raw_claimants VALUES
+MERGE INTO ins.bronze.raw_claimants AS target
+USING (VALUES
   ('CLM01', 'Albert Donovan',    '123-45-6789', '1975-03-15', '45-54', 'CA', 'standard',  '2024-01-15T00:00:00'),
   ('CLM02', 'Barbara Chen',      '234-56-7890', '1982-08-22', '35-44', 'NY', 'preferred', '2024-01-15T00:00:00'),
   ('CLM03', 'Chris Okafor',      '345-67-8901', '1990-11-10', '25-34', 'TX', 'standard',  '2024-01-15T00:00:00'),
@@ -36,7 +48,19 @@ INSERT INTO ins.bronze.raw_claimants VALUES
   ('CLM09', 'Ivan Popov',        '901-23-4567', '1981-04-25', '35-44', 'NJ', 'preferred', '2024-01-15T00:00:00'),
   ('CLM10', 'Julia Fernandez',   '012-34-5678', '1993-06-11', '25-34', 'CO', 'standard',  '2024-01-15T00:00:00'),
   ('CLM11', 'Kenneth Park',      '111-22-3333', '1970-02-08', '50-59', 'OR', 'preferred', '2024-01-15T00:00:00'),
-  ('CLM12', 'Laura Esposito',    '222-33-4444', '1988-10-30', '30-39', 'GA', 'standard',  '2024-01-15T00:00:00');
+  ('CLM12', 'Laura Esposito',    '222-33-4444', '1988-10-30', '30-39', 'GA', 'standard',  '2024-01-15T00:00:00')
+) AS source(claimant_id, name, ssn, date_of_birth, age_band, state, risk_tier, ingested_at)
+ON target.claimant_id = source.claimant_id
+WHEN MATCHED THEN UPDATE SET
+  name          = source.name,
+  ssn           = source.ssn,
+  date_of_birth = source.date_of_birth,
+  age_band      = source.age_band,
+  state         = source.state,
+  risk_tier     = source.risk_tier,
+  ingested_at   = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (claimant_id, name, ssn, date_of_birth, age_band, state, risk_tier, ingested_at)
+  VALUES (source.claimant_id, source.name, source.ssn, source.date_of_birth, source.age_band, source.state, source.risk_tier, source.ingested_at);
 
 ASSERT ROW_COUNT = 12
 SELECT COUNT(*) AS row_count FROM ins.bronze.raw_claimants;
@@ -47,7 +71,8 @@ SELECT COUNT(*) AS row_count FROM ins.bronze.raw_claimants;
 -- Batch 3: 3 coverage upgrades
 -- Result: 23 rows total, only 15 with is_current=1 after SCD2 processing
 
-INSERT INTO ins.bronze.raw_policies VALUES
+MERGE INTO ins.bronze.raw_policies AS target
+USING (VALUES
   -- BATCH 1: 15 initial policies
   ('POL001', 'Albert Donovan',   '123-45-6789', 'auto',         1200.00, 'West',      'CA', 3.2, '2022-01-01', 'new', '2024-01-15T00:00:00'),
   ('POL002', 'Barbara Chen',     '234-56-7890', 'home',         2400.00, 'Northeast', 'NY', 2.1, '2021-06-15', 'new', '2024-01-15T00:00:00'),
@@ -75,7 +100,21 @@ INSERT INTO ins.bronze.raw_policies VALUES
   -- BATCH 3: 3 coverage upgrades (expire old -> insert new current)
   ('POL001', 'Albert Donovan',   '123-45-6789', 'auto_plus',    1650.00, 'West',      'CA', 3.5, '2024-01-01', 'coverage_upgrade', '2024-01-15T00:00:00'),
   ('POL004', 'Diana Petrov',     '456-78-9012', 'health_plus',  6200.00, 'Southeast', 'FL', 4.2, '2023-07-01', 'coverage_upgrade', '2024-01-15T00:00:00'),
-  ('POL007', 'George Nakamura',  '789-01-2345', 'home_plus',    4800.00, 'West',      'CA', 4.3, '2024-01-01', 'coverage_upgrade', '2024-01-15T00:00:00');
+  ('POL007', 'George Nakamura',  '789-01-2345', 'home_plus',    4800.00, 'West',      'CA', 4.3, '2024-01-01', 'coverage_upgrade', '2024-01-15T00:00:00')
+) AS source(policy_id, holder_name, ssn, coverage_type, annual_premium, region, state, risk_score, effective_date, change_type, ingested_at)
+ON target.policy_id = source.policy_id AND target.effective_date = source.effective_date
+WHEN MATCHED THEN UPDATE SET
+  holder_name    = source.holder_name,
+  ssn            = source.ssn,
+  coverage_type  = source.coverage_type,
+  annual_premium = source.annual_premium,
+  region         = source.region,
+  state          = source.state,
+  risk_score     = source.risk_score,
+  change_type    = source.change_type,
+  ingested_at    = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (policy_id, holder_name, ssn, coverage_type, annual_premium, region, state, risk_score, effective_date, change_type, ingested_at)
+  VALUES (source.policy_id, source.holder_name, source.ssn, source.coverage_type, source.annual_premium, source.region, source.state, source.risk_score, source.effective_date, source.change_type, source.ingested_at);
 
 ASSERT ROW_COUNT = 23
 SELECT COUNT(*) AS row_count FROM ins.bronze.raw_policies;
@@ -85,7 +124,8 @@ SELECT COUNT(*) AS row_count FROM ins.bronze.raw_policies;
 -- 30 settled (with settlement_date), 15 open/under_review/denied
 -- 3 deliberately high claims for fraud detection (C0009, C0010, C0037)
 
-INSERT INTO ins.bronze.raw_claims VALUES
+MERGE INTO ins.bronze.raw_claims AS target
+USING (VALUES
   ('C0001', 'POL001', 'CLM01', 'ADJ02', '2023-03-15', '2023-03-16',   8500.00,  7200.00, 'settled',      '2023-05-10', 'Rear-end collision on highway',             '2024-01-15T00:00:00'),
   ('C0002', 'POL001', 'CLM01', 'ADJ02', '2023-08-20', '2023-08-22',   3200.00,  3200.00, 'settled',      '2023-09-15', 'Parking lot fender bender',                  '2024-01-15T00:00:00'),
   ('C0003', 'POL002', 'CLM02', 'ADJ01', '2023-02-10', '2023-02-12',  45000.00, 38000.00, 'settled',      '2023-06-20', 'Water damage from burst pipe',               '2024-01-15T00:00:00'),
@@ -130,7 +170,23 @@ INSERT INTO ins.bronze.raw_claims VALUES
   ('C0042', 'POL006', 'CLM06', 'ADJ02', '2023-09-18', '2023-09-20',   5400.00,  4800.00, 'settled',      '2023-11-08', 'Side mirror and door damage',                 '2024-01-15T00:00:00'),
   ('C0043', 'POL011', 'CLM11', 'ADJ06', '2023-12-01', '2023-12-04',  28000.00,     NULL, 'under_review', NULL,         'Major water leak damage',                     '2024-01-15T00:00:00'),
   ('C0044', 'POL007', 'CLM07', 'ADJ01', '2023-01-15', '2023-01-18',   4500.00,  4000.00, 'settled',      '2023-03-10', 'Appliance electrical fire',                   '2024-01-15T00:00:00'),
-  ('C0045', 'POL014', 'CLM12', 'ADJ06', '2023-02-08', '2023-02-10',   3800.00,  3800.00, 'settled',      '2023-03-25', 'Hail damage to vehicle',                      '2024-01-15T00:00:00');
+  ('C0045', 'POL014', 'CLM12', 'ADJ06', '2023-02-08', '2023-02-10',   3800.00,  3800.00, 'settled',      '2023-03-25', 'Hail damage to vehicle',                      '2024-01-15T00:00:00')
+) AS source(claim_id, policy_id, claimant_id, adjuster_id, incident_date, reported_date, claim_amount, approved_amount, status, settlement_date, description, ingested_at)
+ON target.claim_id = source.claim_id
+WHEN MATCHED THEN UPDATE SET
+  policy_id       = source.policy_id,
+  claimant_id     = source.claimant_id,
+  adjuster_id     = source.adjuster_id,
+  incident_date   = source.incident_date,
+  reported_date   = source.reported_date,
+  claim_amount    = source.claim_amount,
+  approved_amount = source.approved_amount,
+  status          = source.status,
+  settlement_date = source.settlement_date,
+  description     = source.description,
+  ingested_at     = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (claim_id, policy_id, claimant_id, adjuster_id, incident_date, reported_date, claim_amount, approved_amount, status, settlement_date, description, ingested_at)
+  VALUES (source.claim_id, source.policy_id, source.claimant_id, source.adjuster_id, source.incident_date, source.reported_date, source.claim_amount, source.approved_amount, source.status, source.settlement_date, source.description, source.ingested_at);
 
 ASSERT ROW_COUNT = 45
 SELECT COUNT(*) AS row_count FROM ins.bronze.raw_claims;

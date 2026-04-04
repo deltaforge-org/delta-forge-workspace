@@ -28,24 +28,64 @@ SELECT MAX(processed_at) AS current_watermark FROM ins.silver.claims_enriched;
 -- =============================================================================
 
 -- POL003 gets a premium increase, POL010 gets a coverage upgrade
-INSERT INTO ins.bronze.raw_policies VALUES
-  ('POL003', 'Chris Okafor', '345-67-8901', 'auto', 1150.00, 'South', 'TX', 3.1, '2024-01-15', 'premium_increase', '2024-02-01T00:00:00'),
-  ('POL010', 'Julia Fernandez', '012-34-5678', 'auto_plus', 1200.00, 'West', 'CO', 2.2, '2024-01-15', 'coverage_upgrade', '2024-02-01T00:00:00');
+MERGE INTO ins.bronze.raw_policies AS target
+USING (
+  SELECT * FROM (VALUES
+    ('POL003', 'Chris Okafor', '345-67-8901', 'auto', 1150.00, 'South', 'TX', 3.1, '2024-01-15', 'premium_increase', '2024-02-01T00:00:00'),
+    ('POL010', 'Julia Fernandez', '012-34-5678', 'auto_plus', 1200.00, 'West', 'CO', 2.2, '2024-01-15', 'coverage_upgrade', '2024-02-01T00:00:00')
+  ) AS t(policy_id, holder_name, ssn, coverage_type, annual_premium, region, state, risk_score, effective_date, change_type, _loaded_at)
+) AS source
+ON target.policy_id = source.policy_id AND target.effective_date = source.effective_date
+WHEN MATCHED THEN UPDATE SET
+  holder_name    = source.holder_name,
+  ssn            = source.ssn,
+  coverage_type  = source.coverage_type,
+  annual_premium = source.annual_premium,
+  region         = source.region,
+  state          = source.state,
+  risk_score     = source.risk_score,
+  change_type    = source.change_type,
+  _loaded_at     = source._loaded_at
+WHEN NOT MATCHED THEN INSERT VALUES (
+  source.policy_id, source.holder_name, source.ssn, source.coverage_type,
+  source.annual_premium, source.region, source.state, source.risk_score,
+  source.effective_date, source.change_type, source._loaded_at
+);
 
 -- =============================================================================
 -- New claims arriving (5 new + 1 updated settlement)
 -- =============================================================================
 
-INSERT INTO ins.bronze.raw_claims VALUES
-  ('C0046', 'POL003', 'CLM03', 'ADJ02', '2024-01-18', '2024-01-19',  4800.00,     NULL, 'filed',  NULL,         'Rear bumper damage parking lot',  '2024-02-01T00:00:00'),
-  ('C0047', 'POL010', 'CLM10', 'ADJ02', '2024-01-20', '2024-01-21',  8200.00,     NULL, 'filed',  NULL,         'Collision at intersection',       '2024-02-01T00:00:00'),
-  ('C0048', 'POL004', 'CLM04', 'ADJ04', '2024-01-15', '2024-01-16', 12500.00,     NULL, 'under_review', NULL,   'MRI and specialist referral',     '2024-02-01T00:00:00'),
-  ('C0049', 'POL011', 'CLM11', 'ADJ06', '2024-01-12', '2024-01-14', 16000.00,     NULL, 'filed',  NULL,         'Bathroom flood damage',           '2024-02-01T00:00:00'),
-  ('C0050', 'POL005', 'CLM05', 'ADJ03', '2024-01-16', '2024-01-18', 55000.00,     NULL, 'filed',  NULL,         'Major liability incident',        '2024-02-01T00:00:00');
-
--- Update C0025 to settled (was under_review)
-INSERT INTO ins.bronze.raw_claims VALUES
-  ('C0025', 'POL001', 'CLM01', 'ADJ02', '2023-12-10', '2023-12-12', 11000.00,  9200.00, 'settled', '2024-01-18', 'Multi-vehicle accident - SETTLED', '2024-02-01T00:00:00');
+MERGE INTO ins.bronze.raw_claims AS target
+USING (
+  SELECT * FROM (VALUES
+    ('C0046', 'POL003', 'CLM03', 'ADJ02', '2024-01-18', '2024-01-19',  4800.00,     CAST(NULL AS DOUBLE), 'filed',  CAST(NULL AS STRING), 'Rear bumper damage parking lot',  '2024-02-01T00:00:00'),
+    ('C0047', 'POL010', 'CLM10', 'ADJ02', '2024-01-20', '2024-01-21',  8200.00,     NULL, 'filed',  NULL,         'Collision at intersection',       '2024-02-01T00:00:00'),
+    ('C0048', 'POL004', 'CLM04', 'ADJ04', '2024-01-15', '2024-01-16', 12500.00,     NULL, 'under_review', NULL,   'MRI and specialist referral',     '2024-02-01T00:00:00'),
+    ('C0049', 'POL011', 'CLM11', 'ADJ06', '2024-01-12', '2024-01-14', 16000.00,     NULL, 'filed',  NULL,         'Bathroom flood damage',           '2024-02-01T00:00:00'),
+    ('C0050', 'POL005', 'CLM05', 'ADJ03', '2024-01-16', '2024-01-18', 55000.00,     NULL, 'filed',  NULL,         'Major liability incident',        '2024-02-01T00:00:00'),
+    ('C0025', 'POL001', 'CLM01', 'ADJ02', '2023-12-10', '2023-12-12', 11000.00,  9200.00, 'settled', '2024-01-18', 'Multi-vehicle accident - SETTLED', '2024-02-01T00:00:00')
+  ) AS t(claim_id, policy_id, claimant_id, adjuster_id, incident_date, reported_date, claim_amount, approved_amount, status, settlement_date, description, _loaded_at)
+) AS source
+ON target.claim_id = source.claim_id
+WHEN MATCHED THEN UPDATE SET
+  policy_id       = source.policy_id,
+  claimant_id     = source.claimant_id,
+  adjuster_id     = source.adjuster_id,
+  incident_date   = source.incident_date,
+  reported_date   = source.reported_date,
+  claim_amount    = source.claim_amount,
+  approved_amount = source.approved_amount,
+  status          = source.status,
+  settlement_date = source.settlement_date,
+  description     = source.description,
+  _loaded_at      = source._loaded_at
+WHEN NOT MATCHED THEN INSERT VALUES (
+  source.claim_id, source.policy_id, source.claimant_id, source.adjuster_id,
+  source.incident_date, source.reported_date, source.claim_amount,
+  source.approved_amount, source.status, source.settlement_date,
+  source.description, source._loaded_at
+);
 
 -- =============================================================================
 -- Re-run SCD2 two-pass MERGE for policy changes

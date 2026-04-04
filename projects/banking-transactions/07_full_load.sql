@@ -98,43 +98,62 @@ WHEN MATCHED THEN UPDATE SET
     updated_at  = CURRENT_TIMESTAMP;
 
 -- Pass 3: Insert new current records for upgraded customers
-INSERT INTO bank.silver.customer_dim
-SELECT
-    ROW_NUMBER() OVER (ORDER BY r.account_id) + 100 AS customer_id,
-    r.account_id,
-    r.account_number,
-    r.account_type,
-    r.customer_name,
-    r.branch,
-    r.open_date,
-    r.status,
-    r.customer_tier,
-    CAST('2024-02-01' AS DATE) AS valid_from,
-    NULL AS valid_to,
-    true AS is_current,
-    CURRENT_TIMESTAMP AS updated_at
-FROM (
+MERGE INTO bank.silver.customer_dim AS target
+USING (
     SELECT
-        account_id,
-        account_number,
-        account_type,
-        customer_name,
-        branch,
-        open_date,
-        status,
-        current_balance,
-        customer_tier,
-        ingested_at,
-        ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY ingested_at ASC) AS version_num
-    FROM bank.bronze.raw_accounts
-) r
-WHERE r.version_num > 1
-  AND EXISTS (
-      SELECT 1 FROM bank.silver.customer_dim c
-      WHERE c.account_id = r.account_id
-        AND c.is_current = false
-        AND c.valid_to = CAST('2024-02-01' AS DATE)
-  );
+        ROW_NUMBER() OVER (ORDER BY r.account_id) + 100 AS customer_id,
+        r.account_id,
+        r.account_number,
+        r.account_type,
+        r.customer_name,
+        r.branch,
+        r.open_date,
+        r.status,
+        r.customer_tier,
+        CAST('2024-02-01' AS DATE) AS valid_from,
+        NULL AS valid_to,
+        true AS is_current,
+        CURRENT_TIMESTAMP AS updated_at
+    FROM (
+        SELECT
+            account_id,
+            account_number,
+            account_type,
+            customer_name,
+            branch,
+            open_date,
+            status,
+            current_balance,
+            customer_tier,
+            ingested_at,
+            ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY ingested_at ASC) AS version_num
+        FROM bank.bronze.raw_accounts
+    ) r
+    WHERE r.version_num > 1
+      AND EXISTS (
+          SELECT 1 FROM bank.silver.customer_dim c
+          WHERE c.account_id = r.account_id
+            AND c.is_current = false
+            AND c.valid_to = CAST('2024-02-01' AS DATE)
+      )
+) AS source
+ON target.account_id = source.account_id AND target.valid_from = CAST('2024-02-01' AS DATE) AND target.is_current = true
+WHEN NOT MATCHED THEN INSERT (
+    customer_id, account_id, account_number, account_type, customer_name,
+    branch, open_date, status, customer_tier,
+    valid_from, valid_to, is_current, updated_at
+) VALUES (
+    source.customer_id, source.account_id, source.account_number, source.account_type,
+    source.customer_name, source.branch, source.open_date, source.status,
+    source.customer_tier, source.valid_from, source.valid_to, source.is_current,
+    source.updated_at
+)
+WHEN MATCHED THEN UPDATE SET
+    customer_name   = source.customer_name,
+    branch          = source.branch,
+    status          = source.status,
+    customer_tier   = source.customer_tier,
+    updated_at      = source.updated_at;
 
 -- Verify: 12 accounts + 3 expired versions = 15 total
 ASSERT VALUE customer_dim_count >= 12
@@ -265,6 +284,8 @@ WHEN NOT MATCHED THEN INSERT (
 
 -- ===================== materialize_cdf_snapshots =====================
 -- Read CDF changes from customer_dim and materialize into balance_snapshots
+
+DELETE FROM bank.silver.balance_snapshots WHERE 1=1;
 
 INSERT INTO bank.silver.balance_snapshots
 SELECT

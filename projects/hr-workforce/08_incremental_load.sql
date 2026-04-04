@@ -25,11 +25,20 @@ SELECT COUNT(*) AS pre_fact_count FROM hr.gold.fact_compensation;
 -- ===================== insert_new_bronze_events =====================
 -- Simulating Q1 2025 annual review cycle: 4 raises + 2 promotions
 
-INSERT INTO hr.bronze.raw_comp_events VALUES
-    ('CE-056', 'EMP-002', 'DEPT-ENG',  'POS-SSE',  '2025-04-01', 'promotion',       140000.00, 10000.00, 4.5, 'Promoted SE2 to SSE',         '2025-04-01T06:00:00'),
-    ('CE-057', 'EMP-018', 'DEPT-ENG',  'POS-SE2',  '2025-04-01', 'salary_adjustment',115000.00, 5000.00,  4.0, '6.5% merit increase',         '2025-04-01T06:00:00'),
-    ('CE-058', 'EMP-014', 'DEPT-SALE', 'POS-SR1',  '2025-04-01', 'salary_adjustment', 66150.00, 7000.00,  4.5, '5% + commission bonus',       '2025-04-01T06:00:00'),
-    ('CE-059', 'EMP-020', 'DEPT-OPS',  'POS-OM1',  '2025-04-01', 'promotion',        95000.00,  5000.00,  4.0, 'Promoted OA1 to OM1',         '2025-04-01T06:00:00');
+MERGE INTO hr.bronze.raw_comp_events AS tgt
+USING (
+    SELECT * FROM (VALUES
+        ('CE-056', 'EMP-002', 'DEPT-ENG',  'POS-SSE',  '2025-04-01', 'promotion',       140000.00, 10000.00, 4.5, 'Promoted SE2 to SSE',         '2025-04-01T06:00:00'),
+        ('CE-057', 'EMP-018', 'DEPT-ENG',  'POS-SE2',  '2025-04-01', 'salary_adjustment',115000.00, 5000.00,  4.0, '6.5% merit increase',         '2025-04-01T06:00:00'),
+        ('CE-058', 'EMP-014', 'DEPT-SALE', 'POS-SR1',  '2025-04-01', 'salary_adjustment', 66150.00, 7000.00,  4.5, '5% + commission bonus',       '2025-04-01T06:00:00'),
+        ('CE-059', 'EMP-020', 'DEPT-OPS',  'POS-OM1',  '2025-04-01', 'promotion',        95000.00,  5000.00,  4.0, 'Promoted OA1 to OM1',         '2025-04-01T06:00:00')
+    ) AS t(event_id, employee_id, department_id, position_id, event_date, event_type, base_salary, bonus, performance_rating, notes, ingested_at)
+) AS src
+ON tgt.event_id = src.event_id
+WHEN NOT MATCHED THEN INSERT VALUES (
+    src.event_id, src.employee_id, src.department_id, src.position_id, src.event_date,
+    src.event_type, src.base_salary, src.bonus, src.performance_rating, src.notes, src.ingested_at
+);
 
 ASSERT ROW_COUNT = 4
 SELECT COUNT(*) AS new_events
@@ -63,29 +72,41 @@ WHEN MATCHED THEN UPDATE SET
 -- ===================== scd2_insert_new =====================
 -- Two-pass SCD2 MERGE - Pass 2: Insert new current versions
 
-INSERT INTO hr.silver.employee_dim
-SELECT
-    200 + ROW_NUMBER() OVER (ORDER BY ce.employee_id, ce.event_date) AS surrogate_key,
-    ce.employee_id,
-    TRIM(e.employee_name) AS employee_name,
-    e.ssn,
-    e.email,
-    CAST(e.hire_date AS DATE) AS hire_date,
-    CAST(e.termination_date AS DATE) AS termination_date,
-    ce.department_id,
-    ce.position_id,
-    e.education_level,
-    e.gender,
-    CAST(e.date_of_birth AS DATE) AS date_of_birth,
-    ce.base_salary,
-    e.status,
-    CAST(ce.event_date AS DATE) AS valid_from,
-    CAST(NULL AS DATE) AS valid_to,
-    true AS is_current
-FROM hr.bronze.raw_comp_events ce
-JOIN hr.bronze.raw_employees e ON ce.employee_id = e.employee_id
-WHERE ce.ingested_at > '2025-03-01T00:00:00'
-  AND ce.event_type IN ('promotion', 'salary_adjustment', 'transfer');
+MERGE INTO hr.silver.employee_dim AS tgt
+USING (
+    SELECT
+        200 + ROW_NUMBER() OVER (ORDER BY ce.employee_id, ce.event_date) AS surrogate_key,
+        ce.employee_id,
+        TRIM(e.employee_name) AS employee_name,
+        e.ssn,
+        e.email,
+        CAST(e.hire_date AS DATE) AS hire_date,
+        CAST(e.termination_date AS DATE) AS termination_date,
+        ce.department_id,
+        ce.position_id,
+        e.education_level,
+        e.gender,
+        CAST(e.date_of_birth AS DATE) AS date_of_birth,
+        ce.base_salary,
+        e.status,
+        CAST(ce.event_date AS DATE) AS valid_from,
+        CAST(NULL AS DATE) AS valid_to,
+        true AS is_current
+    FROM hr.bronze.raw_comp_events ce
+    JOIN hr.bronze.raw_employees e ON ce.employee_id = e.employee_id
+    WHERE ce.ingested_at > '2025-03-01T00:00:00'
+      AND ce.event_type IN ('promotion', 'salary_adjustment', 'transfer')
+) AS src
+ON tgt.employee_id = src.employee_id AND tgt.valid_from = src.valid_from AND tgt.is_current = true
+WHEN NOT MATCHED THEN INSERT (
+    surrogate_key, employee_id, employee_name, ssn, email, hire_date, termination_date,
+    department_id, position_id, education_level, gender, date_of_birth, base_salary,
+    status, valid_from, valid_to, is_current
+) VALUES (
+    src.surrogate_key, src.employee_id, src.employee_name, src.ssn, src.email, src.hire_date,
+    src.termination_date, src.department_id, src.position_id, src.education_level, src.gender,
+    src.date_of_birth, src.base_salary, src.status, src.valid_from, src.valid_to, src.is_current
+);
 
 ASSERT ROW_COUNT = 4
 SELECT COUNT(*) AS new_scd2_rows
@@ -94,36 +115,47 @@ WHERE valid_from = CAST('2025-04-01' AS DATE);
 
 -- ===================== incremental_enrich_comp_events =====================
 
-INSERT INTO hr.silver.comp_events_enriched
-SELECT
-    ce.event_id,
-    ce.employee_id,
-    ce.department_id,
-    ce.position_id,
-    CAST(ce.event_date AS DATE) AS event_date,
-    ce.event_type,
-    ce.base_salary,
-    ce.bonus,
-    ce.base_salary + ce.bonus AS total_comp,
-    CASE
-        WHEN prev.base_salary IS NOT NULL AND prev.base_salary > 0
-        THEN ROUND(100.0 * (ce.base_salary - prev.base_salary) / prev.base_salary, 2)
-        ELSE 0.00
-    END AS salary_change_pct,
-    ce.performance_rating,
-    ROUND(
-        ce.base_salary / NULLIF((p.pay_grade_min + p.pay_grade_max) / 2, 0),
-        3
-    ) AS compa_ratio,
-    CURRENT_TIMESTAMP AS processed_at
-FROM hr.bronze.raw_comp_events ce
-LEFT JOIN (
-    SELECT employee_id, base_salary, event_date,
-           LEAD(event_date) OVER (PARTITION BY employee_id ORDER BY event_date) AS next_event_date
-    FROM hr.bronze.raw_comp_events
-) prev ON ce.employee_id = prev.employee_id AND ce.event_date = prev.next_event_date
-JOIN hr.bronze.raw_positions p ON ce.position_id = p.position_id
-WHERE ce.ingested_at > '2025-03-01T00:00:00';
+MERGE INTO hr.silver.comp_events_enriched AS tgt
+USING (
+    SELECT
+        ce.event_id,
+        ce.employee_id,
+        ce.department_id,
+        ce.position_id,
+        CAST(ce.event_date AS DATE) AS event_date,
+        ce.event_type,
+        ce.base_salary,
+        ce.bonus,
+        ce.base_salary + ce.bonus AS total_comp,
+        CASE
+            WHEN prev.base_salary IS NOT NULL AND prev.base_salary > 0
+            THEN ROUND(100.0 * (ce.base_salary - prev.base_salary) / prev.base_salary, 2)
+            ELSE 0.00
+        END AS salary_change_pct,
+        ce.performance_rating,
+        ROUND(
+            ce.base_salary / NULLIF((p.pay_grade_min + p.pay_grade_max) / 2, 0),
+            3
+        ) AS compa_ratio,
+        CURRENT_TIMESTAMP AS processed_at
+    FROM hr.bronze.raw_comp_events ce
+    LEFT JOIN (
+        SELECT employee_id, base_salary, event_date,
+               LEAD(event_date) OVER (PARTITION BY employee_id ORDER BY event_date) AS next_event_date
+        FROM hr.bronze.raw_comp_events
+    ) prev ON ce.employee_id = prev.employee_id AND ce.event_date = prev.next_event_date
+    JOIN hr.bronze.raw_positions p ON ce.position_id = p.position_id
+    WHERE ce.ingested_at > '2025-03-01T00:00:00'
+) AS src
+ON tgt.event_id = src.event_id
+WHEN NOT MATCHED THEN INSERT (
+    event_id, employee_id, department_id, position_id, event_date, event_type,
+    base_salary, bonus, total_comp, salary_change_pct, performance_rating, compa_ratio, processed_at
+) VALUES (
+    src.event_id, src.employee_id, src.department_id, src.position_id, src.event_date, src.event_type,
+    src.base_salary, src.bonus, src.total_comp, src.salary_change_pct, src.performance_rating,
+    src.compa_ratio, src.processed_at
+);
 
 ASSERT ROW_COUNT = 4
 SELECT COUNT(*) AS new_enriched

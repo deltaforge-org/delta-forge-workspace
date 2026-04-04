@@ -11,7 +11,8 @@ PIPELINE ehr_bronze_seed
 
 -- ===================== BRONZE SEED DATA: DEPARTMENTS (9 rows) =====================
 
-INSERT INTO ehr.bronze.raw_departments VALUES
+MERGE INTO ehr.bronze.raw_departments AS target
+USING (VALUES
   ('CARD', 'Cardiology', 3, 'East', '2024-01-01T00:00:00'),
   ('ORTH', 'Orthopedics', 2, 'West', '2024-01-01T00:00:00'),
   ('NEUR', 'Neurology', 4, 'East', '2024-01-01T00:00:00'),
@@ -20,14 +21,24 @@ INSERT INTO ehr.bronze.raw_departments VALUES
   ('ONCO', 'Oncology', 5, 'North', '2024-01-01T00:00:00'),
   ('ENDO', 'Endocrinology', 4, 'West', '2024-01-01T00:00:00'),
   ('NEPH', 'Nephrology', 3, 'North', '2024-01-01T00:00:00'),
-  ('EMER', 'Emergency Medicine', 1, 'South', '2024-01-01T00:00:00');
+  ('EMER', 'Emergency Medicine', 1, 'South', '2024-01-01T00:00:00')
+) AS source(department_code, department_name, floor, wing, ingested_at)
+ON target.department_code = source.department_code
+WHEN MATCHED THEN UPDATE SET
+  department_name = source.department_name,
+  floor = source.floor,
+  wing = source.wing,
+  ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (department_code, department_name, floor, wing, ingested_at)
+  VALUES (source.department_code, source.department_name, source.floor, source.wing, source.ingested_at);
 
 ASSERT ROW_COUNT = 9
 SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_departments;
 
 -- ===================== BRONZE SEED DATA: DIAGNOSES (16 rows) =====================
 
-INSERT INTO ehr.bronze.raw_diagnoses VALUES
+MERGE INTO ehr.bronze.raw_diagnoses AS target
+USING (VALUES
   ('I21.0', 'Acute ST-elevation myocardial infarction of anterior wall', 'Cardiac', 'Critical', '2024-01-01T00:00:00'),
   ('I25.10', 'Atherosclerotic heart disease of native coronary artery', 'Cardiac', 'High', '2024-01-01T00:00:00'),
   ('I50.9', 'Heart failure, unspecified', 'Cardiac', 'High', '2024-01-01T00:00:00'),
@@ -43,7 +54,16 @@ INSERT INTO ehr.bronze.raw_diagnoses VALUES
   ('E11.65', 'Type 2 diabetes mellitus with hyperglycemia', 'Endocrine', 'Medium', '2024-01-01T00:00:00'),
   ('N18.6', 'End stage renal disease', 'Renal', 'Critical', '2024-01-01T00:00:00'),
   ('N17.9', 'Acute kidney failure, unspecified', 'Renal', 'High', '2024-01-01T00:00:00'),
-  ('I48.91', 'Unspecified atrial fibrillation', 'Cardiac', 'Medium', '2024-01-01T00:00:00');
+  ('I48.91', 'Unspecified atrial fibrillation', 'Cardiac', 'Medium', '2024-01-01T00:00:00')
+) AS source(diagnosis_code, description, category, severity, ingested_at)
+ON target.diagnosis_code = source.diagnosis_code
+WHEN MATCHED THEN UPDATE SET
+  description = source.description,
+  category = source.category,
+  severity = source.severity,
+  ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (diagnosis_code, description, category, severity, ingested_at)
+  VALUES (source.diagnosis_code, source.description, source.category, source.severity, source.ingested_at);
 
 ASSERT ROW_COUNT = 16
 SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_diagnoses;
@@ -52,7 +72,8 @@ SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_diagnoses;
 -- 3 patients (P1001, P1004, P1008) have address changes that will drive SCD2 versioning
 -- Each appears twice: original row + updated row with new address/insurance
 
-INSERT INTO ehr.bronze.raw_patients VALUES
+MERGE INTO ehr.bronze.raw_patients AS target
+USING (VALUES
   ('P1001', '  John Smith  ', '123-45-6789', '1965-03-12', 'john.smith@email.com', '100 Oak Lane', 'Hartford', 'CT', 'INS-BC-001', 'BlueCross Shield', '2024-01-15T08:00:00'),
   ('P1002', 'Maria Garcia  ', '234-56-7890', '1978-07-25', 'maria.garcia@mail.com', '245 Pine Street', 'New Haven', 'CT', 'INS-AE-002', 'Aetna Health', '2024-01-15T08:00:00'),
   ('P1003', 'Robert Johnson', '345-67-8901', '1982-11-03', 'r.johnson@email.com', '78 Maple Drive', 'Stamford', 'CT', 'INS-UH-003', 'UnitedHealth', '2024-01-15T08:00:00'),
@@ -79,7 +100,21 @@ INSERT INTO ehr.bronze.raw_patients VALUES
   ('P1008', 'Jennifer Martinez', '890-12-3456', '1960-06-22', 'jmartinez@email.com', '220 Harbor View', 'Milford', 'CT', 'INS-CI-088', 'Cigna Health', '2024-06-01T08:00:00'),
   -- Additional patients to reach 25 rows
   ('P1021', 'Rachel Green', '200-30-4050', '1991-02-14', 'rgreen@email.com', '335 Harvest Lane', 'Middletown', 'CT', 'INS-AE-021', 'Aetna Health', '2024-01-15T08:00:00'),
-  ('P1022', 'Thomas Baker', '300-40-5060', '1977-07-30', 'tbaker@mail.com', '446 Summit Circle', 'New London', 'CT', 'INS-CI-022', 'Cigna Health', '2024-01-15T08:00:00');
+  ('P1022', 'Thomas Baker', '300-40-5060', '1977-07-30', 'tbaker@mail.com', '446 Summit Circle', 'New London', 'CT', 'INS-CI-022', 'Cigna Health', '2024-01-15T08:00:00')
+) AS source(patient_id, patient_name, ssn, date_of_birth, email, address, city, state, insurance_id, insurance_name, ingested_at)
+ON target.patient_id = source.patient_id AND target.ingested_at = source.ingested_at
+WHEN MATCHED THEN UPDATE SET
+  patient_name = source.patient_name,
+  ssn = source.ssn,
+  date_of_birth = source.date_of_birth,
+  email = source.email,
+  address = source.address,
+  city = source.city,
+  state = source.state,
+  insurance_id = source.insurance_id,
+  insurance_name = source.insurance_name
+WHEN NOT MATCHED THEN INSERT (patient_id, patient_name, ssn, date_of_birth, email, address, city, state, insurance_id, insurance_name, ingested_at)
+  VALUES (source.patient_id, source.patient_name, source.ssn, source.date_of_birth, source.email, source.address, source.city, source.state, source.insurance_id, source.insurance_name, source.ingested_at);
 
 ASSERT ROW_COUNT = 25
 SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_patients;
@@ -89,7 +124,8 @@ SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_patients;
 -- 8 duplicates (record_ids A001,A003,A008 appear twice + A009,A016 appear twice), 5 readmissions within 30 days
 -- Spans Jan 2023 - Jan 2024
 
-INSERT INTO ehr.bronze.raw_admissions VALUES
+MERGE INTO ehr.bronze.raw_admissions AS target
+USING (VALUES
   ('A001', 'P1001', 'CARD', 'I21.0', '2023-03-15', '2023-03-22', 45200.00, 'Dr. Rivera', 'STEMI anterior wall', '2024-01-15T08:00:00'),
   ('A002', 'P1001', 'CARD', 'I25.10', '2023-04-10', '2023-04-14', 12800.00, 'Dr. Rivera', 'Follow-up readmission within 30d', '2024-01-15T08:00:00'),
   ('A003', 'P1002', 'ORTH', 'S72.001A', '2023-02-20', '2023-03-05', 67500.00, 'Dr. Chen', 'Hip fracture surgical repair', '2024-01-15T08:00:00'),
@@ -144,7 +180,20 @@ INSERT INTO ehr.bronze.raw_admissions VALUES
   ('A048', 'P1017', 'CARD', 'I50.9', '2024-01-10', '2024-01-15', 31600.00, 'Dr. Rivera', 'HF management', '2024-01-15T08:00:00'),
   ('A008', 'P1005', 'GAST', 'K35.80', '2023-06-15', '2023-06-18', 31200.00, 'Dr. Nguyen', 'DUPLICATE appendectomy', '2024-01-15T08:12:00'),
   ('A049', 'P1010', 'EMER', 'J18.9', '2024-01-08', '2024-01-13', 24100.00, 'Dr. Park', 'Pneumonia recurrence', '2024-01-15T08:00:00'),
-  ('A050', 'P1019', 'NEPH', 'N18.6', '2024-01-05', '2024-01-12', 46500.00, 'Dr. Okafor', 'ESRD dialysis session', '2024-01-15T08:00:00');
+  ('A050', 'P1019', 'NEPH', 'N18.6', '2024-01-05', '2024-01-12', 46500.00, 'Dr. Okafor', 'ESRD dialysis session', '2024-01-15T08:00:00')
+) AS source(record_id, patient_id, department_code, diagnosis_code, admission_date, discharge_date, total_charges, attending_physician, notes, ingested_at)
+ON target.record_id = source.record_id AND target.ingested_at = source.ingested_at
+WHEN MATCHED THEN UPDATE SET
+  patient_id = source.patient_id,
+  department_code = source.department_code,
+  diagnosis_code = source.diagnosis_code,
+  admission_date = source.admission_date,
+  discharge_date = source.discharge_date,
+  total_charges = source.total_charges,
+  attending_physician = source.attending_physician,
+  notes = source.notes
+WHEN NOT MATCHED THEN INSERT (record_id, patient_id, department_code, diagnosis_code, admission_date, discharge_date, total_charges, attending_physician, notes, ingested_at)
+  VALUES (source.record_id, source.patient_id, source.department_code, source.diagnosis_code, source.admission_date, source.discharge_date, source.total_charges, source.attending_physician, source.notes, source.ingested_at);
 
 ASSERT ROW_COUNT = 55
 SELECT COUNT(*) AS row_count FROM ehr.bronze.raw_admissions;

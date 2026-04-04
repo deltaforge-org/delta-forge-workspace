@@ -33,20 +33,40 @@ SELECT COUNT(*) AS pre_patient_dim_count FROM ehr.silver.patient_dim;
 -- ===================== Insert New Bronze Incremental Records =====================
 -- 8 new admissions including 1 duplicate, 1 readmission within 30 days
 
-INSERT INTO ehr.bronze.raw_admissions VALUES
-  ('A051', 'P1021', 'CARD', 'I21.0', '2024-01-20', '2024-01-28', 48700.00, 'Dr. Rivera', 'New STEMI patient Rachel Green', '2024-01-20T06:00:00'),
-  ('A052', 'P1021', 'CARD', 'I25.10', '2024-02-12', '2024-02-15', 13200.00, 'Dr. Rivera', 'Readmission within 30d cardiac', '2024-01-20T06:00:00'),
-  ('A053', 'P1022', 'NEUR', 'G45.9', '2024-01-25', '2024-01-28', 17800.00, 'Dr. Patel', 'TIA new patient Thomas Baker', '2024-01-20T06:00:00'),
-  ('A054', 'P1001', 'CARD', 'I50.9', '2024-02-05', '2024-02-10', 29800.00, 'Dr. Rivera', 'Existing patient John Smith HF', '2024-01-20T06:00:00'),
-  ('A055', 'P1008', 'NEPH', 'N18.6', '2024-02-10', '2024-02-17', 43900.00, 'Dr. Okafor', 'Existing ESRD patient dialysis', '2024-01-20T06:00:00'),
-  ('A056', 'P1014', 'CARD', 'I50.9', '2024-02-08', '2024-02-14', 37200.00, 'Dr. Rivera', 'Nancy Clark new HF episode', '2024-01-20T06:00:00'),
-  ('A057', 'P1016', 'ONCO', 'C34.90', '2024-02-15', '2024-02-28', 82100.00, 'Dr. Kim', 'Karen Robinson chemo cycle 4', '2024-01-20T06:00:00'),
-  ('A051', 'P1021', 'CARD', 'I21.0', '2024-01-20', '2024-01-28', 48700.00, 'Dr. Rivera', 'DUPLICATE Rachel Green', '2024-01-20T06:05:00');
+MERGE INTO ehr.bronze.raw_admissions AS target
+USING (
+  SELECT * FROM (VALUES
+    ('A051', 'P1021', 'CARD', 'I21.0', '2024-01-20', '2024-01-28', 48700.00, 'Dr. Rivera', 'New STEMI patient Rachel Green', '2024-01-20T06:00:00'),
+    ('A052', 'P1021', 'CARD', 'I25.10', '2024-02-12', '2024-02-15', 13200.00, 'Dr. Rivera', 'Readmission within 30d cardiac', '2024-01-20T06:00:00'),
+    ('A053', 'P1022', 'NEUR', 'G45.9', '2024-01-25', '2024-01-28', 17800.00, 'Dr. Patel', 'TIA new patient Thomas Baker', '2024-01-20T06:00:00'),
+    ('A054', 'P1001', 'CARD', 'I50.9', '2024-02-05', '2024-02-10', 29800.00, 'Dr. Rivera', 'Existing patient John Smith HF', '2024-01-20T06:00:00'),
+    ('A055', 'P1008', 'NEPH', 'N18.6', '2024-02-10', '2024-02-17', 43900.00, 'Dr. Okafor', 'Existing ESRD patient dialysis', '2024-01-20T06:00:00'),
+    ('A056', 'P1014', 'CARD', 'I50.9', '2024-02-08', '2024-02-14', 37200.00, 'Dr. Rivera', 'Nancy Clark new HF episode', '2024-01-20T06:00:00'),
+    ('A057', 'P1016', 'ONCO', 'C34.90', '2024-02-15', '2024-02-28', 82100.00, 'Dr. Kim', 'Karen Robinson chemo cycle 4', '2024-01-20T06:00:00'),
+    ('A051', 'P1021', 'CARD', 'I21.0', '2024-01-20', '2024-01-28', 48700.00, 'Dr. Rivera', 'DUPLICATE Rachel Green', '2024-01-20T06:05:00')
+  ) AS t(record_id, patient_id, department_code, diagnosis_code, admission_date, discharge_date, total_charges, attending_physician, notes, ingested_at)
+) AS source
+ON target.record_id = source.record_id AND target.ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT VALUES (
+  source.record_id, source.patient_id, source.department_code, source.diagnosis_code,
+  source.admission_date, source.discharge_date, source.total_charges,
+  source.attending_physician, source.notes, source.ingested_at
+);
 
 -- 2 patient address changes for incremental SCD2 processing
-INSERT INTO ehr.bronze.raw_patients VALUES
-  ('P1009', 'William Taylor', '901-23-4567', '1975-08-09', 'wtaylor@mail.com', '42 Lakeside Drive', 'Mystic', 'CT', 'INS-BC-099', 'BlueCross Shield', '2024-07-01T08:00:00'),
-  ('P1015', 'Daniel Lewis', '555-66-7777', '1973-12-21', 'dlewis@email.com', '18 Mountain Road', 'Litchfield', 'CT', 'INS-AE-155', 'Aetna Health', '2024-07-01T08:00:00');
+MERGE INTO ehr.bronze.raw_patients AS target
+USING (
+  SELECT * FROM (VALUES
+    ('P1009', 'William Taylor', '901-23-4567', '1975-08-09', 'wtaylor@mail.com', '42 Lakeside Drive', 'Mystic', 'CT', 'INS-BC-099', 'BlueCross Shield', '2024-07-01T08:00:00'),
+    ('P1015', 'Daniel Lewis', '555-66-7777', '1973-12-21', 'dlewis@email.com', '18 Mountain Road', 'Litchfield', 'CT', 'INS-AE-155', 'Aetna Health', '2024-07-01T08:00:00')
+  ) AS t(patient_id, patient_name, ssn, date_of_birth, email, address, city, state, insurance_id, insurance_name, ingested_at)
+) AS source
+ON target.patient_id = source.patient_id AND target.ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT VALUES (
+  source.patient_id, source.patient_name, source.ssn, source.date_of_birth,
+  source.email, source.address, source.city, source.state,
+  source.insurance_id, source.insurance_name, source.ingested_at
+);
 
 -- ===================== Incremental MERGE to Silver Admissions =====================
 -- Uses INCREMENTAL_FILTER to only process new records with 3-day overlap
@@ -170,31 +190,57 @@ WHEN MATCHED THEN UPDATE SET
   is_current  = false,
   updated_at  = CURRENT_TIMESTAMP;
 
--- Insert new current version for changed patients
-INSERT INTO ehr.silver.patient_dim
-SELECT
-  r.patient_id,
-  TRIM(r.patient_name) AS patient_name,
-  r.ssn,
-  CAST(r.date_of_birth AS DATE) AS date_of_birth,
-  LOWER(TRIM(r.email)) AS email,
-  TRIM(r.address) AS address,
-  r.city,
-  r.state,
-  r.insurance_id,
-  r.insurance_name,
-  CAST('2024-07-01' AS DATE) AS valid_from,
-  NULL AS valid_to,
-  true AS is_current,
-  CURRENT_TIMESTAMP AS updated_at
-FROM ehr.bronze.raw_patients r
-WHERE r.ingested_at > '2024-06-15T00:00:00'
-AND EXISTS (
-    SELECT 1 FROM ehr.silver.patient_dim p
-    WHERE p.patient_id = r.patient_id
-      AND p.is_current = false
-      AND p.valid_to = CAST('2024-07-01' AS DATE)
-);
+-- Insert new current version for changed patients (MERGE to avoid duplicates on re-run)
+MERGE INTO ehr.silver.patient_dim AS target
+USING (
+  SELECT
+    r.patient_id,
+    TRIM(r.patient_name) AS patient_name,
+    r.ssn,
+    CAST(r.date_of_birth AS DATE) AS date_of_birth,
+    LOWER(TRIM(r.email)) AS email,
+    TRIM(r.address) AS address,
+    r.city,
+    r.state,
+    r.insurance_id,
+    r.insurance_name,
+    CAST('2024-07-01' AS DATE) AS valid_from,
+    NULL AS valid_to,
+    true AS is_current,
+    CURRENT_TIMESTAMP AS updated_at
+  FROM ehr.bronze.raw_patients r
+  WHERE r.ingested_at > '2024-06-15T00:00:00'
+  AND EXISTS (
+      SELECT 1 FROM ehr.silver.patient_dim p
+      WHERE p.patient_id = r.patient_id
+        AND p.is_current = false
+        AND p.valid_to = CAST('2024-07-01' AS DATE)
+  )
+) AS source
+ON target.patient_id = source.patient_id
+    AND target.valid_from = source.valid_from
+    AND target.is_current = true
+WHEN NOT MATCHED THEN INSERT (
+    patient_id, patient_name, ssn, date_of_birth, email,
+    address, city, state, insurance_id, insurance_name,
+    valid_from, valid_to, is_current, updated_at
+) VALUES (
+    source.patient_id, source.patient_name, source.ssn, source.date_of_birth,
+    source.email, source.address, source.city, source.state,
+    source.insurance_id, source.insurance_name,
+    source.valid_from, source.valid_to, source.is_current, source.updated_at
+)
+WHEN MATCHED THEN UPDATE SET
+    patient_name    = source.patient_name,
+    ssn             = source.ssn,
+    date_of_birth   = source.date_of_birth,
+    email           = source.email,
+    address         = source.address,
+    city            = source.city,
+    state           = source.state,
+    insurance_id    = source.insurance_id,
+    insurance_name  = source.insurance_name,
+    updated_at      = source.updated_at;
 
 -- ===================== Verify Incremental Processing =====================
 

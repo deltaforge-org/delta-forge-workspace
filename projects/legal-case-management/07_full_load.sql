@@ -35,6 +35,8 @@ SELECT COUNT(*) AS row_count FROM legal.bronze.raw_relationships;
 -- ===================== enrich_cases =====================
 -- Compute duration, attorney count, party count, billing totals, complexity score
 
+DELETE FROM legal.silver.cases_enriched WHERE 1=1;
+
 INSERT INTO legal.silver.cases_enriched
 SELECT
     c.case_id,
@@ -83,6 +85,8 @@ SELECT COUNT(*) AS row_count FROM legal.silver.cases_enriched;
 -- ===================== validate_billings =====================
 -- Join billings with case/attorney metadata; enforce CHECK constraints via query
 
+DELETE FROM legal.silver.billings_validated WHERE 1=1;
+
 INSERT INTO legal.silver.billings_validated
 SELECT
     b.billing_id,
@@ -110,6 +114,8 @@ ASSERT ROW_COUNT = 70
 SELECT COUNT(*) AS row_count FROM legal.silver.billings_validated;
 
 -- ===================== build_party_profiles =====================
+
+DELETE FROM legal.silver.party_profiles WHERE 1=1;
 
 INSERT INTO legal.silver.party_profiles
 SELECT
@@ -263,6 +269,8 @@ SELECT COUNT(*) AS row_count FROM legal.gold.fact_billings;
 
 -- ===================== compute_firm_kpi =====================
 -- Utilization rates, revenue per attorney, case profitability
+
+DELETE FROM legal.gold.kpi_firm_performance WHERE 1=1;
 
 INSERT INTO legal.gold.kpi_firm_performance
 SELECT

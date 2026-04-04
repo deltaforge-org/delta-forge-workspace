@@ -11,13 +11,26 @@ PIPELINE hr_bronze_seed
 
 -- ===================== BRONZE SEED: DEPARTMENTS (6 rows) =====================
 
-INSERT INTO hr.bronze.raw_departments VALUES
+MERGE INTO hr.bronze.raw_departments AS target
+USING (VALUES
   ('DEPT-ENG',  'Engineering',      'Technology',  'CC-1001', 60,  9600000.00, 'Diana Torres',    '2025-01-01T00:00:00'),
   ('DEPT-MKT',  'Marketing',        'Revenue',     'CC-2001', 25,  3200000.00, 'Kevin Marshall',  '2025-01-01T00:00:00'),
   ('DEPT-FIN',  'Finance',          'Operations',  'CC-3001', 20,  2800000.00, 'Sandra Lee',      '2025-01-01T00:00:00'),
   ('DEPT-HR',   'Human Resources',  'Operations',  'CC-4001', 12,  1500000.00, 'Angela Russo',    '2025-01-01T00:00:00'),
   ('DEPT-SALE', 'Sales',            'Revenue',     'CC-5001', 35,  4200000.00, 'Marcus Johnson',  '2025-01-01T00:00:00'),
-  ('DEPT-OPS',  'Operations',       'Operations',  'CC-6001', 18,  2200000.00, 'Patricia Dunn',   '2025-01-01T00:00:00');
+  ('DEPT-OPS',  'Operations',       'Operations',  'CC-6001', 18,  2200000.00, 'Patricia Dunn',   '2025-01-01T00:00:00')
+) AS source(department_id, department_name, division, cost_center, head_count_budget, annual_budget, manager_name, ingested_at)
+ON target.department_id = source.department_id
+WHEN MATCHED THEN UPDATE SET
+  department_name   = source.department_name,
+  division          = source.division,
+  cost_center       = source.cost_center,
+  head_count_budget = source.head_count_budget,
+  annual_budget     = source.annual_budget,
+  manager_name      = source.manager_name,
+  ingested_at       = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (department_id, department_name, division, cost_center, head_count_budget, annual_budget, manager_name, ingested_at)
+  VALUES (source.department_id, source.department_name, source.division, source.cost_center, source.head_count_budget, source.annual_budget, source.manager_name, source.ingested_at);
 
 ASSERT ROW_COUNT = 6
 SELECT COUNT(*) AS row_count FROM hr.bronze.raw_departments;
@@ -25,7 +38,8 @@ SELECT COUNT(*) AS row_count FROM hr.bronze.raw_departments;
 
 -- ===================== BRONZE SEED: POSITIONS (10 rows) =====================
 
-INSERT INTO hr.bronze.raw_positions VALUES
+MERGE INTO hr.bronze.raw_positions AS target
+USING (VALUES
   ('POS-SE1',  'Software Engineer I',       'Engineering',     1, 75000.00,  105000.00, true,  '2025-01-01T00:00:00'),
   ('POS-SE2',  'Software Engineer II',      'Engineering',     2, 100000.00, 140000.00, true,  '2025-01-01T00:00:00'),
   ('POS-SSE',  'Senior Software Engineer',  'Engineering',     3, 130000.00, 180000.00, true,  '2025-01-01T00:00:00'),
@@ -35,7 +49,19 @@ INSERT INTO hr.bronze.raw_positions VALUES
   ('POS-HRG',  'HR Generalist',             'Human Resources', 1, 55000.00,  80000.00,  true,  '2025-01-01T00:00:00'),
   ('POS-SR1',  'Sales Representative',      'Sales',           1, 50000.00,  75000.00,  false, '2025-01-01T00:00:00'),
   ('POS-OA1',  'Operations Analyst',        'Operations',      1, 60000.00,  90000.00,  true,  '2025-01-01T00:00:00'),
-  ('POS-OM1',  'Operations Manager',        'Operations',      3, 95000.00,  140000.00, true,  '2025-01-01T00:00:00');
+  ('POS-OM1',  'Operations Manager',        'Operations',      3, 95000.00,  140000.00, true,  '2025-01-01T00:00:00')
+) AS source(position_id, title, job_family, job_level, pay_grade_min, pay_grade_max, exempt_flag, ingested_at)
+ON target.position_id = source.position_id
+WHEN MATCHED THEN UPDATE SET
+  title         = source.title,
+  job_family    = source.job_family,
+  job_level     = source.job_level,
+  pay_grade_min = source.pay_grade_min,
+  pay_grade_max = source.pay_grade_max,
+  exempt_flag   = source.exempt_flag,
+  ingested_at   = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (position_id, title, job_family, job_level, pay_grade_min, pay_grade_max, exempt_flag, ingested_at)
+  VALUES (source.position_id, source.title, source.job_family, source.job_level, source.pay_grade_min, source.pay_grade_max, source.exempt_flag, source.ingested_at);
 
 ASSERT ROW_COUNT = 10
 SELECT COUNT(*) AS row_count FROM hr.bronze.raw_positions;
@@ -46,7 +72,8 @@ SELECT COUNT(*) AS row_count FROM hr.bronze.raw_positions;
 -- Includes 3 underpaid (compa-ratio < 0.8), 1 overpaid (> 1.2)
 -- Measurable gender pay gap in Engineering and Sales
 
-INSERT INTO hr.bronze.raw_employees VALUES
+MERGE INTO hr.bronze.raw_employees AS target
+USING (VALUES
   ('EMP-001', 'Alexis Jordan',     '111-22-3333', 'ajordan@company.com',    '1995-06-12', 'Female', '2021-03-15', NULL,          'DEPT-ENG',  'POS-SE1',  'Bachelors',  'active',     '2025-01-01T00:00:00'),
   ('EMP-002', 'Brian Matthews',    '222-33-4444', 'bmatthews@company.com',  '1992-03-08', 'Male',   '2020-01-10', NULL,          'DEPT-ENG',  'POS-SE2',  'Masters',    'active',     '2025-01-01T00:00:00'),
   ('EMP-003', 'Catherine Zhao',    '333-44-5555', 'czhao@company.com',      '1988-11-22', 'Female', '2019-06-01', NULL,          'DEPT-ENG',  'POS-SSE',  'Masters',    'active',     '2025-01-01T00:00:00'),
@@ -66,7 +93,24 @@ INSERT INTO hr.bronze.raw_employees VALUES
   ('EMP-017', 'Quinn Murray',      '800-88-9999', 'qmurray@company.com',   '1996-08-15', 'Female', '2022-05-01', '2024-09-30',  'DEPT-SALE', 'POS-SR1',  'Bachelors',  'terminated', '2025-01-01T00:00:00'),
   ('EMP-018', 'Ricardo Silva',     '900-99-0000', 'rsilva@company.com',     '1998-02-07', 'Male',   '2023-06-15', NULL,          'DEPT-ENG',  'POS-SE1',  'Masters',    'active',     '2025-01-01T00:00:00'),
   ('EMP-019', 'Samantha Wells',    '010-12-3456', 'swells@company.com',     '1992-12-18', 'Female', '2021-11-01', NULL,          'DEPT-OPS',  'POS-OA1',  'Bachelors',  'active',     '2025-01-01T00:00:00'),
-  ('EMP-020', 'Thomas Kim',        '020-23-4567', 'tkim@company.com',       '1995-04-22', 'Male',   '2022-03-01', NULL,          'DEPT-OPS',  'POS-OA1',  'Masters',    'active',     '2025-01-01T00:00:00');
+  ('EMP-020', 'Thomas Kim',        '020-23-4567', 'tkim@company.com',       '1995-04-22', 'Male',   '2022-03-01', NULL,          'DEPT-OPS',  'POS-OA1',  'Masters',    'active',     '2025-01-01T00:00:00')
+) AS source(employee_id, employee_name, ssn, email, date_of_birth, gender, hire_date, termination_date, department_id, position_id, education_level, status, ingested_at)
+ON target.employee_id = source.employee_id
+WHEN MATCHED THEN UPDATE SET
+  employee_name    = source.employee_name,
+  ssn              = source.ssn,
+  email            = source.email,
+  date_of_birth    = source.date_of_birth,
+  gender           = source.gender,
+  hire_date        = source.hire_date,
+  termination_date = source.termination_date,
+  department_id    = source.department_id,
+  position_id      = source.position_id,
+  education_level  = source.education_level,
+  status           = source.status,
+  ingested_at      = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (employee_id, employee_name, ssn, email, date_of_birth, gender, hire_date, termination_date, department_id, position_id, education_level, status, ingested_at)
+  VALUES (source.employee_id, source.employee_name, source.ssn, source.email, source.date_of_birth, source.gender, source.hire_date, source.termination_date, source.department_id, source.position_id, source.education_level, source.status, source.ingested_at);
 
 ASSERT ROW_COUNT = 20
 SELECT COUNT(*) AS row_count FROM hr.bronze.raw_employees;
@@ -78,7 +122,8 @@ SELECT COUNT(*) AS row_count FROM hr.bronze.raw_employees;
 -- Result after SCD2: 20 initial + 5 promotions + 3 transfers + 4 salary adj = 32 rows
 -- 18 with is_current=1 (2 terminated: EMP-005, EMP-008; but EMP-017 terminated later)
 
-INSERT INTO hr.bronze.raw_comp_events VALUES
+MERGE INTO hr.bronze.raw_comp_events AS target
+USING (VALUES
   -- === 20 HIRE EVENTS ===
   ('CE-001', 'EMP-001', 'DEPT-ENG',  'POS-SE1',  '2021-03-15', 'hire',            82000.00,  0.00,     3.0, 'New hire',                      '2025-01-01T00:00:00'),
   ('CE-002', 'EMP-002', 'DEPT-ENG',  'POS-SE1',  '2020-01-10', 'hire',            85000.00,  0.00,     3.0, 'New hire',                      '2025-01-01T00:00:00'),
@@ -141,7 +186,22 @@ INSERT INTO hr.bronze.raw_comp_events VALUES
   ('CE-053', 'EMP-017', 'DEPT-SALE', 'POS-SR1',  '2024-06-01', 'pip',              54000.00,  0.00,     2.0, 'PIP initiated - quota miss',   '2025-01-01T00:00:00'),
   -- === 2 additional terminations to reach 5 total ===
   ('CE-054', 'EMP-009', 'DEPT-FIN',  'POS-FA1',  '2024-12-15', 'termination',      75600.00,  0.00,     3.0, 'Voluntary - relocation',       '2025-01-01T00:00:00'),
-  ('CE-055', 'EMP-015', 'DEPT-SALE', 'POS-SR1',  '2024-11-30', 'termination',      60900.00,  0.00,     2.5, 'Voluntary resignation',        '2025-01-01T00:00:00');
+  ('CE-055', 'EMP-015', 'DEPT-SALE', 'POS-SR1',  '2024-11-30', 'termination',      60900.00,  0.00,     2.5, 'Voluntary resignation',        '2025-01-01T00:00:00')
+) AS source(event_id, employee_id, department_id, position_id, event_date, event_type, base_salary, bonus, performance_rating, notes, ingested_at)
+ON target.event_id = source.event_id
+WHEN MATCHED THEN UPDATE SET
+  employee_id        = source.employee_id,
+  department_id      = source.department_id,
+  position_id        = source.position_id,
+  event_date         = source.event_date,
+  event_type         = source.event_type,
+  base_salary        = source.base_salary,
+  bonus              = source.bonus,
+  performance_rating = source.performance_rating,
+  notes              = source.notes,
+  ingested_at        = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (event_id, employee_id, department_id, position_id, event_date, event_type, base_salary, bonus, performance_rating, notes, ingested_at)
+  VALUES (source.event_id, source.employee_id, source.department_id, source.position_id, source.event_date, source.event_type, source.base_salary, source.bonus, source.performance_rating, source.notes, source.ingested_at);
 
 ASSERT ROW_COUNT = 55
 SELECT COUNT(*) AS row_count FROM hr.bronze.raw_comp_events;

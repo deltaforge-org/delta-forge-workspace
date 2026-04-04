@@ -23,7 +23,8 @@ SELECT MAX(processed_at) AS current_watermark FROM legal.silver.billings_validat
 -- ===================== insert_new_bronze =====================
 -- 8 new billing entries arriving after the initial load
 
-INSERT INTO legal.bronze.raw_billings VALUES
+MERGE INTO legal.bronze.raw_billings AS target
+USING (VALUES
     ('B071', 'C001', 'A001', '2024-02-10', 7.0,  650.00, 4550.00,  true,  'billable',  'Summary judgment motion',                '2024-02-15T00:00:00'),
     ('B072', 'C006', 'A001', '2024-02-15', 9.5,  650.00, 6175.00,  true,  'billable',  'Sentencing hearing preparation',          '2024-02-15T00:00:00'),
     ('B073', 'C009', 'A005', '2024-02-20', 5.0,  620.00, 3100.00,  true,  'billable',  'Post-merger integration review',          '2024-02-15T00:00:00'),
@@ -31,7 +32,14 @@ INSERT INTO legal.bronze.raw_billings VALUES
     ('B075', 'C015', 'A004', '2024-02-10', 4.5,  395.00, 1777.50,  true,  'billable',  'Demand letter to employer',               '2024-02-15T00:00:00'),
     ('B076', 'C008', 'A001', '2024-02-18', 6.0,  650.00, 3900.00,  true,  'billable',  'Appeal brief finalization',               '2024-02-15T00:00:00'),
     ('B077', 'C011', 'A007', '2024-02-12', 4.0,  520.00, 2080.00,  true,  'billable',  'Shareholder meeting prep',                '2024-02-15T00:00:00'),
-    ('B078', 'C005', 'A002', '2024-02-22', 5.5,  475.00, 2612.50,  true,  'billable',  'Closing arguments draft',                 '2024-02-15T00:00:00');
+    ('B078', 'C005', 'A002', '2024-02-22', 5.5,  475.00, 2612.50,  true,  'billable',  'Closing arguments draft',                 '2024-02-15T00:00:00')
+) AS source (billing_id, case_id, attorney_id, billing_date, hours, hourly_rate, amount, billable_flag, billing_type, description, ingested_at)
+ON target.billing_id = source.billing_id
+WHEN NOT MATCHED THEN INSERT VALUES (
+    source.billing_id, source.case_id, source.attorney_id, source.billing_date,
+    source.hours, source.hourly_rate, source.amount, source.billable_flag,
+    source.billing_type, source.description, source.ingested_at
+);
 
 ASSERT ROW_COUNT = 8
 SELECT COUNT(*) AS new_rows
@@ -92,29 +100,48 @@ WHEN NOT MATCHED THEN INSERT (
 
 -- ===================== incremental_validate_billings =====================
 
-INSERT INTO legal.silver.billings_validated
-SELECT
-    b.billing_id,
-    b.case_id,
-    b.attorney_id,
-    b.billing_date,
-    b.hours,
-    b.hourly_rate,
-    b.amount,
-    b.billable_flag,
-    b.billing_type,
-    c.case_type,
-    a.practice_group,
-    a.partner_flag,
-    ce.complexity_score,
-    CURRENT_TIMESTAMP AS processed_at
-FROM legal.bronze.raw_billings b
-JOIN legal.bronze.raw_cases c ON b.case_id = c.case_id
-JOIN legal.bronze.raw_attorneys a ON b.attorney_id = a.attorney_id
-LEFT JOIN legal.silver.cases_enriched ce ON b.case_id = ce.case_id
-WHERE b.hours > 0
-  AND b.hourly_rate > 0
-  AND {{INCREMENTAL_FILTER(legal.silver.billings_validated, billing_id, billing_date, 3)}};
+MERGE INTO legal.silver.billings_validated AS target
+USING (
+    SELECT
+        b.billing_id,
+        b.case_id,
+        b.attorney_id,
+        b.billing_date,
+        b.hours,
+        b.hourly_rate,
+        b.amount,
+        b.billable_flag,
+        b.billing_type,
+        c.case_type,
+        a.practice_group,
+        a.partner_flag,
+        ce.complexity_score,
+        CURRENT_TIMESTAMP AS processed_at
+    FROM legal.bronze.raw_billings b
+    JOIN legal.bronze.raw_cases c ON b.case_id = c.case_id
+    JOIN legal.bronze.raw_attorneys a ON b.attorney_id = a.attorney_id
+    LEFT JOIN legal.silver.cases_enriched ce ON b.case_id = ce.case_id
+    WHERE b.hours > 0
+      AND b.hourly_rate > 0
+      AND {{INCREMENTAL_FILTER(legal.silver.billings_validated, billing_id, billing_date, 3)}}
+) AS source
+ON target.billing_id = source.billing_id
+WHEN MATCHED THEN UPDATE SET
+    hours            = source.hours,
+    hourly_rate      = source.hourly_rate,
+    amount           = source.amount,
+    complexity_score = source.complexity_score,
+    processed_at     = source.processed_at
+WHEN NOT MATCHED THEN INSERT (
+    billing_id, case_id, attorney_id, billing_date, hours, hourly_rate,
+    amount, billable_flag, billing_type, case_type, practice_group,
+    partner_flag, complexity_score, processed_at
+) VALUES (
+    source.billing_id, source.case_id, source.attorney_id, source.billing_date,
+    source.hours, source.hourly_rate, source.amount, source.billable_flag,
+    source.billing_type, source.case_type, source.practice_group,
+    source.partner_flag, source.complexity_score, source.processed_at
+);
 
 ASSERT ROW_COUNT = 8
 SELECT COUNT(*) AS new_billings

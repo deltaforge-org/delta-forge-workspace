@@ -39,6 +39,8 @@ SELECT COUNT(*) AS row_count FROM tax.bronze.raw_preparers;
 -- Append-only INSERT: original filings are NEVER updated or deleted in silver.
 -- Compute effective_tax_rate, deduction_pct, audit_flag, income_bracket.
 
+DELETE FROM tax.silver.filings_immutable WHERE 1=1;
+
 INSERT INTO tax.silver.filings_immutable
 SELECT
     f.filing_id,
@@ -140,6 +142,8 @@ SELECT COUNT(*) AS row_count FROM tax.silver.amendments_applied;
 -- ===================== enable_cdf_audit =====================
 -- Materialize the CDF from filings_immutable into the audit_trail table.
 
+DELETE FROM tax.silver.audit_trail WHERE 1=1;
+
 INSERT INTO tax.silver.audit_trail
 SELECT
     ROW_NUMBER() OVER (ORDER BY fi.filing_id)                     AS audit_id,
@@ -172,6 +176,8 @@ FROM tax.silver.amendments_applied aa;
 
 -- ===================== build_taxpayer_profiles =====================
 -- Aggregate across filings and amendments to build lifetime taxpayer profiles.
+
+DELETE FROM tax.silver.taxpayer_profiles WHERE 1=1;
 
 INSERT INTO tax.silver.taxpayer_profiles
 SELECT
@@ -212,6 +218,8 @@ LEFT JOIN (
 
 -- ===================== dim_taxpayer =====================
 
+DELETE FROM tax.gold.dim_taxpayer WHERE 1=1;
+
 INSERT INTO tax.gold.dim_taxpayer
 SELECT
     ROW_NUMBER() OVER (ORDER BY tp.taxpayer_id)                   AS taxpayer_key,
@@ -226,6 +234,8 @@ FROM tax.silver.taxpayer_profiles tp;
 
 -- ===================== dim_jurisdiction =====================
 
+DELETE FROM tax.gold.dim_jurisdiction WHERE 1=1;
+
 INSERT INTO tax.gold.dim_jurisdiction
 SELECT
     ROW_NUMBER() OVER (ORDER BY j.jurisdiction_id)                AS jurisdiction_key,
@@ -239,6 +249,8 @@ FROM tax.bronze.raw_jurisdictions j;
 
 -- ===================== dim_preparer =====================
 -- Calculate total filings and amendment rate per preparer.
+
+DELETE FROM tax.gold.dim_preparer WHERE 1=1;
 
 INSERT INTO tax.gold.dim_preparer
 SELECT
@@ -267,6 +279,8 @@ LEFT JOIN (
 
 -- ===================== dim_fiscal_year =====================
 
+DELETE FROM tax.gold.dim_fiscal_year WHERE 1=1;
+
 INSERT INTO tax.gold.dim_fiscal_year
 SELECT
     ROW_NUMBER() OVER (ORDER BY fi.fiscal_year)                   AS fiscal_year_key,
@@ -289,6 +303,8 @@ GROUP BY fi.fiscal_year, amend_ct.cnt;
 -- ===================== build_fact_filings =====================
 -- Star schema fact: join originals + amendments.  COALESCE amended values
 -- over originals so the fact reflects the "effective" filing.
+
+DELETE FROM tax.gold.fact_filings WHERE 1=1;
 
 INSERT INTO tax.gold.fact_filings
 SELECT
@@ -340,6 +356,8 @@ LEFT JOIN (
 -- ===================== kpi_revenue_analysis =====================
 -- Revenue KPI by jurisdiction x fiscal_year with compliance rate and audit yield.
 
+DELETE FROM tax.gold.kpi_revenue_analysis WHERE 1=1;
+
 INSERT INTO tax.gold.kpi_revenue_analysis
 SELECT
     ff.fiscal_year,
@@ -370,6 +388,8 @@ GROUP BY ff.fiscal_year, dj.jurisdiction_name;
 
 -- ===================== kpi_preparer_quality =====================
 -- Preparer quality KPI: error rates, amendment rates, audit rates.
+
+DELETE FROM tax.gold.kpi_preparer_quality WHERE 1=1;
 
 INSERT INTO tax.gold.kpi_preparer_quality
 SELECT

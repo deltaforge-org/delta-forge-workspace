@@ -31,19 +31,28 @@ SELECT COUNT(*) AS pre_gold_count FROM bank.gold.fact_transactions;
 -- ===================== Insert New Bronze Transactions (10 rows, Feb 2024) =====================
 -- Includes 2 fraud-flagged: one crypto + suspicious + high value, one velocity cluster
 
-INSERT INTO bank.bronze.raw_transactions VALUES
-  ('TXN00071', 'ACC001', 'M001', '2024-02-01T09:00:00', 92.30, 'debit', 'pos', false, '2024-02-01T12:00:00'),
-  ('TXN00072', 'ACC002', 'M005', '2024-02-01T14:20:00', 245.99, 'debit', 'online', false, '2024-02-01T12:00:00'),
-  ('TXN00073', 'ACC003', NULL, '2024-02-02T08:00:00', 4000.00, 'credit', 'wire', false, '2024-02-01T12:00:00'),
-  -- HIGH FRAUD: crypto + suspicious + late night + high value
-  ('TXN00074', 'ACC004', 'M014', '2024-02-02T02:45:00', 6500.00, 'debit', 'online', true, '2024-02-01T12:00:00'),
-  ('TXN00075', 'ACC005', 'M009', '2024-02-03T07:30:00', 1560.00, 'debit', 'online', false, '2024-02-01T12:00:00'),
-  ('TXN00076', 'ACC007', 'M012', '2024-02-03T14:00:00', 3299.99, 'debit', 'pos', false, '2024-02-01T12:00:00'),
-  -- HIGH FRAUD: crypto + suspicious for ACC010 dormant account
-  ('TXN00077', 'ACC010', 'M014', '2024-02-04T03:15:00', 1200.00, 'debit', 'online', true, '2024-02-01T12:00:00'),
-  ('TXN00078', 'ACC008', 'M010', '2024-02-04T19:30:00', 35.50, 'debit', 'online', false, '2024-02-01T12:00:00'),
-  ('TXN00079', 'ACC006', 'M002', '2024-02-05T12:45:00', 67.80, 'debit', 'pos', false, '2024-02-01T12:00:00'),
-  ('TXN00080', 'ACC011', 'M015', '2024-02-05T16:20:00', 199.99, 'debit', 'pos', false, '2024-02-01T12:00:00');
+MERGE INTO bank.bronze.raw_transactions AS target
+USING (
+    SELECT * FROM (VALUES
+        ('TXN00071', 'ACC001', 'M001', '2024-02-01T09:00:00', 92.30, 'debit', 'pos', false, '2024-02-01T12:00:00'),
+        ('TXN00072', 'ACC002', 'M005', '2024-02-01T14:20:00', 245.99, 'debit', 'online', false, '2024-02-01T12:00:00'),
+        ('TXN00073', 'ACC003', NULL, '2024-02-02T08:00:00', 4000.00, 'credit', 'wire', false, '2024-02-01T12:00:00'),
+        -- HIGH FRAUD: crypto + suspicious + late night + high value
+        ('TXN00074', 'ACC004', 'M014', '2024-02-02T02:45:00', 6500.00, 'debit', 'online', true, '2024-02-01T12:00:00'),
+        ('TXN00075', 'ACC005', 'M009', '2024-02-03T07:30:00', 1560.00, 'debit', 'online', false, '2024-02-01T12:00:00'),
+        ('TXN00076', 'ACC007', 'M012', '2024-02-03T14:00:00', 3299.99, 'debit', 'pos', false, '2024-02-01T12:00:00'),
+        -- HIGH FRAUD: crypto + suspicious for ACC010 dormant account
+        ('TXN00077', 'ACC010', 'M014', '2024-02-04T03:15:00', 1200.00, 'debit', 'online', true, '2024-02-01T12:00:00'),
+        ('TXN00078', 'ACC008', 'M010', '2024-02-04T19:30:00', 35.50, 'debit', 'online', false, '2024-02-01T12:00:00'),
+        ('TXN00079', 'ACC006', 'M002', '2024-02-05T12:45:00', 67.80, 'debit', 'pos', false, '2024-02-01T12:00:00'),
+        ('TXN00080', 'ACC011', 'M015', '2024-02-05T16:20:00', 199.99, 'debit', 'pos', false, '2024-02-01T12:00:00')
+    ) AS v(transaction_id, account_id, merchant_id, transaction_date, amount, transaction_type, channel, is_suspicious, ingested_at)
+) AS source
+ON target.transaction_id = source.transaction_id
+WHEN NOT MATCHED THEN INSERT VALUES (
+    source.transaction_id, source.account_id, source.merchant_id, source.transaction_date,
+    source.amount, source.transaction_type, source.channel, source.is_suspicious, source.ingested_at
+);
 
 -- ===================== Incremental MERGE to Silver =====================
 -- Uses INCREMENTAL_FILTER to process only new records with 1-day overlap

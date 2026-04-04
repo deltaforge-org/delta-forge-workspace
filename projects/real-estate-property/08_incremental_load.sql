@@ -39,10 +39,21 @@ FROM realty.silver.property_dim;
 -- ===================== ingest_new_bronze =====================
 -- Simulate 3 new transactions arriving in 2025.
 
-INSERT INTO realty.bronze.raw_transactions VALUES
-    ('TXN-026', 'PRC-011', 'Ryan Patel',       'William Taylor', 'AGT-01', '2025-01-15', 845000.00, 'Jumbo',        21000.00, 18, '2025-01-15T09:00:00'),
-    ('TXN-027', 'PRC-008', 'Sophia Anderson',  'James Wilson',   'AGT-04', '2025-02-01', 505000.00, 'Conventional', 12200.00, 25, '2025-02-01T09:00:00'),
-    ('TXN-028', 'PRC-014', 'Olivia Robinson',  'Emily Garcia',   'AGT-02', '2025-02-20', 445000.00, 'Conventional', 10800.00, 30, '2025-02-20T09:00:00');
+MERGE INTO realty.bronze.raw_transactions AS tgt
+USING (
+    VALUES
+        ('TXN-026', 'PRC-011', 'Ryan Patel',       'William Taylor', 'AGT-01', '2025-01-15', 845000.00, 'Jumbo',        21000.00, 18, '2025-01-15T09:00:00'),
+        ('TXN-027', 'PRC-008', 'Sophia Anderson',  'James Wilson',   'AGT-04', '2025-02-01', 505000.00, 'Conventional', 12200.00, 25, '2025-02-01T09:00:00'),
+        ('TXN-028', 'PRC-014', 'Olivia Robinson',  'Emily Garcia',   'AGT-02', '2025-02-20', 445000.00, 'Conventional', 10800.00, 30, '2025-02-20T09:00:00')
+) AS src (transaction_id, parcel_id, buyer_name, seller_name, agent_id, transaction_date, sale_price, financing_type, closing_costs, days_on_market, _loaded_at)
+ON tgt.transaction_id = src.transaction_id
+WHEN NOT MATCHED THEN INSERT (
+    transaction_id, parcel_id, buyer_name, seller_name, agent_id, transaction_date,
+    sale_price, financing_type, closing_costs, days_on_market, _loaded_at
+) VALUES (
+    src.transaction_id, src.parcel_id, src.buyer_name, src.seller_name, src.agent_id, src.transaction_date,
+    src.sale_price, src.financing_type, src.closing_costs, src.days_on_market, src._loaded_at
+);
 
 -- ===================== enrich_new_transactions =====================
 

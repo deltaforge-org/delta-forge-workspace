@@ -32,23 +32,35 @@ UNION ALL SELECT 'fact_incidents', COUNT(*) FROM cyber.gold.fact_incidents;
 -- ===================== Insert New Bronze Alerts (10 across 3 sources) =====================
 
 -- Firewall: 3 new alerts (1 duplicate within 5-min window)
-INSERT INTO cyber.bronze.raw_firewall_alerts VALUES
+MERGE INTO cyber.bronze.raw_firewall_alerts AS target
+USING (SELECT * FROM (VALUES
 ('FW-031', '185.220.101.34', 'web-prod-01', 'R-SQL-INJ',   '2024-01-16T06:00:00', 8, 'high',     51000,  'TCP', 'Morning SQL injection probe from Russia',               '2024-01-16T06:00:30'),
 ('FW-032', '185.220.101.34', 'web-prod-01', 'R-SQL-INJ',   '2024-01-16T06:02:00', 8, 'high',     48000,  'TCP', 'SQL injection DUPLICATE',                               '2024-01-16T06:02:30'),
-('FW-033', '5.188.86.22',    'db-prod-01',  'R-EXFIL',     '2024-01-16T06:30:00', 9, 'critical', 310000, 'TCP', 'Massive exfiltration from APT source',                   '2024-01-16T06:30:30');
+('FW-033', '5.188.86.22',    'db-prod-01',  'R-EXFIL',     '2024-01-16T06:30:00', 9, 'critical', 310000, 'TCP', 'Massive exfiltration from APT source',                   '2024-01-16T06:30:30')
+) AS v(alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, bytes_transferred, protocol, raw_log, ingested_at)) AS source
+ON target.alert_id = source.alert_id
+WHEN NOT MATCHED THEN INSERT VALUES (source.alert_id, source.source_ip, source.target_host, source.rule_id, source.detected_at, source.severity_score, source.severity, source.bytes_transferred, source.protocol, source.raw_log, source.ingested_at);
 
 -- IDS: 4 new alerts (1 duplicate)
-INSERT INTO cyber.bronze.raw_ids_alerts VALUES
+MERGE INTO cyber.bronze.raw_ids_alerts AS target
+USING (SELECT * FROM (VALUES
 ('IDS-026', '112.85.42.187', 'db-prod-01',  'R-CRED-DUMP', '2024-01-16T07:00:00', 9, 'critical', 'SIG-7001', 'TCP', 'New credential dump from Shanghai',                '2024-01-16T07:00:30'),
 ('IDS-027', '112.85.42.187', 'db-prod-01',  'R-CRED-DUMP', '2024-01-16T07:03:00', 9, 'critical', 'SIG-7001', 'TCP', 'Credential dump DUPLICATE',                        '2024-01-16T07:03:30'),
 ('IDS-028', '91.215.85.102', 'jump-01',     'R-BRUTE-SSH', '2024-01-16T08:00:00', 8, 'high',     'SIG-3006', 'TCP', 'SSH brute force new day from Ukraine',             '2024-01-16T08:00:30'),
-('IDS-029', '23.129.64.201', 'api-prod-01', 'R-PORTSCAN',  '2024-01-16T08:30:00', 4, 'medium',   'SIG-1009', 'TCP', 'API server port scan from Tor',                    '2024-01-16T08:30:30');
+('IDS-029', '23.129.64.201', 'api-prod-01', 'R-PORTSCAN',  '2024-01-16T08:30:00', 4, 'medium',   'SIG-1009', 'TCP', 'API server port scan from Tor',                    '2024-01-16T08:30:30')
+) AS v(alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, signature_id, protocol, raw_log, ingested_at)) AS source
+ON target.alert_id = source.alert_id
+WHEN NOT MATCHED THEN INSERT VALUES (source.alert_id, source.source_ip, source.target_host, source.rule_id, source.detected_at, source.severity_score, source.severity, source.signature_id, source.protocol, source.raw_log, source.ingested_at);
 
 -- Endpoint: 3 new alerts
-INSERT INTO cyber.bronze.raw_endpoint_alerts VALUES
+MERGE INTO cyber.bronze.raw_endpoint_alerts AS target
+USING (SELECT * FROM (VALUES
 ('EP-021', '46.166.139.111', 'web-prod-02', 'R-MALWARE',   '2024-01-16T07:30:00', 9, 'critical',  'dropper.exe',  's1t2u3v4w5', 'New malware dropper from Romania',           '2024-01-16T07:30:30'),
 ('EP-022', '10.0.1.50',      'api-prod-01', 'R-DNS-TUN',   '2024-01-16T09:00:00', 9, 'critical',  'dns.exe',      'x6y7z8a9b0', 'DNS tunneling exfiltration continued',       '2024-01-16T09:00:30'),
-('EP-023', '94.102.49.193',  'web-prod-01', 'R-REV-SHELL', '2024-01-16T09:30:00', 9, 'critical',  'bash',         'c1d2e3f4g5', 'Reverse shell from botnet C2',               '2024-01-16T09:30:30');
+('EP-023', '94.102.49.193',  'web-prod-01', 'R-REV-SHELL', '2024-01-16T09:30:00', 9, 'critical',  'bash',         'c1d2e3f4g5', 'Reverse shell from botnet C2',               '2024-01-16T09:30:30')
+) AS v(alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, process_name, file_hash, raw_log, ingested_at)) AS source
+ON target.alert_id = source.alert_id
+WHEN NOT MATCHED THEN INSERT VALUES (source.alert_id, source.source_ip, source.target_host, source.rule_id, source.detected_at, source.severity_score, source.severity, source.process_name, source.file_hash, source.raw_log, source.ingested_at);
 
 -- ===================== Incremental MERGE: 3 sources -> alerts_deduped =====================
 

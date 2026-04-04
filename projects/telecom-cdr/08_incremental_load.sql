@@ -40,18 +40,42 @@ FROM telco.gold.kpi_churn_risk;
 -- =============================================================================
 -- Includes 1 roaming event, 1 dropped call, 1 5G handover, long data session.
 
-INSERT INTO telco.bronze.raw_cdr_v3 (
-  call_id, caller, callee, start_time, end_time, tower_id, duration_sec,
-  call_type, data_usage_mb, sms_count, roaming_flag, network_type, handover_count, ingested_at
-) VALUES
-('V3-021', '+1-212-555-1001', '+1-415-555-2002', '2024-10-01T08:00:00', '2024-10-01T08:22:45', 'TWR-NE-01', 1365, 'voice', 0.00,   0, false, '5G',  0, '2024-10-01T12:00:00'),
-('V3-022', '+1-415-555-2002', '+1-305-555-9009', '2024-10-01T09:00:00', NULL,                  'TWR-W-01',  NULL, 'data',  680.00, 0, true,  '5G',  0, '2024-10-01T12:00:00'),
-('V3-023', '+1-312-555-3003', '+1-512-555-6006', '2024-10-05T10:00:00', '2024-10-05T10:18:30', 'TWR-C-01',  1110, 'voice', 0.00,   0, false, '5G',  2, '2024-10-05T12:00:00'),
-('V3-024', '+1-206-555-4004', '+1-303-555-7007', '2024-10-05T11:30:00', '2024-10-05T11:30:05', 'TWR-W-02',  5,    'voice', 0.00,   0, false, '4G',  0, '2024-10-05T12:00:00'),
-('V3-025', '+1-720-555-3013', '+1-813-555-4014', '2024-10-10T14:00:00', '2024-10-10T14:08:15', 'TWR-C-01',  495,  'voice', 0.00,   0, false, '5G',  0, '2024-10-10T18:00:00'),
-('V3-026', '+1-404-555-1011', '+1-602-555-0010', '2024-10-10T15:00:00', NULL,                  'TWR-S-02',  NULL, 'data',  245.00, 0, false, '4G',  0, '2024-10-10T18:00:00'),
-('V3-027', '+1-813-555-4014', '+1-901-555-5015', '2024-10-15T09:00:00', NULL,                  'TWR-S-03',  0,    'sms',   0.00,   6, false, '5G',  0, '2024-10-15T12:00:00'),
-('V3-028', '+1-617-555-5005', '+1-214-555-2012', '2024-10-15T10:30:00', '2024-10-15T10:42:10', 'TWR-NE-02', 730,  'voice', 0.00,   0, false, '4G',  0, '2024-10-15T12:00:00');
+MERGE INTO telco.bronze.raw_cdr_v3 AS tgt
+USING (
+  SELECT * FROM (VALUES
+    ('V3-021', '+1-212-555-1001', '+1-415-555-2002', '2024-10-01T08:00:00', '2024-10-01T08:22:45', 'TWR-NE-01', 1365, 'voice', 0.00,   0, false, '5G',  0, '2024-10-01T12:00:00'),
+    ('V3-022', '+1-415-555-2002', '+1-305-555-9009', '2024-10-01T09:00:00', NULL,                  'TWR-W-01',  NULL, 'data',  680.00, 0, true,  '5G',  0, '2024-10-01T12:00:00'),
+    ('V3-023', '+1-312-555-3003', '+1-512-555-6006', '2024-10-05T10:00:00', '2024-10-05T10:18:30', 'TWR-C-01',  1110, 'voice', 0.00,   0, false, '5G',  2, '2024-10-05T12:00:00'),
+    ('V3-024', '+1-206-555-4004', '+1-303-555-7007', '2024-10-05T11:30:00', '2024-10-05T11:30:05', 'TWR-W-02',  5,    'voice', 0.00,   0, false, '4G',  0, '2024-10-05T12:00:00'),
+    ('V3-025', '+1-720-555-3013', '+1-813-555-4014', '2024-10-10T14:00:00', '2024-10-10T14:08:15', 'TWR-C-01',  495,  'voice', 0.00,   0, false, '5G',  0, '2024-10-10T18:00:00'),
+    ('V3-026', '+1-404-555-1011', '+1-602-555-0010', '2024-10-10T15:00:00', NULL,                  'TWR-S-02',  NULL, 'data',  245.00, 0, false, '4G',  0, '2024-10-10T18:00:00'),
+    ('V3-027', '+1-813-555-4014', '+1-901-555-5015', '2024-10-15T09:00:00', NULL,                  'TWR-S-03',  0,    'sms',   0.00,   6, false, '5G',  0, '2024-10-15T12:00:00'),
+    ('V3-028', '+1-617-555-5005', '+1-214-555-2012', '2024-10-15T10:30:00', '2024-10-15T10:42:10', 'TWR-NE-02', 730,  'voice', 0.00,   0, false, '4G',  0, '2024-10-15T12:00:00')
+  ) AS v(call_id, caller, callee, start_time, end_time, tower_id, duration_sec,
+         call_type, data_usage_mb, sms_count, roaming_flag, network_type, handover_count, ingested_at)
+) AS src
+ON tgt.call_id = src.call_id
+WHEN MATCHED THEN UPDATE SET
+    tgt.caller         = src.caller,
+    tgt.callee         = src.callee,
+    tgt.start_time     = src.start_time,
+    tgt.end_time       = src.end_time,
+    tgt.tower_id       = src.tower_id,
+    tgt.duration_sec   = src.duration_sec,
+    tgt.call_type      = src.call_type,
+    tgt.data_usage_mb  = src.data_usage_mb,
+    tgt.sms_count      = src.sms_count,
+    tgt.roaming_flag   = src.roaming_flag,
+    tgt.network_type   = src.network_type,
+    tgt.handover_count = src.handover_count,
+    tgt.ingested_at    = src.ingested_at
+WHEN NOT MATCHED THEN INSERT (
+    call_id, caller, callee, start_time, end_time, tower_id, duration_sec,
+    call_type, data_usage_mb, sms_count, roaming_flag, network_type, handover_count, ingested_at
+) VALUES (
+    src.call_id, src.caller, src.callee, src.start_time, src.end_time, src.tower_id, src.duration_sec,
+    src.call_type, src.data_usage_mb, src.sms_count, src.roaming_flag, src.network_type, src.handover_count, src.ingested_at
+);
 
 ASSERT ROW_COUNT = 8
 SELECT COUNT(*) AS new_v3_count

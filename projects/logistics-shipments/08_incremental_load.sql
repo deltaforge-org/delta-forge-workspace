@@ -53,29 +53,43 @@ ALTER TABLE logi.bronze.raw_tracking_events ADD COLUMN customs_cleared BOOLEAN;
 -- Includes customs_cleared field (schema evolution in action)
 -- =============================================================================
 
-INSERT INTO logi.bronze.raw_tracking_events (
+MERGE INTO logi.bronze.raw_tracking_events AS target
+USING (
+  SELECT * FROM (VALUES
+  -- S019 finally found and delivered (was lost exception) — dispute resolution via time travel
+  ('EVT-084', 'S019', 'CUST-007', 'CAR-006', 'LOC-ATL', 'LOC-MIA', 'standard', 'out_for_delivery', '2024-05-08T08:00:00', '2024-04-28', '2024-04-30', CAST(NULL AS VARCHAR),          290.00, 1.3500, 348.00, 480.00, '2024-07-01T00:00:00', CAST(NULL AS BOOLEAN)),
+  ('EVT-085', 'S019', 'CUST-007', 'CAR-006', 'LOC-ATL', 'LOC-MIA', 'standard', 'delivered',        '2024-05-08T15:00:00', '2024-04-28', '2024-04-30', '2024-05-08', 290.00, 1.3500, 348.00, 480.00, '2024-07-01T00:00:00', CAST(NULL AS BOOLEAN)),
+
+  -- S024 damaged shipment resolved — replacement delivered
+  ('EVT-086', 'S024', 'CUST-003', 'CAR-008', 'LOC-SLC', 'LOC-DET', 'economy',  'out_for_delivery', '2024-05-10T09:00:00', '2024-05-03', '2024-05-14', CAST(NULL AS VARCHAR),          510.00, 2.4000, 265.20, 440.00, '2024-07-01T00:00:00', CAST(NULL AS BOOLEAN)),
+  ('EVT-087', 'S024', 'CUST-003', 'CAR-008', 'LOC-SLC', 'LOC-DET', 'economy',  'delivered',        '2024-05-10T16:00:00', '2024-05-03', '2024-05-14', '2024-05-10', 510.00, 2.4000, 265.20, 440.00, '2024-07-01T00:00:00', CAST(NULL AS BOOLEAN)),
+
+  -- New S026: HOU->LAX, SwiftFreight, with customs clearance
+  ('EVT-088', 'S026', 'CUST-016', 'CAR-001', 'LOC-HOU', 'LOC-LAX', 'standard', 'created',          '2024-05-10T07:00:00', '2024-05-10', '2024-05-14', CAST(NULL AS VARCHAR),          420.00, 2.0000, 777.00, 1050.00, '2024-07-01T00:00:00', CAST(NULL AS BOOLEAN)),
+  ('EVT-089', 'S026', 'CUST-016', 'CAR-001', 'LOC-HOU', 'LOC-LAX', 'standard', 'in_transit',        '2024-05-10T18:00:00', '2024-05-10', '2024-05-14', CAST(NULL AS VARCHAR),          420.00, 2.0000, 777.00, 1050.00, '2024-07-01T00:00:00', CAST(NULL AS BOOLEAN)),
+  ('EVT-090', 'S026', 'CUST-016', 'CAR-001', 'LOC-HOU', 'LOC-LAX', 'standard', 'customs_hold',      '2024-05-11T14:00:00', '2024-05-10', '2024-05-14', CAST(NULL AS VARCHAR),          420.00, 2.0000, 777.00, 1050.00, '2024-07-01T00:00:00', false),
+  ('EVT-091', 'S026', 'CUST-016', 'CAR-001', 'LOC-HOU', 'LOC-LAX', 'standard', 'out_for_delivery',  '2024-05-12T08:00:00', '2024-05-10', '2024-05-14', CAST(NULL AS VARCHAR),          420.00, 2.0000, 777.00, 1050.00, '2024-07-01T00:00:00', true),
+  ('EVT-092', 'S026', 'CUST-016', 'CAR-001', 'LOC-HOU', 'LOC-LAX', 'standard', 'delivered',         '2024-05-12T16:00:00', '2024-05-10', '2024-05-14', '2024-05-12', 420.00, 2.0000, 777.00, 1050.00, '2024-07-01T00:00:00', true),
+
+  -- New S027: BOS->DET, AeroFreight express, with customs
+  ('EVT-093', 'S027', 'CUST-009', 'CAR-005', 'LOC-BOS', 'LOC-DET', 'express',  'created',          '2024-05-13T06:00:00', '2024-05-13', '2024-05-14', CAST(NULL AS VARCHAR),          18.00,  0.0800, 99.00,  155.00, '2024-07-01T00:00:00', CAST(NULL AS BOOLEAN)),
+  ('EVT-094', 'S027', 'CUST-009', 'CAR-005', 'LOC-BOS', 'LOC-DET', 'express',  'delivered',         '2024-05-13T22:00:00', '2024-05-13', '2024-05-14', '2024-05-13', 18.00,  0.0800, 99.00,  155.00, '2024-07-01T00:00:00', true)
+  ) AS t(event_id, shipment_id, customer_id, carrier_id, origin_id, destination_id,
+         service_level, event_type, event_timestamp, ship_date, promised_date,
+         delivery_date, weight_kg, volume_m3, cost, revenue, ingested_at, customs_cleared)
+) AS source
+ON target.event_id = source.event_id
+WHEN NOT MATCHED THEN INSERT (
   event_id, shipment_id, customer_id, carrier_id, origin_id, destination_id,
   service_level, event_type, event_timestamp, ship_date, promised_date,
   delivery_date, weight_kg, volume_m3, cost, revenue, ingested_at, customs_cleared
-) VALUES
--- S019 finally found and delivered (was lost exception) — dispute resolution via time travel
-('EVT-084', 'S019', 'CUST-007', 'CAR-006', 'LOC-ATL', 'LOC-MIA', 'standard', 'out_for_delivery', '2024-05-08T08:00:00', '2024-04-28', '2024-04-30', NULL,          290.00, 1.3500, 348.00, 480.00, '2024-07-01T00:00:00', NULL),
-('EVT-085', 'S019', 'CUST-007', 'CAR-006', 'LOC-ATL', 'LOC-MIA', 'standard', 'delivered',        '2024-05-08T15:00:00', '2024-04-28', '2024-04-30', '2024-05-08', 290.00, 1.3500, 348.00, 480.00, '2024-07-01T00:00:00', NULL),
-
--- S024 damaged shipment resolved — replacement delivered
-('EVT-086', 'S024', 'CUST-003', 'CAR-008', 'LOC-SLC', 'LOC-DET', 'economy',  'out_for_delivery', '2024-05-10T09:00:00', '2024-05-03', '2024-05-14', NULL,          510.00, 2.4000, 265.20, 440.00, '2024-07-01T00:00:00', NULL),
-('EVT-087', 'S024', 'CUST-003', 'CAR-008', 'LOC-SLC', 'LOC-DET', 'economy',  'delivered',        '2024-05-10T16:00:00', '2024-05-03', '2024-05-14', '2024-05-10', 510.00, 2.4000, 265.20, 440.00, '2024-07-01T00:00:00', NULL),
-
--- New S026: HOU->LAX, SwiftFreight, with customs clearance
-('EVT-088', 'S026', 'CUST-016', 'CAR-001', 'LOC-HOU', 'LOC-LAX', 'standard', 'created',          '2024-05-10T07:00:00', '2024-05-10', '2024-05-14', NULL,          420.00, 2.0000, 777.00, 1050.00, '2024-07-01T00:00:00', NULL),
-('EVT-089', 'S026', 'CUST-016', 'CAR-001', 'LOC-HOU', 'LOC-LAX', 'standard', 'in_transit',        '2024-05-10T18:00:00', '2024-05-10', '2024-05-14', NULL,          420.00, 2.0000, 777.00, 1050.00, '2024-07-01T00:00:00', NULL),
-('EVT-090', 'S026', 'CUST-016', 'CAR-001', 'LOC-HOU', 'LOC-LAX', 'standard', 'customs_hold',      '2024-05-11T14:00:00', '2024-05-10', '2024-05-14', NULL,          420.00, 2.0000, 777.00, 1050.00, '2024-07-01T00:00:00', false),
-('EVT-091', 'S026', 'CUST-016', 'CAR-001', 'LOC-HOU', 'LOC-LAX', 'standard', 'out_for_delivery',  '2024-05-12T08:00:00', '2024-05-10', '2024-05-14', NULL,          420.00, 2.0000, 777.00, 1050.00, '2024-07-01T00:00:00', true),
-('EVT-092', 'S026', 'CUST-016', 'CAR-001', 'LOC-HOU', 'LOC-LAX', 'standard', 'delivered',         '2024-05-12T16:00:00', '2024-05-10', '2024-05-14', '2024-05-12', 420.00, 2.0000, 777.00, 1050.00, '2024-07-01T00:00:00', true),
-
--- New S027: BOS->DET, AeroFreight express, with customs
-('EVT-093', 'S027', 'CUST-009', 'CAR-005', 'LOC-BOS', 'LOC-DET', 'express',  'created',          '2024-05-13T06:00:00', '2024-05-13', '2024-05-14', NULL,          18.00,  0.0800, 99.00,  155.00, '2024-07-01T00:00:00', NULL),
-('EVT-094', 'S027', 'CUST-009', 'CAR-005', 'LOC-BOS', 'LOC-DET', 'express',  'delivered',         '2024-05-13T22:00:00', '2024-05-13', '2024-05-14', '2024-05-13', 18.00,  0.0800, 99.00,  155.00, '2024-07-01T00:00:00', true);
+) VALUES (
+  source.event_id, source.shipment_id, source.customer_id, source.carrier_id,
+  source.origin_id, source.destination_id, source.service_level, source.event_type,
+  source.event_timestamp, source.ship_date, source.promised_date, source.delivery_date,
+  source.weight_kg, source.volume_m3, source.cost, source.revenue, source.ingested_at,
+  source.customs_cleared
+);
 
 -- =============================================================================
 -- Incremental idempotent composite-key MERGE

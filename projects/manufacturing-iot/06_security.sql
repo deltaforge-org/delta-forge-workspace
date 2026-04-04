@@ -11,6 +11,7 @@ PIPELINE manufacturing_security
 
 -- ===================== PSEUDONYMISATION =====================
 
+DROP PSEUDONYMISATION RULE IF EXISTS ON mfg.bronze.raw_shifts (supervisor);
 CREATE PSEUDONYMISATION RULE ON mfg.bronze.raw_shifts (supervisor) TRANSFORM mask PARAMS (chars = 4);
 
 -- ===================== GRANTS =====================

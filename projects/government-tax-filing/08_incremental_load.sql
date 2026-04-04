@@ -44,16 +44,24 @@ FROM tax.silver.amendments_applied;
 -- Simulate late FY2024 filings and new amendments arriving after cutoff.
 
 -- 4 new late filings
-INSERT INTO tax.bronze.raw_filings VALUES
+MERGE INTO tax.bronze.raw_filings AS target
+USING (SELECT * FROM (VALUES
     ('FIL-2024-013', 'TP-1007', 'JUR-FED', 'PREP-04', 2024, '2025-04-10', 69000.00,  13850.00,  55150.00,  6893.50, 7100.00,   206.50, 'Filed', '1040', NULL, '2025-04-10T01:00:00'),
     ('FIL-2024-014', 'TP-1008', 'JUR-FED', 'PREP-01', 2024, '2025-04-08', 80000.00,  13850.00,  66150.00,  8873.50, 9200.00,   326.50, 'Filed', '1040', NULL, '2025-04-10T01:00:00'),
     ('FIL-2024-015', 'TP-1009', 'JUR-FED', 'PREP-04', 2024, '2025-04-12', 53000.00,  13850.00,  39150.00,  4479.50, 4800.00,   320.50, 'Filed', '1040', NULL, '2025-04-12T01:00:00'),
-    ('FIL-2024-016', 'TP-2005', 'JUR-FED', 'PREP-03', 2024, '2025-04-14', 720000.00, 310000.00, 410000.00, 90200.00,90500.00,  300.00, 'Filed', '1120', NULL, '2025-04-14T01:00:00');
+    ('FIL-2024-016', 'TP-2005', 'JUR-FED', 'PREP-03', 2024, '2025-04-14', 720000.00, 310000.00, 410000.00, 90200.00,90500.00,  300.00, 'Filed', '1120', NULL, '2025-04-14T01:00:00')
+) AS v(filing_id, taxpayer_id, jurisdiction_id, preparer_id, fiscal_year, filing_date, gross_income, deductions, taxable_income, tax_owed, tax_paid, refund_amount, filing_status, filing_type, notes, ingested_at)) AS source
+ON target.filing_id = source.filing_id
+WHEN NOT MATCHED THEN INSERT VALUES (source.filing_id, source.taxpayer_id, source.jurisdiction_id, source.preparer_id, source.fiscal_year, source.filing_date, source.gross_income, source.deductions, source.taxable_income, source.tax_owed, source.tax_paid, source.refund_amount, source.filing_status, source.filing_type, source.notes, source.ingested_at);
 
 -- 2 new amendments
-INSERT INTO tax.bronze.raw_amendments VALUES
+MERGE INTO tax.bronze.raw_amendments AS target
+USING (SELECT * FROM (VALUES
     ('AMD-013', 'FIL-2024-002', 'TP-1002', '2025-04-20', 160000.00, 60000.00, 100000.00, 17200.00, 'Deductions reduced by IRS review', 'PREP-02', '2025-04-20T01:00:00'),
-    ('AMD-014', 'FIL-2024-004', 'TP-1005', '2025-04-22', 240000.00, 88000.00, 152000.00, 33440.00, 'Fourth consecutive year audit amendment', 'PREP-03', '2025-04-22T01:00:00');
+    ('AMD-014', 'FIL-2024-004', 'TP-1005', '2025-04-22', 240000.00, 88000.00, 152000.00, 33440.00, 'Fourth consecutive year audit amendment', 'PREP-03', '2025-04-22T01:00:00')
+) AS v(amendment_id, original_filing_id, taxpayer_id, amendment_date, amended_gross_income, amended_deductions, amended_taxable_income, amended_tax_owed, amendment_reason, preparer_id, ingested_at)) AS source
+ON target.amendment_id = source.amendment_id
+WHEN NOT MATCHED THEN INSERT VALUES (source.amendment_id, source.original_filing_id, source.taxpayer_id, source.amendment_date, source.amended_gross_income, source.amended_deductions, source.amended_taxable_income, source.amended_tax_owed, source.amendment_reason, source.preparer_id, source.ingested_at);
 
 -- ===================== append_new_filings =====================
 -- Only append filings that arrived after the last ingestion.

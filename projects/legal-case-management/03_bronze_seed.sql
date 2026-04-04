@@ -12,7 +12,8 @@ PIPELINE legal_bronze_seed
 -- ===================== BRONZE SEED: CASES (15 rows) =====================
 -- 5 civil, 3 criminal, 3 corporate, 2 IP, 2 employment
 
-INSERT INTO legal.bronze.raw_cases VALUES
+MERGE INTO legal.bronze.raw_cases AS target
+USING (VALUES
   ('C001', 'CV-2023-001', 'civil',      'NY Supreme',        '2023-01-10', NULL,         'active',   'high',   '2024-01-15T00:00:00'),
   ('C002', 'CV-2023-002', 'civil',      'CA Superior',       '2023-02-18', '2024-03-01', 'settled',  'medium', '2024-01-15T00:00:00'),
   ('C003', 'CV-2023-003', 'civil',      'IL Circuit',        '2023-03-22', NULL,         'active',   'high',   '2024-01-15T00:00:00'),
@@ -27,7 +28,20 @@ INSERT INTO legal.bronze.raw_cases VALUES
   ('C012', 'IP-2023-012', 'ip',         'CDCA Federal',      '2023-04-08', NULL,         'active',   'high',   '2024-01-15T00:00:00'),
   ('C013', 'IP-2023-013', 'ip',         'NDCA Federal',      '2023-10-01', NULL,         'active',   'medium', '2024-01-15T00:00:00'),
   ('C014', 'EM-2023-014', 'employment', 'WA Superior',       '2023-05-15', '2024-04-01', 'settled',  'low',    '2024-01-15T00:00:00'),
-  ('C015', 'EM-2024-015', 'employment', 'CA Superior',       '2024-01-05', NULL,         'active',   'medium', '2024-01-15T00:00:00');
+  ('C015', 'EM-2024-015', 'employment', 'CA Superior',       '2024-01-05', NULL,         'active',   'medium', '2024-01-15T00:00:00')
+) AS source(case_id, case_number, case_type, court, filing_date, close_date, status, priority, ingested_at)
+ON target.case_id = source.case_id
+WHEN MATCHED THEN UPDATE SET
+  case_number = source.case_number,
+  case_type   = source.case_type,
+  court       = source.court,
+  filing_date = source.filing_date,
+  close_date  = source.close_date,
+  status      = source.status,
+  priority    = source.priority,
+  ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (case_id, case_number, case_type, court, filing_date, close_date, status, priority, ingested_at)
+  VALUES (source.case_id, source.case_number, source.case_type, source.court, source.filing_date, source.close_date, source.status, source.priority, source.ingested_at);
 
 ASSERT ROW_COUNT = 15
 SELECT COUNT(*) AS row_count FROM legal.bronze.raw_cases;
@@ -36,7 +50,8 @@ SELECT COUNT(*) AS row_count FROM legal.bronze.raw_cases;
 -- ===================== BRONZE SEED: PARTIES (25 rows) =====================
 -- plaintiffs, defendants, witnesses, experts
 
-INSERT INTO legal.bronze.raw_parties VALUES
+MERGE INTO legal.bronze.raw_parties AS target
+USING (VALUES
   ('P001', 'James Whitfield',       'plaintiff',  '111-22-3333', 'j.whitfield@email.com',   '212-555-0101', NULL,                       'NY', '2024-01-15T00:00:00'),
   ('P002', 'Apex Technologies Inc', 'plaintiff',  NULL,          'legal@apextech.com',       '415-555-0201', 'Apex Technologies Inc',    'CA', '2024-01-15T00:00:00'),
   ('P003', 'Maria Santos',          'defendant',  '222-33-4444', 'm.santos@email.com',       '312-555-0301', NULL,                       'IL', '2024-01-15T00:00:00'),
@@ -61,7 +76,20 @@ INSERT INTO legal.bronze.raw_parties VALUES
   ('P022', 'William Huang',         'witness',    '500-55-6666', 'w.huang@email.com',         '213-555-2201', NULL,                       'CA', '2024-01-15T00:00:00'),
   ('P023', 'DataStream Analytics',  'plaintiff',  NULL,          'legal@datastream.com',      '206-555-2301', 'DataStream Analytics',     'WA', '2024-01-15T00:00:00'),
   ('P024', 'MegaCorp Industries',   'defendant',  NULL,          'counsel@megacorp.com',      '312-555-2401', 'MegaCorp Industries',      'IL', '2024-01-15T00:00:00'),
-  ('P025', 'Frank Morales',         'witness',    '600-66-7777', 'f.morales@email.com',       '305-555-2501', NULL,                       'FL', '2024-01-15T00:00:00');
+  ('P025', 'Frank Morales',         'witness',    '600-66-7777', 'f.morales@email.com',       '305-555-2501', NULL,                       'FL', '2024-01-15T00:00:00')
+) AS source(party_id, party_name, party_type, ssn, contact_email, contact_phone, organization, jurisdiction, ingested_at)
+ON target.party_id = source.party_id
+WHEN MATCHED THEN UPDATE SET
+  party_name    = source.party_name,
+  party_type    = source.party_type,
+  ssn           = source.ssn,
+  contact_email = source.contact_email,
+  contact_phone = source.contact_phone,
+  organization  = source.organization,
+  jurisdiction  = source.jurisdiction,
+  ingested_at   = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (party_id, party_name, party_type, ssn, contact_email, contact_phone, organization, jurisdiction, ingested_at)
+  VALUES (source.party_id, source.party_name, source.party_type, source.ssn, source.contact_email, source.contact_phone, source.organization, source.jurisdiction, source.ingested_at);
 
 ASSERT ROW_COUNT = 25
 SELECT COUNT(*) AS row_count FROM legal.bronze.raw_parties;
@@ -70,7 +98,8 @@ SELECT COUNT(*) AS row_count FROM legal.bronze.raw_parties;
 -- ===================== BRONZE SEED: ATTORNEYS (10 rows) =====================
 -- 3 practice groups: litigation, corporate, ip
 
-INSERT INTO legal.bronze.raw_attorneys VALUES
+MERGE INTO legal.bronze.raw_attorneys AS target
+USING (VALUES
   ('A001', 'Victoria Sterling',  'BAR-2008-4521', 'litigation', true,  16, 650.00, '2024-01-15T00:00:00'),
   ('A002', 'Marcus Chen',        'BAR-2012-7834', 'litigation', false, 12, 475.00, '2024-01-15T00:00:00'),
   ('A003', 'Sophia Ramirez',     'BAR-2010-3267', 'ip',         true,  14, 580.00, '2024-01-15T00:00:00'),
@@ -80,7 +109,19 @@ INSERT INTO legal.bronze.raw_attorneys VALUES
   ('A007', 'Elena Volkov',       'BAR-2011-5890', 'corporate',  false, 13, 520.00, '2024-01-15T00:00:00'),
   ('A008', 'David Nakamura',     'BAR-2016-1345', 'ip',         false,  8, 375.00, '2024-01-15T00:00:00'),
   ('A009', 'Catherine Park',     'BAR-2013-8901', 'corporate',  false, 11, 490.00, '2024-01-15T00:00:00'),
-  ('A010', 'Thomas Grant',       'BAR-2017-2345', 'litigation', false,  7, 350.00, '2024-01-15T00:00:00');
+  ('A010', 'Thomas Grant',       'BAR-2017-2345', 'litigation', false,  7, 350.00, '2024-01-15T00:00:00')
+) AS source(attorney_id, attorney_name, bar_number, practice_group, partner_flag, years_experience, hourly_rate, ingested_at)
+ON target.attorney_id = source.attorney_id
+WHEN MATCHED THEN UPDATE SET
+  attorney_name    = source.attorney_name,
+  bar_number       = source.bar_number,
+  practice_group   = source.practice_group,
+  partner_flag     = source.partner_flag,
+  years_experience = source.years_experience,
+  hourly_rate      = source.hourly_rate,
+  ingested_at      = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (attorney_id, attorney_name, bar_number, practice_group, partner_flag, years_experience, hourly_rate, ingested_at)
+  VALUES (source.attorney_id, source.attorney_name, source.bar_number, source.practice_group, source.partner_flag, source.years_experience, source.hourly_rate, source.ingested_at);
 
 ASSERT ROW_COUNT = 10
 SELECT COUNT(*) AS row_count FROM legal.bronze.raw_attorneys;
@@ -89,7 +130,8 @@ SELECT COUNT(*) AS row_count FROM legal.bronze.raw_attorneys;
 -- ===================== BRONZE SEED: BILLINGS (70 rows) =====================
 -- Some non-billable: admin, pro-bono. 3 high-complexity cases (C001, C006, C009)
 
-INSERT INTO legal.bronze.raw_billings VALUES
+MERGE INTO legal.bronze.raw_billings AS target
+USING (VALUES
   ('B001', 'C001', 'A001', '2023-01-15', 6.5,  650.00, 4225.00,  true,  'billable',  'Complaint drafting and filing',          '2024-01-15T00:00:00'),
   ('B002', 'C001', 'A001', '2023-02-10', 8.0,  650.00, 5200.00,  true,  'billable',  'Motion for preliminary injunction',      '2024-01-15T00:00:00'),
   ('B003', 'C001', 'A002', '2023-02-10', 5.0,  475.00, 2375.00,  true,  'billable',  'Legal research re: standing',            '2024-01-15T00:00:00'),
@@ -159,7 +201,22 @@ INSERT INTO legal.bronze.raw_billings VALUES
   ('B067', 'C012', 'A008', '2023-10-01', 3.0,  375.00, 1125.00,  true,  'billable',  'Damages expert report',                  '2024-01-15T00:00:00'),
   ('B068', 'C008', 'A010', '2023-12-15', 4.0,  350.00, 1400.00,  true,  'billable',  'Appellate brief draft',                  '2024-01-15T00:00:00'),
   ('B069', 'C003', 'A004', '2023-08-10', 1.5,  395.00, 0.00,     false, 'admin',     'Case file organization',                 '2024-01-15T00:00:00'),
-  ('B070', 'C006', 'A002', '2023-09-25', 3.0,  475.00, 0.00,     false, 'admin',     'Team coordination call',                 '2024-01-15T00:00:00');
+  ('B070', 'C006', 'A002', '2023-09-25', 3.0,  475.00, 0.00,     false, 'admin',     'Team coordination call',                 '2024-01-15T00:00:00')
+) AS source(billing_id, case_id, attorney_id, billing_date, hours, hourly_rate, amount, billable_flag, billing_type, description, ingested_at)
+ON target.billing_id = source.billing_id
+WHEN MATCHED THEN UPDATE SET
+  case_id       = source.case_id,
+  attorney_id   = source.attorney_id,
+  billing_date  = source.billing_date,
+  hours         = source.hours,
+  hourly_rate   = source.hourly_rate,
+  amount        = source.amount,
+  billable_flag = source.billable_flag,
+  billing_type  = source.billing_type,
+  description   = source.description,
+  ingested_at   = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (billing_id, case_id, attorney_id, billing_date, hours, hourly_rate, amount, billable_flag, billing_type, description, ingested_at)
+  VALUES (source.billing_id, source.case_id, source.attorney_id, source.billing_date, source.hours, source.hourly_rate, source.amount, source.billable_flag, source.billing_type, source.description, source.ingested_at);
 
 ASSERT ROW_COUNT = 70
 SELECT COUNT(*) AS row_count FROM legal.bronze.raw_billings;
@@ -170,7 +227,8 @@ SELECT COUNT(*) AS row_count FROM legal.bronze.raw_billings;
 -- Includes: 2 attorneys who co-counsel frequently (A001-A002, A005-A007)
 -- Includes: 1 potential conflict (A009 connected to opposing parties via referral chain)
 
-INSERT INTO legal.bronze.raw_relationships VALUES
+MERGE INTO legal.bronze.raw_relationships AS target
+USING (VALUES
   -- represents (attorney->party)
   ('R001', 'A001', 'P001', 'attorney', 'party', 'represents',    1.00, '2023-01-10', '2024-01-15T00:00:00'),
   ('R002', 'A002', 'P002', 'attorney', 'party', 'represents',    1.00, '2023-02-18', '2024-01-15T00:00:00'),
@@ -217,7 +275,20 @@ INSERT INTO legal.bronze.raw_relationships VALUES
   ('R037', 'A002', 'P023', 'attorney', 'party', 'referral',      0.40, '2023-11-01', '2024-01-15T00:00:00'),
   ('R038', 'A007', 'P016', 'attorney', 'party', 'referral',      0.55, '2023-05-01', '2024-01-15T00:00:00'),
   ('R039', 'A001', 'P015', 'attorney', 'party', 'referral',      0.45, '2023-07-01', '2024-01-15T00:00:00'),
-  ('R040', 'A003', 'P010', 'attorney', 'party', 'referral',      0.50, '2023-09-01', '2024-01-15T00:00:00');
+  ('R040', 'A003', 'P010', 'attorney', 'party', 'referral',      0.50, '2023-09-01', '2024-01-15T00:00:00')
+) AS source(relationship_id, source_id, target_id, source_type, target_type, relationship_type, weight, effective_date, ingested_at)
+ON target.relationship_id = source.relationship_id
+WHEN MATCHED THEN UPDATE SET
+  source_id         = source.source_id,
+  target_id         = source.target_id,
+  source_type       = source.source_type,
+  target_type       = source.target_type,
+  relationship_type = source.relationship_type,
+  weight            = source.weight,
+  effective_date    = source.effective_date,
+  ingested_at       = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (relationship_id, source_id, target_id, source_type, target_type, relationship_type, weight, effective_date, ingested_at)
+  VALUES (source.relationship_id, source.source_id, source.target_id, source.source_type, source.target_type, source.relationship_type, source.weight, source.effective_date, source.ingested_at);
 
 ASSERT ROW_COUNT = 40
 SELECT COUNT(*) AS row_count FROM legal.bronze.raw_relationships;

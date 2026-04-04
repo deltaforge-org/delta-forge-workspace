@@ -11,7 +11,8 @@ PIPELINE ecommerce_bronze_seed
 
 -- SEED DATA: CUSTOMERS (18 rows)
 
-INSERT INTO ecom.bronze.raw_customers VALUES
+MERGE INTO ecom.bronze.raw_customers AS target
+USING (VALUES
 ('C001', 'alice.morgan@example.com',   'Alice',   'Morgan',   'Premium',    'New York',      'NY', 'US', '123 5th Ave, New York, NY 10001',       'Gold',    '2023-01-15', 'CRM', '2024-06-01T00:00:00'),
 ('C002', 'bob.chen@example.com',       'Bob',     'Chen',     'Standard',   'San Francisco', 'CA', 'US', '456 Market St, San Francisco, CA 94105', 'Silver',  '2023-02-20', 'CRM', '2024-06-01T00:00:00'),
 ('C003', 'carol.davis@example.com',    'Carol',   'Davis',    'Premium',    'Chicago',       'IL', 'US', '789 Michigan Ave, Chicago, IL 60601',   'Gold',    '2023-03-10', 'CRM', '2024-06-01T00:00:00'),
@@ -29,14 +30,24 @@ INSERT INTO ecom.bronze.raw_customers VALUES
 ('C015', 'olivia.taylor@example.com',  'Olivia',  'Taylor',   'Premium',    'San Diego',     'CA', 'US', '468 Harbor Dr, San Diego, CA 92101',    'Gold',    '2023-02-28', 'CRM', '2024-06-01T00:00:00'),
 ('C016', 'peter.garcia@example.com',   'Peter',   'Garcia',   'Standard',   'Las Vegas',     'NV', 'US', '123 Strip Blvd, Las Vegas, NV 89101',   'Bronze',  '2023-06-01', 'CRM', '2024-06-01T00:00:00'),
 ('C017', 'quinn.adams@example.com',    'Quinn',   'Adams',    'Premium',    'Charlotte',     'NC', 'US', '456 Trade St, Charlotte, NC 28202',     'Silver',  '2023-03-15', 'CRM', '2024-06-01T00:00:00'),
-('C018', 'rachel.wilson@example.com',  'Rachel',  'Wilson',   'Standard',   'Detroit',       'MI', 'US', '789 Woodward Ave, Detroit, MI 48226',   'Bronze',  '2023-07-01', 'CRM', '2024-06-01T00:00:00');
+('C018', 'rachel.wilson@example.com',  'Rachel',  'Wilson',   'Standard',   'Detroit',       'MI', 'US', '789 Woodward Ave, Detroit, MI 48226',   'Bronze',  '2023-07-01', 'CRM', '2024-06-01T00:00:00')
+) AS source(customer_id, email, first_name, last_name, segment, city, state, country, address, loyalty_tier, registration_date, source_system, ingested_at)
+ON target.customer_id = source.customer_id
+WHEN MATCHED THEN UPDATE SET
+  email = source.email, first_name = source.first_name, last_name = source.last_name,
+  segment = source.segment, city = source.city, state = source.state, country = source.country,
+  address = source.address, loyalty_tier = source.loyalty_tier, registration_date = source.registration_date,
+  source_system = source.source_system, ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (customer_id, email, first_name, last_name, segment, city, state, country, address, loyalty_tier, registration_date, source_system, ingested_at)
+  VALUES (source.customer_id, source.email, source.first_name, source.last_name, source.segment, source.city, source.state, source.country, source.address, source.loyalty_tier, source.registration_date, source.source_system, source.ingested_at);
 
 ASSERT ROW_COUNT = 18
 SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_customers;
 
 -- SEED DATA: PRODUCTS (20 rows) -- electronics, apparel, groceries
 
-INSERT INTO ecom.bronze.raw_products VALUES
+MERGE INTO ecom.bronze.raw_products AS target
+USING (VALUES
 ('P001', 'SKU-ELEC-001', 'Wireless Headphones',       'Electronics',  'Audio',       'SoundMax',     29.99,   79.99,  0.25, '2024-06-01T00:00:00'),
 ('P002', 'SKU-ELEC-002', 'Bluetooth Speaker',          'Electronics',  'Audio',       'SoundMax',     45.00,  129.99,  1.20, '2024-06-01T00:00:00'),
 ('P003', 'SKU-ELEC-003', 'USB-C Hub 7-Port',           'Electronics',  'Accessories', 'TechLink',     12.50,   39.99,  0.15, '2024-06-01T00:00:00'),
@@ -56,14 +67,23 @@ INSERT INTO ecom.bronze.raw_products VALUES
 ('P017', 'SKU-GROC-005', 'Whole Grain Pasta 5-Pack',   'Groceries',    'Pantry',      'PastaRoma',     3.00,   12.99,  2.50, '2024-06-01T00:00:00'),
 ('P018', 'SKU-HOME-001', 'LED Desk Lamp',              'Home',         'Lighting',    'LumiTech',      8.00,   34.99,  0.60, '2024-06-01T00:00:00'),
 ('P019', 'SKU-HOME-002', 'Ergonomic Office Chair',     'Home',         'Furniture',   'ComfortPro',  150.00,  399.99, 15.00, '2024-06-01T00:00:00'),
-('P020', 'SKU-HOME-003', 'Standing Desk Converter',    'Home',         'Furniture',   'ComfortPro',   85.00,  229.99,  8.00, '2024-06-01T00:00:00');
+('P020', 'SKU-HOME-003', 'Standing Desk Converter',    'Home',         'Furniture',   'ComfortPro',   85.00,  229.99,  8.00, '2024-06-01T00:00:00')
+) AS source(product_id, sku, product_name, category, subcategory, brand, unit_cost, list_price, weight_kg, ingested_at)
+ON target.product_id = source.product_id
+WHEN MATCHED THEN UPDATE SET
+  sku = source.sku, product_name = source.product_name, category = source.category,
+  subcategory = source.subcategory, brand = source.brand, unit_cost = source.unit_cost,
+  list_price = source.list_price, weight_kg = source.weight_kg, ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (product_id, sku, product_name, category, subcategory, brand, unit_cost, list_price, weight_kg, ingested_at)
+  VALUES (source.product_id, source.sku, source.product_name, source.category, source.subcategory, source.brand, source.unit_cost, source.list_price, source.weight_kg, source.ingested_at);
 
 ASSERT ROW_COUNT = 20
 SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_products;
 
 -- SEED DATA: WEB ORDERS (30 rows) -- Jan-Jun 2024
 
-INSERT INTO ecom.bronze.raw_web_orders VALUES
+MERGE INTO ecom.bronze.raw_web_orders AS target
+USING (VALUES
 ('WEB-001', 'C001', 'P001', 2,  79.99,  0.00,  5.99, '2024-01-05', 'delivered',  'WS-A001-01', 'Chrome',  '2024-06-01T00:00:00'),
 ('WEB-002', 'C001', 'P003', 1,  39.99,  0.10,  0.00, '2024-01-05', 'delivered',  'WS-A001-01', 'Chrome',  '2024-06-01T00:00:00'),
 ('WEB-003', 'C003', 'P019', 1, 399.99,  0.05, 29.99, '2024-01-12', 'delivered',  'WS-A003-01', 'Firefox', '2024-06-01T00:00:00'),
@@ -93,14 +113,24 @@ INSERT INTO ecom.bronze.raw_web_orders VALUES
 ('WEB-027', 'C013', 'P019', 1, 399.99,  0.10, 29.99, '2024-06-12', 'delivered',  'WS-A013-02', 'Edge',    '2024-06-01T00:00:00'),
 ('WEB-028', 'C008', 'P003', 1,  39.99,  0.00,  3.99, '2024-06-18', 'delivered',  'WS-A008-01', 'Chrome',  '2024-06-01T00:00:00'),
 ('WEB-029', 'C018', 'P010', 1, 149.99,  0.20,  8.99, '2024-06-24', 'delivered',  'WS-A018-01', 'Firefox', '2024-06-01T00:00:00'),
-('WEB-030', 'C015', 'P007', 1, 349.99,  0.00, 12.99, '2024-06-28', 'delivered',  'WS-A015-02', 'Chrome',  '2024-06-01T00:00:00');
+('WEB-030', 'C015', 'P007', 1, 349.99,  0.00, 12.99, '2024-06-28', 'delivered',  'WS-A015-02', 'Chrome',  '2024-06-01T00:00:00')
+) AS source(order_id, customer_id, product_id, quantity, unit_price, discount_pct, shipping_cost, order_date, status, session_id, browser, ingested_at)
+ON target.order_id = source.order_id
+WHEN MATCHED THEN UPDATE SET
+  customer_id = source.customer_id, product_id = source.product_id, quantity = source.quantity,
+  unit_price = source.unit_price, discount_pct = source.discount_pct, shipping_cost = source.shipping_cost,
+  order_date = source.order_date, status = source.status, session_id = source.session_id,
+  browser = source.browser, ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (order_id, customer_id, product_id, quantity, unit_price, discount_pct, shipping_cost, order_date, status, session_id, browser, ingested_at)
+  VALUES (source.order_id, source.customer_id, source.product_id, source.quantity, source.unit_price, source.discount_pct, source.shipping_cost, source.order_date, source.status, source.session_id, source.browser, source.ingested_at);
 
 ASSERT ROW_COUNT = 30
 SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_web_orders;
 
 -- SEED DATA: MOBILE ORDERS (20 rows)
 
-INSERT INTO ecom.bronze.raw_mobile_orders VALUES
+MERGE INTO ecom.bronze.raw_mobile_orders AS target
+USING (VALUES
 ('MOB-001', 'C002', 'P006', 1, 149.99,  0.00,  8.99, '2024-01-08',  'delivered',  'MS-B002-01', 'v3.2.1', '2024-06-01T00:00:00'),
 ('MOB-002', 'C004', 'P011', 3,  29.99,  0.00,  3.99, '2024-01-15',  'delivered',  'MS-B004-01', 'v3.2.1', '2024-06-01T00:00:00'),
 ('MOB-003', 'C007', 'P002', 1, 129.99,  0.00,  6.99, '2024-01-22',  'delivered',  'MS-B007-01', 'v3.2.1', '2024-06-01T00:00:00'),
@@ -120,14 +150,24 @@ INSERT INTO ecom.bronze.raw_mobile_orders VALUES
 ('MOB-017', 'C013', 'P016', 2,  19.99,  0.00,  3.99, '2024-06-03',  'delivered',  'MS-B013-01', 'v3.4.1', '2024-06-01T00:00:00'),
 ('MOB-018', 'C005', 'P003', 3,  39.99,  0.00,  3.99, '2024-06-10',  'delivered',  'MS-B005-01', 'v3.4.1', '2024-06-01T00:00:00'),
 ('MOB-019', 'C016', 'P018', 1,  34.99,  0.00,  3.99, '2024-06-20',  'delivered',  'MS-B016-01', 'v3.4.1', '2024-06-01T00:00:00'),
-('MOB-020', 'C007', 'P010', 1, 149.99,  0.00,  8.99, '2024-06-28',  'delivered',  'MS-B007-02', 'v3.4.1', '2024-06-01T00:00:00');
+('MOB-020', 'C007', 'P010', 1, 149.99,  0.00,  8.99, '2024-06-28',  'delivered',  'MS-B007-02', 'v3.4.1', '2024-06-01T00:00:00')
+) AS source(order_id, customer_id, product_id, quantity, unit_price, discount_pct, shipping_cost, order_date, status, session_id, app_version, ingested_at)
+ON target.order_id = source.order_id
+WHEN MATCHED THEN UPDATE SET
+  customer_id = source.customer_id, product_id = source.product_id, quantity = source.quantity,
+  unit_price = source.unit_price, discount_pct = source.discount_pct, shipping_cost = source.shipping_cost,
+  order_date = source.order_date, status = source.status, session_id = source.session_id,
+  app_version = source.app_version, ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (order_id, customer_id, product_id, quantity, unit_price, discount_pct, shipping_cost, order_date, status, session_id, app_version, ingested_at)
+  VALUES (source.order_id, source.customer_id, source.product_id, source.quantity, source.unit_price, source.discount_pct, source.shipping_cost, source.order_date, source.status, source.session_id, source.app_version, source.ingested_at);
 
 ASSERT ROW_COUNT = 20
 SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_mobile_orders;
 
 -- SEED DATA: POS ORDERS (25 rows) -- store_id + terminal_id
 
-INSERT INTO ecom.bronze.raw_pos_orders VALUES
+MERGE INTO ecom.bronze.raw_pos_orders AS target
+USING (VALUES
 ('POS-001', 'C004', 'P013', 5,  18.99,  0.00,  0.00, '2024-01-06',  'delivered',  'STR-NYC-01',  'T01', '2024-06-01T00:00:00'),
 ('POS-002', 'C002', 'P008', 1,  99.99,  0.00,  0.00, '2024-01-10',  'delivered',  'STR-SF-01',   'T02', '2024-06-01T00:00:00'),
 ('POS-003', 'C006', 'P015', 3,  24.99,  0.05,  0.00, '2024-01-20',  'delivered',  'STR-ATX-01',  'T01', '2024-06-01T00:00:00'),
@@ -152,14 +192,24 @@ INSERT INTO ecom.bronze.raw_pos_orders VALUES
 ('POS-022', 'C013', 'P009', 3,  49.99,  0.00,  0.00, '2024-06-08',  'delivered',  'STR-MIN-01',  'T02', '2024-06-01T00:00:00'),
 ('POS-023', 'C001', 'P012', 1,  69.99,  0.00,  0.00, '2024-06-15',  'delivered',  'STR-NYC-01',  'T01', '2024-06-01T00:00:00'),
 ('POS-024', 'C008', 'P015', 5,  24.99,  0.00,  0.00, '2024-06-22',  'delivered',  'STR-POR-01',  'T02', '2024-06-01T00:00:00'),
-('POS-025', 'C011', 'P020', 1, 229.99,  0.05,  0.00, '2024-06-29',  'delivered',  'STR-ATL-01',  'T01', '2024-06-01T00:00:00');
+('POS-025', 'C011', 'P020', 1, 229.99,  0.05,  0.00, '2024-06-29',  'delivered',  'STR-ATL-01',  'T01', '2024-06-01T00:00:00')
+) AS source(order_id, customer_id, product_id, quantity, unit_price, discount_pct, shipping_cost, order_date, status, store_id, terminal_id, ingested_at)
+ON target.order_id = source.order_id
+WHEN MATCHED THEN UPDATE SET
+  customer_id = source.customer_id, product_id = source.product_id, quantity = source.quantity,
+  unit_price = source.unit_price, discount_pct = source.discount_pct, shipping_cost = source.shipping_cost,
+  order_date = source.order_date, status = source.status, store_id = source.store_id,
+  terminal_id = source.terminal_id, ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (order_id, customer_id, product_id, quantity, unit_price, discount_pct, shipping_cost, order_date, status, store_id, terminal_id, ingested_at)
+  VALUES (source.order_id, source.customer_id, source.product_id, source.quantity, source.unit_price, source.discount_pct, source.shipping_cost, source.order_date, source.status, source.store_id, source.terminal_id, source.ingested_at);
 
 ASSERT ROW_COUNT = 25
 SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_pos_orders;
 
 -- SEED DATA: BROWSING EVENTS (40 rows for 5 customers) -- funnel stages
 
-INSERT INTO ecom.bronze.raw_browsing_events VALUES
+MERGE INTO ecom.bronze.raw_browsing_events AS target
+USING (VALUES
 -- Customer C001: full funnel browse -> cart -> checkout -> purchase
 ('EVT-001', 'C001', 'WS-A001-01', 'page_view',      '2024-01-05T09:00:00', '/products',           NULL,   '2024-06-01T00:00:00'),
 ('EVT-002', 'C001', 'WS-A001-01', 'product_view',    '2024-01-05T09:05:00', '/products/P001',      'P001', '2024-06-01T00:00:00'),
@@ -206,7 +256,15 @@ INSERT INTO ecom.bronze.raw_browsing_events VALUES
 ('EVT-037', 'C008', 'WS-A008-01', 'product_view',    '2024-06-18T19:15:00', '/products/P018',      'P018', '2024-06-01T00:00:00'),
 ('EVT-038', 'C008', 'WS-A008-01', 'add_to_cart',     '2024-06-18T19:20:00', '/cart',               'P003', '2024-06-01T00:00:00'),
 ('EVT-039', 'C008', 'WS-A008-01', 'checkout_start',  '2024-06-18T19:25:00', '/checkout',           NULL,   '2024-06-01T00:00:00'),
-('EVT-040', 'C008', 'WS-A008-01', 'purchase',        '2024-06-18T19:28:00', '/checkout/confirm',   NULL,   '2024-06-01T00:00:00');
+('EVT-040', 'C008', 'WS-A008-01', 'purchase',        '2024-06-18T19:28:00', '/checkout/confirm',   NULL,   '2024-06-01T00:00:00')
+) AS source(event_id, customer_id, session_id, event_type, event_ts, page_url, product_id, ingested_at)
+ON target.event_id = source.event_id
+WHEN MATCHED THEN UPDATE SET
+  customer_id = source.customer_id, session_id = source.session_id, event_type = source.event_type,
+  event_ts = source.event_ts, page_url = source.page_url, product_id = source.product_id,
+  ingested_at = source.ingested_at
+WHEN NOT MATCHED THEN INSERT (event_id, customer_id, session_id, event_type, event_ts, page_url, product_id, ingested_at)
+  VALUES (source.event_id, source.customer_id, source.session_id, source.event_type, source.event_ts, source.page_url, source.product_id, source.ingested_at);
 
 ASSERT ROW_COUNT = 40
 SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_browsing_events;

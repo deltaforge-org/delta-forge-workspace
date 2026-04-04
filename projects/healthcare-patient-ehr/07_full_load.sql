@@ -215,49 +215,75 @@ WHEN MATCHED THEN UPDATE SET
     is_current  = false,
     updated_at  = CURRENT_TIMESTAMP;
 
--- Pass 3: Insert new current records for changed patients
-INSERT INTO ehr.silver.patient_dim
-SELECT
-    r.patient_id,
-    TRIM(r.patient_name) AS patient_name,
-    r.ssn,
-    CAST(r.date_of_birth AS DATE) AS date_of_birth,
-    LOWER(TRIM(r.email)) AS email,
-    TRIM(r.address) AS address,
-    r.city,
-    r.state,
-    r.insurance_id,
-    r.insurance_name,
-    CAST('2024-06-01' AS DATE) AS valid_from,
-    NULL AS valid_to,
-    true AS is_current,
-    CURRENT_TIMESTAMP AS updated_at
-FROM (
+-- Pass 3: Insert new current records for changed patients (MERGE to avoid duplicates on re-run)
+MERGE INTO ehr.silver.patient_dim AS target
+USING (
     SELECT
-        patient_id,
-        patient_name,
-        ssn,
-        date_of_birth,
-        email,
-        address,
-        city,
-        state,
-        insurance_id,
-        insurance_name,
-        ingested_at,
-        ROW_NUMBER() OVER (
-            PARTITION BY patient_id
-            ORDER BY ingested_at ASC
-        ) AS version_num
-    FROM ehr.bronze.raw_patients
-) r
-WHERE r.version_num > 1
-  AND EXISTS (
-      SELECT 1 FROM ehr.silver.patient_dim p
-      WHERE p.patient_id = r.patient_id
-        AND p.is_current = false
-        AND p.valid_to = CAST('2024-06-01' AS DATE)
-  );
+        r.patient_id,
+        TRIM(r.patient_name) AS patient_name,
+        r.ssn,
+        CAST(r.date_of_birth AS DATE) AS date_of_birth,
+        LOWER(TRIM(r.email)) AS email,
+        TRIM(r.address) AS address,
+        r.city,
+        r.state,
+        r.insurance_id,
+        r.insurance_name,
+        CAST('2024-06-01' AS DATE) AS valid_from,
+        NULL AS valid_to,
+        true AS is_current,
+        CURRENT_TIMESTAMP AS updated_at
+    FROM (
+        SELECT
+            patient_id,
+            patient_name,
+            ssn,
+            date_of_birth,
+            email,
+            address,
+            city,
+            state,
+            insurance_id,
+            insurance_name,
+            ingested_at,
+            ROW_NUMBER() OVER (
+                PARTITION BY patient_id
+                ORDER BY ingested_at ASC
+            ) AS version_num
+        FROM ehr.bronze.raw_patients
+    ) r
+    WHERE r.version_num > 1
+      AND EXISTS (
+          SELECT 1 FROM ehr.silver.patient_dim p
+          WHERE p.patient_id = r.patient_id
+            AND p.is_current = false
+            AND p.valid_to = CAST('2024-06-01' AS DATE)
+      )
+) AS source
+ON target.patient_id = source.patient_id
+    AND target.valid_from = source.valid_from
+    AND target.is_current = true
+WHEN NOT MATCHED THEN INSERT (
+    patient_id, patient_name, ssn, date_of_birth, email,
+    address, city, state, insurance_id, insurance_name,
+    valid_from, valid_to, is_current, updated_at
+) VALUES (
+    source.patient_id, source.patient_name, source.ssn, source.date_of_birth,
+    source.email, source.address, source.city, source.state,
+    source.insurance_id, source.insurance_name,
+    source.valid_from, source.valid_to, source.is_current, source.updated_at
+)
+WHEN MATCHED THEN UPDATE SET
+    patient_name    = source.patient_name,
+    ssn             = source.ssn,
+    date_of_birth   = source.date_of_birth,
+    email           = source.email,
+    address         = source.address,
+    city            = source.city,
+    state           = source.state,
+    insurance_id    = source.insurance_id,
+    insurance_name  = source.insurance_name,
+    updated_at      = source.updated_at;
 
 -- Verify: 22 unique patients + 3 expired versions = 25 total rows in patient_dim
 -- (20 patients with 1 version each + 3 patients with 2 versions = 20 + 6 = 26,
@@ -274,6 +300,8 @@ SELECT COUNT(*) AS expired_count FROM ehr.silver.patient_dim WHERE is_current = 
 
 -- Capture all changes from CDF on patient_dim into the audit log
 -- table_changes reads the CDF of patient_dim from version 0 to current
+DELETE FROM ehr.silver.audit_log WHERE 1=1;
+
 INSERT INTO ehr.silver.audit_log
 SELECT
     ROW_NUMBER() OVER (ORDER BY _commit_timestamp, patient_id) AS audit_id,

@@ -11,8 +11,13 @@ PIPELINE ins_security
 
 -- ===================== PSEUDONYMISATION RULES =====================
 
+DROP PSEUDONYMISATION RULE IF EXISTS ON ins.gold.dim_claimant (name);
 CREATE PSEUDONYMISATION RULE ON ins.gold.dim_claimant (name) TRANSFORM mask PARAMS (show = 1);
+
+DROP PSEUDONYMISATION RULE IF EXISTS ON ins.bronze.raw_claimants (ssn);
 CREATE PSEUDONYMISATION RULE ON ins.bronze.raw_claimants (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
+
+DROP PSEUDONYMISATION RULE IF EXISTS ON ins.bronze.raw_policies (ssn);
 CREATE PSEUDONYMISATION RULE ON ins.bronze.raw_policies (ssn) TRANSFORM redact PARAMS (mask = '***-**-****');
 
 -- ===================== GRANTS =====================

@@ -39,20 +39,28 @@ ALTER TABLE ecom.silver.orders_unified ADD COLUMN loyalty_points INT;
 -- Insert 10 new web orders (July 2024 batch) — with loyalty_points populated
 -- =============================================================================
 
-INSERT INTO ecom.bronze.raw_web_orders VALUES
+MERGE INTO ecom.bronze.raw_web_orders AS target
+USING (SELECT * FROM (VALUES
 ('WEB-031', 'C001', 'P002', 1, 129.99,  0.05,  6.99, '2024-07-01', 'delivered',  'WS-A001-04', 'Chrome',  '2024-07-02T00:00:00'),
 ('WEB-032', 'C003', 'P004', 2,  89.99,  0.00,  5.99, '2024-07-03', 'delivered',  'WS-A003-04', 'Firefox', '2024-07-04T00:00:00'),
 ('WEB-033', 'C005', 'P013', 5,  18.99,  0.00,  3.99, '2024-07-05', 'delivered',  'WS-A005-04', 'Chrome',  '2024-07-06T00:00:00'),
 ('WEB-034', 'C010', 'P019', 1, 399.99,  0.10, 29.99, '2024-07-08', 'delivered',  'WS-A010-02', 'Edge',    '2024-07-09T00:00:00'),
-('WEB-035', 'C007', 'P001', 3,  79.99,  0.00,  5.99, '2024-07-10', 'cancelled',  'WS-A007-03', 'Firefox', '2024-07-11T00:00:00');
+('WEB-035', 'C007', 'P001', 3,  79.99,  0.00,  5.99, '2024-07-10', 'cancelled',  'WS-A007-03', 'Firefox', '2024-07-11T00:00:00')
+) AS v(order_id, customer_id, product_id, quantity, unit_price, discount_pct, shipping_cost, order_date, status, session_id, browser, ingested_at)) AS source
+ON target.order_id = source.order_id
+WHEN NOT MATCHED THEN INSERT VALUES (source.order_id, source.customer_id, source.product_id, source.quantity, source.unit_price, source.discount_pct, source.shipping_cost, source.order_date, source.status, source.session_id, source.browser, source.ingested_at);
 
 -- Insert 5 new mobile orders
-INSERT INTO ecom.bronze.raw_mobile_orders VALUES
+MERGE INTO ecom.bronze.raw_mobile_orders AS target
+USING (SELECT * FROM (VALUES
 ('MOB-021', 'C012', 'P006', 1, 149.99,  0.00,  8.99, '2024-07-02', 'delivered',  'MS-B012-02', 'v3.5.0', '2024-07-03T00:00:00'),
 ('MOB-022', 'C014', 'P009', 2,  49.99,  0.10,  4.99, '2024-07-06', 'delivered',  'MS-B014-02', 'v3.5.0', '2024-07-07T00:00:00'),
 ('MOB-023', 'C017', 'P011', 1,  29.99,  0.00,  3.99, '2024-07-09', 'delivered',  'MS-B017-02', 'v3.5.0', '2024-07-10T00:00:00'),
 ('MOB-024', 'C002', 'P015', 4,  24.99,  0.00,  3.99, '2024-07-12', 'delivered',  'MS-B002-03', 'v3.5.0', '2024-07-13T00:00:00'),
-('MOB-025', 'C009', 'P007', 1, 349.99,  0.05, 12.99, '2024-07-15', 'delivered',  'MS-B009-02', 'v3.5.0', '2024-07-16T00:00:00');
+('MOB-025', 'C009', 'P007', 1, 349.99,  0.05, 12.99, '2024-07-15', 'delivered',  'MS-B009-02', 'v3.5.0', '2024-07-16T00:00:00')
+) AS v(order_id, customer_id, product_id, quantity, unit_price, discount_pct, shipping_cost, order_date, status, session_id, app_version, ingested_at)) AS source
+ON target.order_id = source.order_id
+WHEN NOT MATCHED THEN INSERT VALUES (source.order_id, source.customer_id, source.product_id, source.quantity, source.unit_price, source.discount_pct, source.shipping_cost, source.order_date, source.status, source.session_id, source.app_version, source.ingested_at);
 
 ASSERT ROW_COUNT = 10
 SELECT 'incremental batch inserted' AS status;
