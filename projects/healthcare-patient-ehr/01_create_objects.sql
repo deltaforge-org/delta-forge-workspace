@@ -5,6 +5,16 @@
 -- GDPR erasure demo, MERGE dedup, readmission detection, star schema gold layer
 -- =============================================================================
 
+-- ===================== SCHEDULE =====================
+
+SCHEDULE ehr_daily_schedule
+  CRON '0 5 * * *'
+  TIMEZONE 'America/New_York'
+  RETRIES 2
+  TIMEOUT 3600
+  MAX_CONCURRENT 1
+  INACTIVE;
+
 PIPELINE ehr_create_objects
   DESCRIPTION 'Creates zones, schemas, tables, seed data, and pseudonymisation rules for Healthcare Patient EHR'
   SCHEDULE 'ehr_daily_schedule'

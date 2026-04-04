@@ -8,6 +8,16 @@
 -- via statistical outlier analysis, and supports RESTORE for bad-batch rollback.
 -- =============================================================================
 
+-- ===================== SCHEDULE =====================
+
+SCHEDULE ins_weekly_schedule
+  CRON '0 7 * * 1'
+  TIMEZONE 'America/Chicago'
+  RETRIES 2
+  TIMEOUT 7200
+  MAX_CONCURRENT 1
+  INACTIVE;
+
 PIPELINE ins_create_objects
   DESCRIPTION 'Creates zones, schemas, tables, seed data, and pseudonymisation rules for Insurance Claims'
   SCHEDULE 'ins_weekly_schedule'

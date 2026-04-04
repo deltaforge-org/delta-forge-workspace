@@ -35,14 +35,6 @@
 --   optimize  (CONTINUE ON FAILURE)
 -- =============================================================================
 
-SCHEDULE ins_weekly_schedule
-  CRON '0 7 * * 1'
-  TIMEZONE 'America/Chicago'
-  RETRIES 2
-  TIMEOUT 7200
-  MAX_CONCURRENT 1
-  INACTIVE;
-
 PIPELINE ins_claims_pipeline
   DESCRIPTION 'P&C insurance pipeline: SCD2 policies, point-in-time joins, fraud detection, RESTORE workflow'
   SCHEDULE 'ins_weekly_schedule'

@@ -8,15 +8,7 @@
 -- restore_correction_demo -> bloom_and_optimize
 -- =============================================================================
 
--- ===================== SCHEDULE & PIPELINE =====================
-
-SCHEDULE realty_daily_schedule
-  CRON '0 9 * * *'
-  TIMEZONE 'America/New_York'
-  RETRIES 2
-  TIMEOUT 3600
-  MAX_CONCURRENT 1
-  INACTIVE;
+-- ===================== PIPELINE =====================
 
 PIPELINE realty_property_pipeline
   DESCRIPTION 'Daily property assessment pipeline: SCD2 with 3 annual assessment batches, RESTORE correction, point-in-time transaction enrichment, assessment accuracy analysis, market trends'

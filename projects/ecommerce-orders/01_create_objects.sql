@@ -8,6 +8,16 @@
 -- analysis, and feeds inventory adjustments via CDF.
 -- =============================================================================
 
+-- ===================== SCHEDULE =====================
+
+SCHEDULE ecommerce_30min_schedule
+  CRON '*/30 * * * *'
+  TIMEZONE 'UTC'
+  RETRIES 2
+  TIMEOUT 1800
+  MAX_CONCURRENT 1
+  INACTIVE;
+
 PIPELINE ecommerce_create_objects
   DESCRIPTION 'Creates zones, schemas, tables, seed data, and pseudonymisation rules for E-commerce Orders'
   SCHEDULE 'ecommerce_30min_schedule'

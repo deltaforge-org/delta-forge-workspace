@@ -6,6 +6,16 @@
 -- gender pay gap + retention risk scoring
 -- =============================================================================
 
+-- ===================== SCHEDULE =====================
+
+SCHEDULE hr_daily_schedule
+  CRON '0 6 * * *'
+  TIMEZONE 'America/New_York'
+  RETRIES 2
+  TIMEOUT 3600
+  MAX_CONCURRENT 1
+  INACTIVE;
+
 PIPELINE hr_create_objects
   DESCRIPTION 'Creates zones, schemas, tables, seed data, and pseudonymisation rules for HR Workforce'
   SCHEDULE 'hr_daily_schedule'

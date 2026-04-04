@@ -9,16 +9,6 @@
 -- optimize (CONTINUE ON FAILURE)
 -- =============================================================================
 
--- ===================== SCHEDULE & PIPELINE =====================
-
-SCHEDULE hr_daily_schedule
-  CRON '0 6 * * *'
-  TIMEZONE 'America/New_York'
-  RETRIES 2
-  TIMEOUT 3600
-  MAX_CONCURRENT 1
-  INACTIVE;
-
 PIPELINE hr_workforce_pipeline
   DESCRIPTION 'Full lifecycle workforce pipeline: SCD2 tracking, CDF org log, compa-ratio analysis, gender pay gap, retention risk scoring, GDPR erasure'
   SCHEDULE 'hr_daily_schedule'

@@ -7,16 +7,6 @@
 -- -> optimize_and_maintain
 -- =============================================================================
 
--- ===================== SCHEDULE & PIPELINE =====================
-
-SCHEDULE ehr_daily_schedule
-  CRON '0 5 * * *'
-  TIMEZONE 'America/New_York'
-  RETRIES 2
-  TIMEOUT 3600
-  MAX_CONCURRENT 1
-  INACTIVE;
-
 PIPELINE ehr_patient_pipeline
   DESCRIPTION 'Daily EHR pipeline: SCD2 patient dim, CDF audit, GDPR erasure, readmission analytics'
   SCHEDULE 'ehr_daily_schedule'

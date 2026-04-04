@@ -7,16 +7,6 @@
 -- -> run_graph_analytics -> optimize (CONTINUE ON FAILURE)
 -- =============================================================================
 
--- ===================== SCHEDULE & PIPELINE =====================
-
-SCHEDULE legal_daily_schedule
-  CRON '0 7 * * *'
-  TIMEZONE 'America/New_York'
-  RETRIES 2
-  TIMEOUT 3600
-  MAX_CONCURRENT 1
-  INACTIVE;
-
 PIPELINE legal_billing_pipeline
   DESCRIPTION 'Daily legal billing pipeline: case profitability, attorney influence via PageRank, conflict-of-interest via Cypher, practice group community detection'
   SCHEDULE 'legal_daily_schedule'

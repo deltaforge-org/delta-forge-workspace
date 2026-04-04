@@ -8,16 +8,6 @@
 -- optimize_and_vacuum
 -- =============================================================================
 
--- ===================== SCHEDULE & PIPELINE =====================
-
-SCHEDULE bank_4h_schedule
-  CRON '0 */4 * * *'
-  TIMEZONE 'UTC'
-  RETRIES 3
-  TIMEOUT 1800
-  MAX_CONCURRENT 1
-  INACTIVE;
-
 PIPELINE bank_transaction_pipeline
   DESCRIPTION 'Every-4-hour banking pipeline: SCD2 tier tracking, fraud scoring, CDF snapshots, tier migration matrix'
   SCHEDULE 'bank_4h_schedule'

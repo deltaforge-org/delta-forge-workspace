@@ -6,14 +6,6 @@
 -- Z-ordered route optimization.
 -- =============================================================================
 
-SCHEDULE logistics_6hr_schedule
-  CRON '0 */6 * * *'
-  TIMEZONE 'UTC'
-  RETRIES 2
-  TIMEOUT 3600
-  MAX_CONCURRENT 1
-  INACTIVE;
-
 PIPELINE logistics_shipments_pipeline
   DESCRIPTION 'Global logistics event sourcing pipeline: idempotent dedup, timeline reconstruction, SLA compliance, route optimization'
   SCHEDULE 'logistics_6hr_schedule'

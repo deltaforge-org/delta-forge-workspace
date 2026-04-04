@@ -7,6 +7,16 @@
 -- CHECK constraints on physical thresholds. Bloom filter on sensor_id.
 -- =============================================================================
 
+-- ===================== SCHEDULE =====================
+
+SCHEDULE manufacturing_2hr_schedule
+  CRON '0 */2 * * *'
+  TIMEZONE 'UTC'
+  RETRIES 2
+  TIMEOUT 3600
+  MAX_CONCURRENT 1
+  INACTIVE;
+
 -- ===================== ZONES =====================
 
 PIPELINE manufacturing_create_objects

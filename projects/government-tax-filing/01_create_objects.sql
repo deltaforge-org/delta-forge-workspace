@@ -6,6 +6,16 @@
 -- bloom filter on taxpayer_id, star schema with amendment-aware fact table
 -- =============================================================================
 
+-- ===================== SCHEDULE =====================
+
+SCHEDULE tax_daily_schedule
+  CRON '0 1 * * *'
+  TIMEZONE 'America/New_York'
+  RETRIES 2
+  TIMEOUT 3600
+  MAX_CONCURRENT 1
+  INACTIVE;
+
 PIPELINE tax_create_objects
   DESCRIPTION 'Creates zones, schemas, tables, seed data, and pseudonymisation rules for Government Tax Filing'
   SCHEDULE 'tax_daily_schedule'

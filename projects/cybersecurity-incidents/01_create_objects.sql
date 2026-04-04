@@ -7,6 +7,16 @@
 -- and produces a real-time threat dashboard with response metrics.
 -- =============================================================================
 
+-- ===================== SCHEDULE =====================
+
+SCHEDULE cyber_15min_schedule
+  CRON '*/15 * * * *'
+  TIMEZONE 'UTC'
+  RETRIES 3
+  TIMEOUT 600
+  MAX_CONCURRENT 1
+  INACTIVE;
+
 PIPELINE cyber_create_objects
   DESCRIPTION 'Creates zones, schemas, tables, seed data, and pseudonymisation rules for Cybersecurity Incidents'
   SCHEDULE 'cyber_15min_schedule'

@@ -6,6 +6,16 @@
 -- Churn scoring via behavioral composite. Star schema with 3 dims + 2 KPIs.
 -- =============================================================================
 
+-- ===================== SCHEDULE =====================
+
+SCHEDULE telecom_daily_schedule
+  CRON '0 2 * * *'
+  TIMEZONE 'UTC'
+  RETRIES 3
+  TIMEOUT 3600
+  MAX_CONCURRENT 1
+  INACTIVE;
+
 -- ===================== ZONES =====================
 
 PIPELINE telecom_create_objects

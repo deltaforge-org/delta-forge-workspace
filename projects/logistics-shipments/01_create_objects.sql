@@ -7,6 +7,16 @@
 -- SLA violation detection, and Z-ordered route optimization.
 -- =============================================================================
 
+-- ===================== SCHEDULE =====================
+
+SCHEDULE logistics_6hr_schedule
+  CRON '0 */6 * * *'
+  TIMEZONE 'UTC'
+  RETRIES 2
+  TIMEOUT 3600
+  MAX_CONCURRENT 1
+  INACTIVE;
+
 -- ===================== ZONES =====================
 
 PIPELINE logistics_create_objects

@@ -5,6 +5,16 @@
 -- star schema with dim_date, tier migration matrix, Z-ORDER + bloom filters
 -- =============================================================================
 
+-- ===================== SCHEDULE =====================
+
+SCHEDULE bank_4h_schedule
+  CRON '0 */4 * * *'
+  TIMEZONE 'UTC'
+  RETRIES 3
+  TIMEOUT 1800
+  MAX_CONCURRENT 1
+  INACTIVE;
+
 PIPELINE bank_create_objects
   DESCRIPTION 'Creates zones, schemas, tables, seed data, and pseudonymisation rules for Banking Transactions'
   SCHEDULE 'bank_4h_schedule'

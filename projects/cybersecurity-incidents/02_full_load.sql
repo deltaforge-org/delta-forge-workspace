@@ -6,14 +6,6 @@
 -- star schema with 4 dimensions + threat dashboard + response metrics.
 -- =============================================================================
 
-SCHEDULE cyber_15min_schedule
-  CRON '*/15 * * * *'
-  TIMEZONE 'UTC'
-  RETRIES 3
-  TIMEOUT 600
-  MAX_CONCURRENT 1
-  INACTIVE;
-
 PIPELINE cyber_incident_pipeline
   DESCRIPTION 'Every-15-minute SIEM pipeline: 3-source ingestion, 5-min dedup, incident correlation, MITRE classification, threat dashboard'
   SCHEDULE 'cyber_15min_schedule'

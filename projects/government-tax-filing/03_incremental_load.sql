@@ -21,19 +21,11 @@
 
 PRINT {{INCREMENTAL_FILTER(tax.silver.filings_immutable, filing_id, filing_date, 7)}};
 
--- ===================== SCHEDULE & PIPELINE =====================
-
-SCHEDULE tax_incremental_schedule
-  CRON '0 */6 * * *'
-  TIMEZONE 'America/New_York'
-  RETRIES 2
-  TIMEOUT 1800
-  MAX_CONCURRENT 1
-  INACTIVE;
+-- ===================== PIPELINE =====================
 
 PIPELINE tax_incremental_pipeline
   DESCRIPTION 'Incremental tax filing pipeline: appends new filings, applies new amendments, rebuilds KPIs'
-  SCHEDULE 'tax_incremental_schedule'
+  SCHEDULE 'tax_daily_schedule'
   TAGS 'government,tax,incremental,CDF'
   SLA 1800
   FAIL_FAST true

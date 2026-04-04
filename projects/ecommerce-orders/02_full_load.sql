@@ -29,14 +29,6 @@
 --   optimize_zorder (CONTINUE ON FAILURE)
 -- =============================================================================
 
-SCHEDULE ecommerce_30min_schedule
-  CRON '*/30 * * * *'
-  TIMEZONE 'UTC'
-  RETRIES 2
-  TIMEOUT 1800
-  MAX_CONCURRENT 1
-  INACTIVE;
-
 PIPELINE ecommerce_orders_pipeline
   DESCRIPTION 'Omnichannel order pipeline: 3-way MERGE, soft-delete, CDF inventory, RFM segmentation, funnel sessionization'
   SCHEDULE 'ecommerce_30min_schedule'

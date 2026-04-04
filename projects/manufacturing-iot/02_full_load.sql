@@ -8,15 +8,7 @@
 -- Pipeline DAG: 11 steps with parallel branches.
 -- =============================================================================
 
--- ===================== SCHEDULE & PIPELINE =====================
-
-SCHEDULE manufacturing_2hr_schedule
-  CRON '0 */2 * * *'
-  TIMEZONE 'UTC'
-  RETRIES 2
-  TIMEOUT 3600
-  MAX_CONCURRENT 1
-  INACTIVE;
+-- ===================== PIPELINE =====================
 
 PIPELINE manufacturing_iot_pipeline
   DESCRIPTION 'IoT sensor pipeline with 2-sigma anomaly detection, OEE calculation, equipment status, and 90-day VACUUM retention'

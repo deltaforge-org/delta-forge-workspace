@@ -5,6 +5,16 @@
 -- community detection + multi-hop conflict-of-interest queries
 -- =============================================================================
 
+-- ===================== SCHEDULE =====================
+
+SCHEDULE legal_daily_schedule
+  CRON '0 7 * * *'
+  TIMEZONE 'America/New_York'
+  RETRIES 2
+  TIMEOUT 3600
+  MAX_CONCURRENT 1
+  INACTIVE;
+
 -- ===================== ZONES =====================
 
 PIPELINE legal_create_objects

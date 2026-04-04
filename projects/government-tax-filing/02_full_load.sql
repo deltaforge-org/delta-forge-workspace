@@ -7,15 +7,7 @@
 -- kpi_revenue_analysis + kpi_preparer_quality (parallel) -> bloom_and_optimize
 -- =============================================================================
 
--- ===================== SCHEDULE & PIPELINE =====================
-
-SCHEDULE tax_daily_schedule
-  CRON '0 1 * * *'
-  TIMEZONE 'America/New_York'
-  RETRIES 2
-  TIMEOUT 3600
-  MAX_CONCURRENT 1
-  INACTIVE;
+-- ===================== PIPELINE =====================
 
 PIPELINE tax_filing_pipeline
   DESCRIPTION 'Daily tax filing pipeline: append-only immutable filings, amendment MERGE with delta computation, CDF audit trail, star schema with amendment-aware facts, revenue and preparer KPIs'

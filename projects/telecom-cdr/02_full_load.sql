@@ -7,15 +7,7 @@
 -- Pipeline DAG: 13 steps with parallel branches.
 -- =============================================================================
 
--- ===================== SCHEDULE & PIPELINE =====================
-
-SCHEDULE telecom_daily_schedule
-  CRON '0 2 * * *'
-  TIMEZONE 'UTC'
-  RETRIES 3
-  TIMEOUT 3600
-  MAX_CONCURRENT 1
-  INACTIVE;
+-- ===================== PIPELINE =====================
 
 PIPELINE telecom_cdr_pipeline
   DESCRIPTION 'Daily CDR pipeline with schema evolution lifecycle, session reconstruction, and churn scoring'

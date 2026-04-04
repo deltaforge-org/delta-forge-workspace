@@ -17,19 +17,11 @@
 
 PRINT {{INCREMENTAL_FILTER(realty.silver.transactions_enriched, transaction_id, transaction_date, 7)}};
 
--- ===================== SCHEDULE & PIPELINE =====================
-
-SCHEDULE realty_incremental_schedule
-  CRON '0 */8 * * *'
-  TIMEZONE 'America/New_York'
-  RETRIES 2
-  TIMEOUT 1800
-  MAX_CONCURRENT 1
-  INACTIVE;
+-- ===================== PIPELINE =====================
 
 PIPELINE realty_incremental_pipeline
   DESCRIPTION 'Incremental property pipeline: new transactions, SCD2 assessment updates, rebuilt KPIs'
-  SCHEDULE 'realty_incremental_schedule'
+  SCHEDULE 'realty_daily_schedule'
   TAGS 'real-estate,property,incremental,SCD2'
   SLA 1800
   FAIL_FAST true
