@@ -2,7 +2,7 @@
 -- Banking Transactions Pipeline - Security & Pseudonymisation Rules
 -- =============================================================================
 
-PIPELINE banking_transactions_06_security
+PIPELINE 06_security
   DESCRIPTION 'Creates pseudonymisation and security rules for Banking Transactions'
   SCHEDULE 'bank_4h_schedule'
   TAGS 'setup', 'banking-transactions'

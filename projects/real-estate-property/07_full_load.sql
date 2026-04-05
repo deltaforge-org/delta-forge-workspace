@@ -10,7 +10,7 @@
 
 -- ===================== PIPELINE =====================
 
-PIPELINE real_estate_property_07_full_load
+PIPELINE 07_full_load
   DESCRIPTION 'Daily property assessment pipeline: SCD2 with 3 annual assessment batches, RESTORE correction, point-in-time transaction enrichment, assessment accuracy analysis, market trends'
   SCHEDULE 'realty_daily_schedule'
   TAGS 'real-estate,property,SCD2,RESTORE,assessment'

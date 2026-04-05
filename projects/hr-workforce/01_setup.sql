@@ -10,7 +10,7 @@ SCHEDULE hr_daily_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE hr_workforce_01_setup
+PIPELINE 01_setup
   DESCRIPTION 'Creates zones and schemas for HR Workforce'
   SCHEDULE 'hr_daily_schedule'
   TAGS 'setup', 'hr-workforce'

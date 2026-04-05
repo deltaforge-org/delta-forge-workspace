@@ -7,7 +7,7 @@
 -- -> run_graph_analytics -> optimize (CONTINUE ON FAILURE)
 -- =============================================================================
 
-PIPELINE legal_case_management_07_full_load
+PIPELINE 07_full_load
   DESCRIPTION 'Daily legal billing pipeline: case profitability, attorney influence via PageRank, conflict-of-interest via Cypher, practice group community detection'
   SCHEDULE 'legal_daily_schedule'
   TAGS 'legal,billing,graph,pagerank,cypher'

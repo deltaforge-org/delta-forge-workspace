@@ -2,7 +2,7 @@
 -- Telecom CDR Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE telecom_cdr_05_gold_tables
+PIPELINE 05_gold_tables
   DESCRIPTION 'Creates gold layer tables for Telecom CDR'
   SCHEDULE 'telecom_daily_schedule'
   TAGS 'setup', 'telecom-cdr'

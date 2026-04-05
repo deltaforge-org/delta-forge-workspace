@@ -8,7 +8,7 @@
 -- optimize_and_vacuum
 -- =============================================================================
 
-PIPELINE banking_transactions_07_full_load
+PIPELINE 07_full_load
   DESCRIPTION 'Every-4-hour banking pipeline: SCD2 tier tracking, fraud scoring, CDF snapshots, tier migration matrix'
   SCHEDULE 'bank_4h_schedule'
   TAGS 'banking,transactions,fraud,CDF,SCD2'

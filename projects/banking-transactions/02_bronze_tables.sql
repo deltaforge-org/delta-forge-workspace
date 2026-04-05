@@ -2,7 +2,7 @@
 -- Banking Transactions Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE banking_transactions_02_bronze_tables
+PIPELINE 02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for Banking Transactions'
   SCHEDULE 'bank_4h_schedule'
   TAGS 'setup', 'banking-transactions'

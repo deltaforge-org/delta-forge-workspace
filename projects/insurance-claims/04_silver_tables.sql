@@ -2,7 +2,7 @@
 -- Insurance Claims Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE insurance_claims_04_silver_tables
+PIPELINE 04_silver_tables
   DESCRIPTION 'Creates silver layer tables for Insurance Claims'
   SCHEDULE 'ins_weekly_schedule'
   TAGS 'setup', 'insurance-claims'

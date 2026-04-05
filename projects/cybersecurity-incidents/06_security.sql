@@ -2,7 +2,7 @@
 -- Cybersecurity Incidents Pipeline - Security & Pseudonymisation Rules
 -- =============================================================================
 
-PIPELINE cybersecurity_incidents_06_security
+PIPELINE 06_security
   DESCRIPTION 'Creates pseudonymisation and security rules for Cybersecurity Incidents'
   SCHEDULE 'cyber_15min_schedule'
   TAGS 'setup', 'cybersecurity-incidents'

@@ -2,7 +2,7 @@
 -- E-commerce Orders Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE ecommerce_orders_02_bronze_tables
+PIPELINE 02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for E-commerce Orders'
   SCHEDULE 'ecommerce_30min_schedule'
   TAGS 'setup', 'ecommerce-orders'

@@ -2,7 +2,7 @@
 -- Insurance Claims Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE insurance_claims_02_bronze_tables
+PIPELINE 02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for Insurance Claims'
   SCHEDULE 'ins_weekly_schedule'
   TAGS 'setup', 'insurance-claims'

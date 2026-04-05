@@ -10,7 +10,7 @@ SCHEDULE tax_daily_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE government_tax_filing_01_setup
+PIPELINE 01_setup
   DESCRIPTION 'Creates zones and schemas for Government Tax Filing'
   SCHEDULE 'tax_daily_schedule'
   TAGS 'setup', 'government-tax-filing'

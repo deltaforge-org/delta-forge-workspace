@@ -2,7 +2,7 @@
 -- HR Workforce Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE hr_workforce_03_bronze_seed
+PIPELINE 03_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for HR Workforce'
   SCHEDULE 'hr_daily_schedule'
   TAGS 'setup', 'hr-workforce'

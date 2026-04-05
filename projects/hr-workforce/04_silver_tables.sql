@@ -2,7 +2,7 @@
 -- HR Workforce Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE hr_workforce_04_silver_tables
+PIPELINE 04_silver_tables
   DESCRIPTION 'Creates silver layer tables for HR Workforce'
   SCHEDULE 'hr_daily_schedule'
   TAGS 'setup', 'hr-workforce'

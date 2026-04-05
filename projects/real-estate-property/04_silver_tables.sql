@@ -2,7 +2,7 @@
 -- Real Estate Property Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE real_estate_property_04_silver_tables
+PIPELINE 04_silver_tables
   DESCRIPTION 'Creates silver layer tables for Real Estate Property'
   SCHEDULE 'realty_daily_schedule'
   TAGS 'setup', 'real-estate-property'

@@ -2,7 +2,7 @@
 -- Healthcare Patient EHR Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE healthcare_patient_ehr_02_bronze_tables
+PIPELINE 02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for Healthcare Patient EHR'
   SCHEDULE 'ehr_daily_schedule'
   TAGS 'setup', 'healthcare-patient-ehr'

@@ -10,7 +10,7 @@ SCHEDULE legal_daily_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE legal_case_management_01_setup
+PIPELINE 01_setup
   DESCRIPTION 'Creates zones and schemas for Legal Case Management'
   SCHEDULE 'legal_daily_schedule'
   TAGS 'setup', 'legal-case-management'

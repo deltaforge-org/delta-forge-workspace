@@ -2,7 +2,7 @@
 -- Logistics Shipments Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE logistics_shipments_02_bronze_tables
+PIPELINE 02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for Logistics Shipments'
   SCHEDULE 'logistics_6hr_schedule'
   TAGS 'setup', 'logistics-shipments'

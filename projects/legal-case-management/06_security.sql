@@ -2,7 +2,7 @@
 -- Legal Case Management Pipeline - Security & Pseudonymisation Rules
 -- =============================================================================
 
-PIPELINE legal_case_management_06_security
+PIPELINE 06_security
   DESCRIPTION 'Creates pseudonymisation and security rules for Legal Case Management'
   SCHEDULE 'legal_daily_schedule'
   TAGS 'setup', 'legal-case-management'

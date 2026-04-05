@@ -5,7 +5,7 @@
 -- before execution to prevent accidental data loss.
 -- =============================================================================
 
-PIPELINE insurance_claims_10_cleanup
+PIPELINE 10_cleanup
   DESCRIPTION 'Cleanup pipeline for Insurance Claims — drops all objects. DISABLED by default.'
   SCHEDULE 'ins_weekly_schedule'
   TAGS 'cleanup', 'maintenance', 'insurance-claims'

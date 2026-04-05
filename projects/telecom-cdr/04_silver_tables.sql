@@ -2,7 +2,7 @@
 -- Telecom CDR Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE telecom_cdr_04_silver_tables
+PIPELINE 04_silver_tables
   DESCRIPTION 'Creates silver layer tables for Telecom CDR'
   SCHEDULE 'telecom_daily_schedule'
   TAGS 'setup', 'telecom-cdr'

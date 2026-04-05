@@ -5,7 +5,7 @@
 -- accidental scheduled execution. Must be manually activated before running.
 -- =============================================================================
 
-PIPELINE supply_chain_analytics_03_cleanup
+PIPELINE 03_cleanup
   DESCRIPTION 'Cleanup pipeline for Supply Chain Analytics — drops all objects. DISABLED by default.'
   SCHEDULE 'supply_chain_daily'
   TAGS 'cleanup', 'maintenance', 'supply-chain-analytics'

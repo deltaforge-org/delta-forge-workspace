@@ -2,7 +2,7 @@
 -- Healthcare Patient EHR Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE healthcare_patient_ehr_04_silver_tables
+PIPELINE 04_silver_tables
   DESCRIPTION 'Creates silver layer tables for Healthcare Patient EHR'
   SCHEDULE 'ehr_daily_schedule'
   TAGS 'setup', 'healthcare-patient-ehr'

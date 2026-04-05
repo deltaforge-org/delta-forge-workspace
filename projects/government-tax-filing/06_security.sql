@@ -2,7 +2,7 @@
 -- Government Tax Filing Pipeline - Security & Pseudonymisation Rules
 -- =============================================================================
 
-PIPELINE government_tax_filing_06_security
+PIPELINE 06_security
   DESCRIPTION 'Creates pseudonymisation and security rules for Government Tax Filing'
   SCHEDULE 'tax_daily_schedule'
   TAGS 'setup', 'government-tax-filing'

@@ -19,7 +19,7 @@ PRINT {{INCREMENTAL_FILTER(realty.silver.transactions_enriched, transaction_id, 
 
 -- ===================== PIPELINE =====================
 
-PIPELINE real_estate_property_08_incremental_load
+PIPELINE 08_incremental_load
   DESCRIPTION 'Incremental property pipeline: new transactions, SCD2 assessment updates, rebuilt KPIs'
   SCHEDULE 'realty_daily_schedule'
   TAGS 'real-estate,property,incremental,SCD2'

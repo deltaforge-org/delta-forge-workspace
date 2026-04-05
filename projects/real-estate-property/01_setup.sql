@@ -10,7 +10,7 @@ SCHEDULE realty_daily_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE real_estate_property_01_setup
+PIPELINE 01_setup
   DESCRIPTION 'Creates zones and schemas for Real Estate Property'
   SCHEDULE 'realty_daily_schedule'
   TAGS 'setup', 'real-estate-property'

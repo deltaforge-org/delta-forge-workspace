@@ -4,7 +4,7 @@
 
 -- ===================== DEACTIVATED PIPELINE =====================
 
-PIPELINE legal_case_management_10_cleanup
+PIPELINE 10_cleanup
   DESCRIPTION 'Cleanup pipeline for Legal Case Management - drops all objects. DISABLED by default.'
   SCHEDULE 'legal_daily_schedule'
   TAGS 'cleanup', 'maintenance', 'legal-case-management'
