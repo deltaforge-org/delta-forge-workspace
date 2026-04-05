@@ -15,6 +15,7 @@ PIPELINE telecom_cdr_pipeline
   TAGS 'telecom,cdr,schema-evolution,churn,sessions'
   SLA 60
   FAIL_FAST true
+  STATUS disabled
   LIFECYCLE production
 ;
 

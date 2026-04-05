@@ -12,6 +12,7 @@ PIPELINE logistics_shipments_pipeline
   TAGS 'logistics,event-sourcing,SLA,Z-order'
   SLA 60
   FAIL_FAST true
+  STATUS disabled
   LIFECYCLE production
 ;
 -- ===================== validate_bronze =====================

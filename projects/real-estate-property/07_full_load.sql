@@ -16,6 +16,7 @@ PIPELINE realty_property_pipeline
   TAGS 'real-estate,property,SCD2,RESTORE,assessment'
   SLA 2700
   FAIL_FAST true
+  STATUS disabled
   LIFECYCLE production
 ;
 -- ===================== validate_bronze =====================

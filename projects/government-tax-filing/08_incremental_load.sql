@@ -29,6 +29,7 @@ PIPELINE tax_incremental_pipeline
   TAGS 'government,tax,incremental,CDF'
   SLA 1800
   FAIL_FAST true
+  STATUS disabled
   LIFECYCLE production
 ;
 

@@ -12,6 +12,7 @@ PIPELINE cyber_incident_pipeline
   TAGS 'cybersecurity,SIEM,MITRE,threat-intel,multi-source'
   SLA 600
   FAIL_FAST true
+  STATUS disabled
   LIFECYCLE production
 ;
 

@@ -15,6 +15,7 @@ PIPELINE tax_filing_pipeline
   TAGS 'government,tax,full-load,CDF,append-only,amendments'
   SLA 2700
   FAIL_FAST true
+  STATUS disabled
   LIFECYCLE production
 ;
 

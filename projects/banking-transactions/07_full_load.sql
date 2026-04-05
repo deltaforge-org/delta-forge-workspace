@@ -14,6 +14,7 @@ PIPELINE bank_transaction_pipeline
   TAGS 'banking,transactions,fraud,CDF,SCD2'
   SLA 1800
   FAIL_FAST true
+  STATUS disabled
   LIFECYCLE production
 ;
 

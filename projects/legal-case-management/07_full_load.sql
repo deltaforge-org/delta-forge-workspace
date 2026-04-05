@@ -13,6 +13,7 @@ PIPELINE legal_billing_pipeline
   TAGS 'legal,billing,graph,pagerank,cypher'
   SLA 3600
   FAIL_FAST true
+  STATUS disabled
   LIFECYCLE production
 ;
 -- ===================== validate_bronze =====================

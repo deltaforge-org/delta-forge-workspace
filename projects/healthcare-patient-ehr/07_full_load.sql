@@ -13,6 +13,7 @@ PIPELINE ehr_patient_pipeline
   TAGS 'healthcare,ehr,scd2,cdf,gdpr,hipaa'
   SLA 3600
   FAIL_FAST true
+  STATUS disabled
   LIFECYCLE production
 ;
 
