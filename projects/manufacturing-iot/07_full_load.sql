@@ -16,7 +16,6 @@ PIPELINE manufacturing_iot_pipeline
   TAGS 'manufacturing,iot,oee,anomaly-detection,vacuum'
   SLA 30
   FAIL_FAST true
-  STATUS disabled
   LIFECYCLE production
 ;
 

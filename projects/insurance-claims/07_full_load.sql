@@ -41,7 +41,6 @@ PIPELINE ins_claims_pipeline
   TAGS 'insurance,claims,SCD2,loss-ratio,fraud,RESTORE'
   SLA 7200
   FAIL_FAST true
-  STATUS disabled
   LIFECYCLE production
 ;
 -- ===================== validate_bronze =====================

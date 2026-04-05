@@ -35,7 +35,6 @@ PIPELINE ecommerce_orders_pipeline
   TAGS 'ecommerce,orders,medallion,multi-source'
   SLA 30
   FAIL_FAST true
-  STATUS disabled
   LIFECYCLE production
 ;
 

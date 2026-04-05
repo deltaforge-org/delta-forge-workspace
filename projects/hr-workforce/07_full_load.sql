@@ -15,7 +15,6 @@ PIPELINE hr_workforce_pipeline
   TAGS 'hr,workforce,scd2,cdf,gdpr,compa-ratio'
   SLA 2700
   FAIL_FAST true
-  STATUS disabled
   LIFECYCLE production
 ;
 

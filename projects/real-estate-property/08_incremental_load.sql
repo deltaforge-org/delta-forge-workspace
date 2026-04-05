@@ -25,7 +25,6 @@ PIPELINE realty_incremental_pipeline
   TAGS 'real-estate,property,incremental,SCD2'
   SLA 1800
   FAIL_FAST true
-  STATUS disabled
   LIFECYCLE production
 ;
 
