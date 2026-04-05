@@ -2,7 +2,7 @@
 -- Government Tax Filing Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE 05_gold_tables
+PIPELINE government_tax_filing_05_gold_tables
   DESCRIPTION 'Creates gold layer tables for Government Tax Filing'
   SCHEDULE 'tax_daily_schedule'
   TAGS 'setup', 'government-tax-filing'

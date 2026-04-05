@@ -23,7 +23,7 @@ PRINT {{INCREMENTAL_FILTER(tax.silver.filings_immutable, filing_id, filing_date,
 
 -- ===================== PIPELINE =====================
 
-PIPELINE 08_incremental_load
+PIPELINE government_tax_filing_08_incremental_load
   DESCRIPTION 'Incremental tax filing pipeline: appends new filings, applies new amendments, rebuilds KPIs'
   SCHEDULE 'tax_daily_schedule'
   TAGS 'government,tax,incremental,CDF'

@@ -2,7 +2,7 @@
 -- Real Estate Property Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE 05_gold_tables
+PIPELINE real_estate_property_05_gold_tables
   DESCRIPTION 'Creates gold layer tables for Real Estate Property'
   SCHEDULE 'realty_daily_schedule'
   TAGS 'setup', 'real-estate-property'

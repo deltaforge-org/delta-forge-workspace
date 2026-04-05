@@ -10,7 +10,7 @@ SCHEDULE ins_weekly_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE 01_setup
+PIPELINE insurance_claims_01_setup
   DESCRIPTION 'Creates zones and schemas for Insurance Claims'
   SCHEDULE 'ins_weekly_schedule'
   TAGS 'setup', 'insurance-claims'

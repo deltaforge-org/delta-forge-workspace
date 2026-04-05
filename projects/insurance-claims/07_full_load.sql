@@ -35,7 +35,7 @@
 --   optimize  (CONTINUE ON FAILURE)
 -- =============================================================================
 
-PIPELINE 07_full_load
+PIPELINE insurance_claims_07_full_load
   DESCRIPTION 'P&C insurance pipeline: SCD2 policies, point-in-time joins, fraud detection, RESTORE workflow'
   SCHEDULE 'ins_weekly_schedule'
   TAGS 'insurance,claims,SCD2,loss-ratio,fraud,RESTORE'

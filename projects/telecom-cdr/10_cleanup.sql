@@ -7,7 +7,7 @@
 -- activated before execution to prevent accidental data loss.
 -- To run: first SET STATUS on this pipeline to 'active', then trigger.
 
-PIPELINE 10_cleanup
+PIPELINE telecom_cdr_10_cleanup
   DESCRIPTION 'Cleanup pipeline for Telecom CDR — drops all objects across 3 schema versions. DISABLED by default.'
   SCHEDULE 'telecom_daily_schedule'
   TAGS 'cleanup', 'maintenance', 'telecom-cdr'

@@ -14,7 +14,7 @@ SCHEDULE supply_chain_daily
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE pipeline
+PIPELINE supply_chain_analytics_pipeline
   DESCRIPTION 'End-to-end supply chain pipeline: procurement -> warehouse -> transport -> demand'
   SCHEDULE 'supply_chain_daily'
   TAGS 'supply-chain', 'inventory', 'demand', 'medallion'

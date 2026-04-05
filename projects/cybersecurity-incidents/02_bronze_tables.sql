@@ -2,7 +2,7 @@
 -- Cybersecurity Incidents Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE 02_bronze_tables
+PIPELINE cybersecurity_incidents_02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for Cybersecurity Incidents'
   SCHEDULE 'cyber_15min_schedule'
   TAGS 'setup', 'cybersecurity-incidents'

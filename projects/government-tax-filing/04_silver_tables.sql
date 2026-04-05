@@ -2,7 +2,7 @@
 -- Government Tax Filing Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE 04_silver_tables
+PIPELINE government_tax_filing_04_silver_tables
   DESCRIPTION 'Creates silver layer tables for Government Tax Filing'
   SCHEDULE 'tax_daily_schedule'
   TAGS 'setup', 'government-tax-filing'

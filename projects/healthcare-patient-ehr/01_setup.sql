@@ -10,7 +10,7 @@ SCHEDULE ehr_daily_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE 01_setup
+PIPELINE healthcare_patient_ehr_01_setup
   DESCRIPTION 'Creates zones and schemas for Healthcare Patient EHR'
   SCHEDULE 'ehr_daily_schedule'
   TAGS 'setup', 'healthcare-patient-ehr'

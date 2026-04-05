@@ -2,7 +2,7 @@
 -- Manufacturing IoT Pipeline - Security & Pseudonymisation Rules
 -- =============================================================================
 
-PIPELINE 06_security
+PIPELINE manufacturing_iot_06_security
   DESCRIPTION 'Creates pseudonymisation and security rules for Manufacturing IoT'
   SCHEDULE 'manufacturing_2hr_schedule'
   TAGS 'setup', 'manufacturing-iot'

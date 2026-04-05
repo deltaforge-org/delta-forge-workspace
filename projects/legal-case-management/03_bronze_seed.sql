@@ -2,7 +2,7 @@
 -- Legal Case Management Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE 03_bronze_seed
+PIPELINE legal_case_management_03_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for Legal Case Management'
   SCHEDULE 'legal_daily_schedule'
   TAGS 'setup', 'legal-case-management'

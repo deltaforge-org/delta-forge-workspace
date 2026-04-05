@@ -2,7 +2,7 @@
 -- E-commerce Orders Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE 05_gold_tables
+PIPELINE ecommerce_orders_05_gold_tables
   DESCRIPTION 'Creates gold layer tables for E-commerce Orders'
   SCHEDULE 'ecommerce_30min_schedule'
   TAGS 'setup', 'ecommerce-orders'

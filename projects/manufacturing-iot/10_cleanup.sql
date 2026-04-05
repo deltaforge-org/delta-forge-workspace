@@ -7,7 +7,7 @@
 -- activated before execution to prevent accidental data loss.
 -- To run: first SET STATUS on this pipeline to 'active', then trigger.
 
-PIPELINE 10_cleanup
+PIPELINE manufacturing_iot_10_cleanup
   DESCRIPTION 'Cleanup pipeline for Manufacturing IoT — drops all objects including smoothed readings and equipment status. DISABLED by default.'
   SCHEDULE 'manufacturing_2hr_schedule'
   TAGS 'cleanup', 'maintenance', 'manufacturing-iot'

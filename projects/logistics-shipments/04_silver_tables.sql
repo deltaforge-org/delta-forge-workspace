@@ -2,7 +2,7 @@
 -- Logistics Shipments Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE 04_silver_tables
+PIPELINE logistics_shipments_04_silver_tables
   DESCRIPTION 'Creates silver layer tables for Logistics Shipments'
   SCHEDULE 'logistics_6hr_schedule'
   TAGS 'setup', 'logistics-shipments'

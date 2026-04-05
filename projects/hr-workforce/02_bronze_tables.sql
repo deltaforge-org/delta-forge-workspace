@@ -2,7 +2,7 @@
 -- HR Workforce Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE 02_bronze_tables
+PIPELINE hr_workforce_02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for HR Workforce'
   SCHEDULE 'hr_daily_schedule'
   TAGS 'setup', 'hr-workforce'

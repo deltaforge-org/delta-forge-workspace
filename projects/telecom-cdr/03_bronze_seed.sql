@@ -2,7 +2,7 @@
 -- Telecom CDR Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE 03_bronze_seed
+PIPELINE telecom_cdr_03_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for Telecom CDR'
   SCHEDULE 'telecom_daily_schedule'
   TAGS 'setup', 'telecom-cdr'

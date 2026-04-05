@@ -2,7 +2,7 @@
 -- Manufacturing IoT Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE 02_bronze_tables
+PIPELINE manufacturing_iot_02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for Manufacturing IoT'
   SCHEDULE 'manufacturing_2hr_schedule'
   TAGS 'setup', 'manufacturing-iot'

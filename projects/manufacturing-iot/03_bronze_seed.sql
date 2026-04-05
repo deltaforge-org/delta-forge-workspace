@@ -2,7 +2,7 @@
 -- Manufacturing IoT Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE 03_bronze_seed
+PIPELINE manufacturing_iot_03_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for Manufacturing IoT'
   SCHEDULE 'manufacturing_2hr_schedule'
   TAGS 'setup', 'manufacturing-iot'

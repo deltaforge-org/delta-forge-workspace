@@ -2,7 +2,7 @@
 -- HR Workforce Pipeline - Security & Pseudonymisation Rules
 -- =============================================================================
 
-PIPELINE 06_security
+PIPELINE hr_workforce_06_security
   DESCRIPTION 'Creates pseudonymisation and security rules for HR Workforce'
   SCHEDULE 'hr_daily_schedule'
   TAGS 'setup', 'hr-workforce'

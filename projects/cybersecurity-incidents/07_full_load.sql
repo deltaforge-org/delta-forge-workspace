@@ -6,7 +6,7 @@
 -- star schema with 4 dimensions + threat dashboard + response metrics.
 -- =============================================================================
 
-PIPELINE 07_full_load
+PIPELINE cybersecurity_incidents_07_full_load
   DESCRIPTION 'Every-15-minute SIEM pipeline: 3-source ingestion, 5-min dedup, incident correlation, MITRE classification, threat dashboard'
   SCHEDULE 'cyber_15min_schedule'
   TAGS 'cybersecurity,SIEM,MITRE,threat-intel,multi-source'

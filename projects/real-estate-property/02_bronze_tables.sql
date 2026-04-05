@@ -2,7 +2,7 @@
 -- Real Estate Property Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE 02_bronze_tables
+PIPELINE real_estate_property_02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for Real Estate Property'
   SCHEDULE 'realty_daily_schedule'
   TAGS 'setup', 'real-estate-property'

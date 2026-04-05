@@ -2,7 +2,7 @@
 -- Healthcare Patient EHR Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE 05_gold_tables
+PIPELINE healthcare_patient_ehr_05_gold_tables
   DESCRIPTION 'Creates gold layer tables for Healthcare Patient EHR'
   SCHEDULE 'ehr_daily_schedule'
   TAGS 'setup', 'healthcare-patient-ehr'

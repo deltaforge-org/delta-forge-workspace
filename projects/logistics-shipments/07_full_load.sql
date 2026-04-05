@@ -6,7 +6,7 @@
 -- Z-ordered route optimization.
 -- =============================================================================
 
-PIPELINE 07_full_load
+PIPELINE logistics_shipments_07_full_load
   DESCRIPTION 'Global logistics event sourcing pipeline: idempotent dedup, timeline reconstruction, SLA compliance, route optimization'
   SCHEDULE 'logistics_6hr_schedule'
   TAGS 'logistics,event-sourcing,SLA,Z-order'
