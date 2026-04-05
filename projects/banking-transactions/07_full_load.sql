@@ -190,6 +190,17 @@ USING (
         FROM bank.bronze.raw_transactions t
         LEFT JOIN bank.bronze.raw_merchants m ON t.merchant_id = m.merchant_id
     ),
+    -- NOTE: DataFusion does not support correlated subqueries in JOIN ON conditions.
+    -- Use a CTE instead of: JOIN t ON ... AND t.col = (SELECT MIN(...) FROM t WHERE ...)
+    earliest_accounts AS (
+        SELECT a.*
+        FROM bank.bronze.raw_accounts a
+        INNER JOIN (
+            SELECT account_id, MIN(ingested_at) AS min_ingested
+            FROM bank.bronze.raw_accounts
+            GROUP BY account_id
+        ) ea ON a.account_id = ea.account_id AND a.ingested_at = ea.min_ingested
+    ),
     scored AS (
         SELECT
             b.*,
@@ -209,8 +220,7 @@ USING (
                 + CASE WHEN EXTRACT(HOUR FROM b.transaction_date) BETWEEN 1 AND 5 THEN 10 ELSE 0 END
             )) AS INT) AS fraud_score
         FROM base b
-        JOIN bank.bronze.raw_accounts a ON b.account_id = a.account_id
-            AND a.ingested_at = (SELECT MIN(ingested_at) FROM bank.bronze.raw_accounts WHERE account_id = b.account_id)
+        JOIN earliest_accounts a ON b.account_id = a.account_id
         WHERE b.rn = 1
     )
     SELECT * FROM scored
