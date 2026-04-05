@@ -281,24 +281,63 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- ===================== materialize_cdf_snapshots =====================
--- Read CDF changes from customer_dim and materialize into balance_snapshots
+-- Derive tier-change snapshots from the SCD2 customer_dim table.
+-- NOTE: table_changes() is Spark/Databricks syntax, not supported in Delta Forge.
+-- Instead we reconstruct snapshots from the SCD2 expired/current row pairs.
+
+DELETE FROM bank.silver.balance_snapshots WHERE 1=1;
 
 INSERT INTO bank.silver.balance_snapshots
 SELECT
-    ROW_NUMBER() OVER (ORDER BY _commit_timestamp, account_id) AS snapshot_id,
+    ROW_NUMBER() OVER (ORDER BY account_id, change_type) AS snapshot_id,
     account_id,
     customer_name,
-    CASE
-        WHEN _change_type = 'update_preimage' THEN customer_tier
-        ELSE NULL
-    END AS old_tier,
-    CASE
-        WHEN _change_type IN ('update_postimage', 'insert') THEN customer_tier
-        ELSE NULL
-    END AS new_tier,
-    _change_type AS change_type,
-    _commit_timestamp AS snapshot_timestamp
-FROM table_changes('bank.silver.customer_dim', 0);
+    old_tier,
+    new_tier,
+    change_type,
+    snapshot_timestamp
+FROM (
+    -- Expired rows → update_preimage (old tier before upgrade)
+    SELECT
+        account_id,
+        customer_name,
+        customer_tier AS old_tier,
+        NULL AS new_tier,
+        'update_preimage' AS change_type,
+        updated_at AS snapshot_timestamp
+    FROM bank.silver.customer_dim
+    WHERE is_current = false
+    UNION ALL
+    -- Current rows that replaced an expired row → update_postimage (new tier after upgrade)
+    SELECT
+        c.account_id,
+        c.customer_name,
+        NULL AS old_tier,
+        c.customer_tier AS new_tier,
+        'update_postimage' AS change_type,
+        c.updated_at AS snapshot_timestamp
+    FROM bank.silver.customer_dim c
+    WHERE c.is_current = true
+      AND EXISTS (
+          SELECT 1 FROM bank.silver.customer_dim e
+          WHERE e.account_id = c.account_id AND e.is_current = false
+      )
+    UNION ALL
+    -- Current rows with no prior version → insert
+    SELECT
+        c.account_id,
+        c.customer_name,
+        NULL AS old_tier,
+        c.customer_tier AS new_tier,
+        'insert' AS change_type,
+        c.updated_at AS snapshot_timestamp
+    FROM bank.silver.customer_dim c
+    WHERE c.is_current = true
+      AND NOT EXISTS (
+          SELECT 1 FROM bank.silver.customer_dim e
+          WHERE e.account_id = c.account_id AND e.is_current = false
+      )
+) snapshots;
 
 ASSERT VALUE snapshot_count >= 1
 SELECT COUNT(*) AS snapshot_count FROM bank.silver.balance_snapshots;

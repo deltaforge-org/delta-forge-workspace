@@ -298,25 +298,63 @@ SELECT COUNT(*) AS expired_count FROM ehr.silver.patient_dim WHERE is_current = 
 -- ===================== enable_cdf_audit =====================
 -- Read CDF changes from patient_dim and materialize into audit_log
 
--- Capture all changes from CDF on patient_dim into the audit log
--- table_changes reads the CDF of patient_dim from version 0 to current
+-- Derive audit log from SCD2 patient_dim rows.
+-- NOTE: table_changes() is Spark/Databricks syntax, not supported in Delta Forge.
+-- Instead we reconstruct audit entries from the SCD2 expired/current row pairs.
 DELETE FROM ehr.silver.audit_log WHERE 1=1;
 
 INSERT INTO ehr.silver.audit_log
 SELECT
-    ROW_NUMBER() OVER (ORDER BY _commit_timestamp, patient_id) AS audit_id,
+    ROW_NUMBER() OVER (ORDER BY patient_id, change_type) AS audit_id,
     'patient_dim' AS table_name,
     patient_id,
-    _change_type AS change_type,
-    CASE
-        WHEN _change_type = 'update_postimage' THEN 'address,insurance_id,insurance_name,is_current,valid_to'
-        WHEN _change_type = 'insert' THEN 'ALL'
-        ELSE 'unknown'
-    END AS changed_fields,
-    NULL AS old_values,
-    CONCAT(address, '|', city, '|', state, '|', insurance_id) AS new_values,
-    _commit_timestamp AS change_timestamp
-FROM table_changes('ehr.silver.patient_dim', 0);
+    change_type,
+    changed_fields,
+    old_values,
+    new_values,
+    change_timestamp
+FROM (
+    -- Expired rows → update_preimage
+    SELECT
+        patient_id,
+        'update_preimage' AS change_type,
+        'address,insurance_id,insurance_name,is_current,valid_to' AS changed_fields,
+        CONCAT(address, '|', city, '|', state, '|', insurance_id) AS old_values,
+        NULL AS new_values,
+        updated_at AS change_timestamp
+    FROM ehr.silver.patient_dim
+    WHERE is_current = false
+    UNION ALL
+    -- Current rows that replaced an expired row → update_postimage
+    SELECT
+        c.patient_id,
+        'update_postimage' AS change_type,
+        'address,insurance_id,insurance_name,is_current,valid_to' AS changed_fields,
+        NULL AS old_values,
+        CONCAT(c.address, '|', c.city, '|', c.state, '|', c.insurance_id) AS new_values,
+        c.updated_at AS change_timestamp
+    FROM ehr.silver.patient_dim c
+    WHERE c.is_current = true
+      AND EXISTS (
+          SELECT 1 FROM ehr.silver.patient_dim e
+          WHERE e.patient_id = c.patient_id AND e.is_current = false
+      )
+    UNION ALL
+    -- Current rows with no prior version → insert
+    SELECT
+        c.patient_id,
+        'insert' AS change_type,
+        'ALL' AS changed_fields,
+        NULL AS old_values,
+        CONCAT(c.address, '|', c.city, '|', c.state, '|', c.insurance_id) AS new_values,
+        c.updated_at AS change_timestamp
+    FROM ehr.silver.patient_dim c
+    WHERE c.is_current = true
+      AND NOT EXISTS (
+          SELECT 1 FROM ehr.silver.patient_dim e
+          WHERE e.patient_id = c.patient_id AND e.is_current = false
+      )
+) audit_entries;
 
 ASSERT VALUE audit_count >= 1
 SELECT COUNT(*) AS audit_count FROM ehr.silver.audit_log;
