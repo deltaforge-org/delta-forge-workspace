@@ -62,13 +62,7 @@ WHEN NOT MATCHED THEN INSERT (
     source.customer_name, source.branch, source.open_date, source.status,
     source.customer_tier,
     CAST('2024-01-15' AS DATE), NULL, true, CURRENT_TIMESTAMP
-)
-WHEN MATCHED THEN UPDATE SET
-    customer_name   = source.customer_name,
-    branch          = source.branch,
-    status          = source.status,
-    customer_tier   = source.customer_tier,
-    updated_at      = CURRENT_TIMESTAMP;
+);
 
 -- Pass 2: Expire current records for customers with tier upgrades
 MERGE INTO bank.silver.customer_dim AS target
@@ -147,13 +141,7 @@ WHEN NOT MATCHED THEN INSERT (
     source.customer_name, source.branch, source.open_date, source.status,
     source.customer_tier, source.valid_from, source.valid_to, source.is_current,
     source.updated_at
-)
-WHEN MATCHED THEN UPDATE SET
-    customer_name   = source.customer_name,
-    branch          = source.branch,
-    status          = source.status,
-    customer_tier   = source.customer_tier,
-    updated_at      = source.updated_at;
+);
 
 -- Verify: 12 accounts + 3 expired versions = 15 total
 ASSERT VALUE customer_dim_count >= 12
@@ -184,8 +172,8 @@ USING (
             -- Previous transaction for velocity checks
             LAG(t.amount) OVER (PARTITION BY t.account_id ORDER BY t.transaction_date) AS prev_txn_amount,
             DATEDIFF(
-                t.transaction_date,
-                LAG(t.transaction_date) OVER (PARTITION BY t.account_id ORDER BY t.transaction_date)
+                CAST(t.transaction_date AS DATE),
+                CAST(LAG(t.transaction_date) OVER (PARTITION BY t.account_id ORDER BY t.transaction_date) AS DATE)
             ) * 86400 AS time_since_prev_sec,
             -- Velocity: count of txns in rolling 5-row window per account
             COUNT(*) OVER (
@@ -284,8 +272,6 @@ WHEN NOT MATCHED THEN INSERT (
 
 -- ===================== materialize_cdf_snapshots =====================
 -- Read CDF changes from customer_dim and materialize into balance_snapshots
-
-DELETE FROM bank.silver.balance_snapshots WHERE 1=1;
 
 INSERT INTO bank.silver.balance_snapshots
 SELECT
