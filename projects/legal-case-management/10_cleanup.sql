@@ -14,10 +14,10 @@ PIPELINE legal_case_management_cleanup
 
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
-DROP PSEUDONYMISATION RULE ON legal.bronze.raw_parties (ssn);
-DROP PSEUDONYMISATION RULE ON legal.bronze.raw_parties (party_name);
-DROP PSEUDONYMISATION RULE ON legal.bronze.raw_parties (contact_email);
-DROP PSEUDONYMISATION RULE ON legal.bronze.raw_parties (contact_phone);
+DROP PSEUDONYMISATION RULE IF EXISTS ON legal.bronze.raw_parties (ssn);
+DROP PSEUDONYMISATION RULE IF EXISTS ON legal.bronze.raw_parties (party_name);
+DROP PSEUDONYMISATION RULE IF EXISTS ON legal.bronze.raw_parties (contact_email);
+DROP PSEUDONYMISATION RULE IF EXISTS ON legal.bronze.raw_parties (contact_phone);
 
 -- ===================== DROP GRAPH =====================
 

@@ -15,11 +15,11 @@ PIPELINE hr_workforce_cleanup
 
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
-DROP PSEUDONYMISATION RULE ON hr.silver.employee_dim (ssn);
-DROP PSEUDONYMISATION RULE ON hr.silver.employee_dim (email);
-DROP PSEUDONYMISATION RULE ON hr.silver.employee_dim (employee_name);
-DROP PSEUDONYMISATION RULE ON hr.silver.employee_dim (date_of_birth);
-DROP PSEUDONYMISATION RULE ON hr.silver.employee_dim (base_salary);
+DROP PSEUDONYMISATION RULE IF EXISTS ON hr.silver.employee_dim (ssn);
+DROP PSEUDONYMISATION RULE IF EXISTS ON hr.silver.employee_dim (email);
+DROP PSEUDONYMISATION RULE IF EXISTS ON hr.silver.employee_dim (employee_name);
+DROP PSEUDONYMISATION RULE IF EXISTS ON hr.silver.employee_dim (date_of_birth);
+DROP PSEUDONYMISATION RULE IF EXISTS ON hr.silver.employee_dim (base_salary);
 
 -- ===================== DROP GOLD TABLES =====================
 

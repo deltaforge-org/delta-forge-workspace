@@ -18,7 +18,7 @@ PIPELINE cybersecurity_incidents_cleanup
 
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
-DROP PSEUDONYMISATION RULE ON cyber.gold.dim_source_ip (ip_address);
+DROP PSEUDONYMISATION RULE IF EXISTS ON cyber.gold.dim_source_ip (ip_address);
 
 -- ===================== DROP BLOOM FILTER INDEXES =====================
 

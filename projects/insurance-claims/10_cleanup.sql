@@ -15,9 +15,9 @@ PIPELINE insurance_claims_cleanup
 
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
-DROP PSEUDONYMISATION RULE ON ins.gold.dim_claimant (name);
-DROP PSEUDONYMISATION RULE ON ins.bronze.raw_claimants (ssn);
-DROP PSEUDONYMISATION RULE ON ins.bronze.raw_policies (ssn);
+DROP PSEUDONYMISATION RULE IF EXISTS ON ins.gold.dim_claimant (name);
+DROP PSEUDONYMISATION RULE IF EXISTS ON ins.bronze.raw_claimants (ssn);
+DROP PSEUDONYMISATION RULE IF EXISTS ON ins.bronze.raw_policies (ssn);
 
 -- ===================== DROP GOLD TABLES =====================
 

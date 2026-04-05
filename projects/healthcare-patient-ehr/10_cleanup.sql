@@ -17,10 +17,10 @@ PIPELINE healthcare_patient_ehr_cleanup
 
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
-DROP PSEUDONYMISATION RULE ON ehr.silver.patient_dim (ssn);
-DROP PSEUDONYMISATION RULE ON ehr.silver.patient_dim (email);
-DROP PSEUDONYMISATION RULE ON ehr.silver.patient_dim (patient_name);
-DROP PSEUDONYMISATION RULE ON ehr.silver.patient_dim (date_of_birth);
+DROP PSEUDONYMISATION RULE IF EXISTS ON ehr.silver.patient_dim (ssn);
+DROP PSEUDONYMISATION RULE IF EXISTS ON ehr.silver.patient_dim (email);
+DROP PSEUDONYMISATION RULE IF EXISTS ON ehr.silver.patient_dim (patient_name);
+DROP PSEUDONYMISATION RULE IF EXISTS ON ehr.silver.patient_dim (date_of_birth);
 
 -- ===================== DROP GOLD TABLES =====================
 

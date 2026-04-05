@@ -17,10 +17,10 @@ PIPELINE banking_transactions_cleanup
 
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
-DROP PSEUDONYMISATION RULE ON bank.silver.customer_dim (account_number);
-DROP PSEUDONYMISATION RULE ON bank.silver.customer_dim (customer_name);
-DROP PSEUDONYMISATION RULE ON bank.gold.dim_account (account_number);
-DROP PSEUDONYMISATION RULE ON bank.gold.dim_account (customer_name);
+DROP PSEUDONYMISATION RULE IF EXISTS ON bank.silver.customer_dim (account_number);
+DROP PSEUDONYMISATION RULE IF EXISTS ON bank.silver.customer_dim (customer_name);
+DROP PSEUDONYMISATION RULE IF EXISTS ON bank.gold.dim_account (account_number);
+DROP PSEUDONYMISATION RULE IF EXISTS ON bank.gold.dim_account (customer_name);
 
 -- ===================== DROP GOLD TABLES =====================
 

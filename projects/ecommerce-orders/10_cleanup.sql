@@ -16,9 +16,9 @@ PIPELINE ecommerce_orders_cleanup
 
 -- ===================== DROP PSEUDONYMISATION RULES =====================
 
-DROP PSEUDONYMISATION RULE ON ecom.bronze.raw_customers (email);
-DROP PSEUDONYMISATION RULE ON ecom.silver.customer_rfm (email);
-DROP PSEUDONYMISATION RULE ON ecom.bronze.raw_customers (address);
+DROP PSEUDONYMISATION RULE IF EXISTS ON ecom.bronze.raw_customers (email);
+DROP PSEUDONYMISATION RULE IF EXISTS ON ecom.silver.customer_rfm (email);
+DROP PSEUDONYMISATION RULE IF EXISTS ON ecom.bronze.raw_customers (address);
 
 -- ===================== DROP GOLD TABLES =====================
 
