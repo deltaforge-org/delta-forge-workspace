@@ -10,7 +10,7 @@ SCHEDULE cyber_15min_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE cyber_setup
+PIPELINE 01_setup
   DESCRIPTION 'Creates zones and schemas for Cybersecurity Incidents'
   SCHEDULE 'cyber_15min_schedule'
   TAGS 'setup', 'cybersecurity-incidents'

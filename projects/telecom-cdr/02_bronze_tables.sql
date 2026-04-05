@@ -2,7 +2,7 @@
 -- Telecom CDR Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE telecom_bronze_tables
+PIPELINE 02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for Telecom CDR'
   SCHEDULE 'telecom_daily_schedule'
   TAGS 'setup', 'telecom-cdr'

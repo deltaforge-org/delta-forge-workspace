@@ -2,7 +2,7 @@
 -- Logistics Shipments Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE logistics_bronze_seed
+PIPELINE 03_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for Logistics Shipments'
   SCHEDULE 'logistics_6hr_schedule'
   TAGS 'setup', 'logistics-shipments'

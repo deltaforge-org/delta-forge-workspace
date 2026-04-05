@@ -9,7 +9,7 @@
 -- optimize (CONTINUE ON FAILURE)
 -- =============================================================================
 
-PIPELINE hr_workforce_pipeline
+PIPELINE 07_full_load
   DESCRIPTION 'Full lifecycle workforce pipeline: SCD2 tracking, CDF org log, compa-ratio analysis, gender pay gap, retention risk scoring, GDPR erasure'
   SCHEDULE 'hr_daily_schedule'
   TAGS 'hr,workforce,scd2,cdf,gdpr,compa-ratio'

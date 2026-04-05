@@ -7,7 +7,7 @@
 -- activated before execution to prevent accidental data loss.
 -- To run: first SET STATUS on this pipeline to 'active', then trigger.
 
-PIPELINE government_tax_filing_cleanup
+PIPELINE 10_cleanup
   DESCRIPTION 'Cleanup pipeline for Government Tax Filing — drops all objects. DISABLED by default.'
   SCHEDULE 'tax_daily_schedule'
   TAGS 'cleanup', 'maintenance', 'government-tax-filing'

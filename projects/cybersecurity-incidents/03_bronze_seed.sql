@@ -2,7 +2,7 @@
 -- Cybersecurity Incidents Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE cyber_bronze_seed
+PIPELINE 03_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for Cybersecurity Incidents'
   SCHEDULE 'cyber_15min_schedule'
   TAGS 'setup', 'cybersecurity-incidents'

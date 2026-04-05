@@ -10,7 +10,7 @@ SCHEDULE logistics_6hr_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE logistics_setup
+PIPELINE 01_setup
   DESCRIPTION 'Creates zones and schemas for Logistics Shipments'
   SCHEDULE 'logistics_6hr_schedule'
   TAGS 'setup', 'logistics-shipments'

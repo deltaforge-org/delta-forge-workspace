@@ -2,7 +2,7 @@
 -- Government Tax Filing Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE tax_bronze_tables
+PIPELINE 02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for Government Tax Filing'
   SCHEDULE 'tax_daily_schedule'
   TAGS 'setup', 'government-tax-filing'

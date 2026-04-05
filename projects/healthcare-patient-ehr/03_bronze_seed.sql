@@ -2,7 +2,7 @@
 -- Healthcare Patient EHR Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE ehr_bronze_seed
+PIPELINE 03_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for Healthcare Patient EHR'
   SCHEDULE 'ehr_daily_schedule'
   TAGS 'setup', 'healthcare-patient-ehr'

@@ -2,7 +2,7 @@
 -- E-commerce Orders Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE ecommerce_bronze_seed
+PIPELINE 03_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for E-commerce Orders'
   SCHEDULE 'ecommerce_30min_schedule'
   TAGS 'setup', 'ecommerce-orders'

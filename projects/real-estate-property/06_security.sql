@@ -2,7 +2,7 @@
 -- Real Estate Property Pipeline - Security & Pseudonymisation Rules
 -- =============================================================================
 
-PIPELINE realty_security
+PIPELINE 06_security
   DESCRIPTION 'Creates pseudonymisation and security rules for Real Estate Property'
   SCHEDULE 'realty_daily_schedule'
   TAGS 'setup', 'real-estate-property'

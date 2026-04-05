@@ -6,7 +6,7 @@
 -- This cleanup pipeline is DISABLED by default. It must be manually
 -- activated before execution to prevent accidental data loss.
 
-PIPELINE banking_transactions_cleanup
+PIPELINE 10_cleanup
   DESCRIPTION 'Cleanup pipeline for Banking Transactions — drops all objects including SCD2 customer_dim, CDF balance_snapshots, and pseudonymisation rules. DISABLED by default.'
   SCHEDULE 'bank_4h_schedule'
   TAGS 'cleanup', 'maintenance', 'banking-transactions'

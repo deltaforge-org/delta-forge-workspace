@@ -2,7 +2,7 @@
 -- Insurance Claims Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE ins_gold_tables
+PIPELINE 05_gold_tables
   DESCRIPTION 'Creates gold layer tables for Insurance Claims'
   SCHEDULE 'ins_weekly_schedule'
   TAGS 'setup', 'insurance-claims'

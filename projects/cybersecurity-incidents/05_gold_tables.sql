@@ -2,7 +2,7 @@
 -- Cybersecurity Incidents Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE cyber_gold_tables
+PIPELINE 05_gold_tables
   DESCRIPTION 'Creates gold layer tables for Cybersecurity Incidents'
   SCHEDULE 'cyber_15min_schedule'
   TAGS 'setup', 'cybersecurity-incidents'

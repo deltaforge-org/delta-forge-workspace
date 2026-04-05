@@ -2,7 +2,7 @@
 -- Logistics Shipments Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE logistics_gold_tables
+PIPELINE 05_gold_tables
   DESCRIPTION 'Creates gold layer tables for Logistics Shipments'
   SCHEDULE 'logistics_6hr_schedule'
   TAGS 'setup', 'logistics-shipments'

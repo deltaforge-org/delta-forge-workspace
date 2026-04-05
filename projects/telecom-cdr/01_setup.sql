@@ -10,7 +10,7 @@ SCHEDULE telecom_daily_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE telecom_setup
+PIPELINE 01_setup
   DESCRIPTION 'Creates zones and schemas for Telecom CDR'
   SCHEDULE 'telecom_daily_schedule'
   TAGS 'setup', 'telecom-cdr'

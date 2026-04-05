@@ -2,7 +2,7 @@
 -- Healthcare Patient EHR Pipeline - Security & Pseudonymisation Rules
 -- =============================================================================
 
-PIPELINE ehr_security
+PIPELINE 06_security
   DESCRIPTION 'Creates pseudonymisation and security rules for Healthcare Patient EHR'
   SCHEDULE 'ehr_daily_schedule'
   TAGS 'setup', 'healthcare-patient-ehr'

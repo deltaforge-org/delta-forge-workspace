@@ -10,7 +10,7 @@ SCHEDULE ecommerce_30min_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE ecommerce_setup
+PIPELINE 01_setup
   DESCRIPTION 'Creates zones and schemas for E-commerce Orders'
   SCHEDULE 'ecommerce_30min_schedule'
   TAGS 'setup', 'ecommerce-orders'

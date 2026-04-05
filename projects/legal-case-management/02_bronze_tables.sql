@@ -2,7 +2,7 @@
 -- Legal Case Management Pipeline - Bronze Table Definitions
 -- =============================================================================
 
-PIPELINE legal_bronze_tables
+PIPELINE 02_bronze_tables
   DESCRIPTION 'Creates bronze layer tables for Legal Case Management'
   SCHEDULE 'legal_daily_schedule'
   TAGS 'setup', 'legal-case-management'
