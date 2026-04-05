@@ -2,7 +2,7 @@
 -- Legal Case Management Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE 04_silver_tables
+PIPELINE legal_silver_tables
   DESCRIPTION 'Creates silver layer tables for Legal Case Management'
   SCHEDULE 'legal_daily_schedule'
   TAGS 'setup', 'legal-case-management'

@@ -2,7 +2,7 @@
 -- Manufacturing IoT Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE 05_gold_tables
+PIPELINE manufacturing_gold_tables
   DESCRIPTION 'Creates gold layer tables for Manufacturing IoT'
   SCHEDULE 'manufacturing_2hr_schedule'
   TAGS 'setup', 'manufacturing-iot'

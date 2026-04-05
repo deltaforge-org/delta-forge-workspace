@@ -9,7 +9,7 @@
 
 -- ===================== PIPELINE =====================
 
-PIPELINE 07_full_load
+PIPELINE telecom_cdr_pipeline
   DESCRIPTION 'Daily CDR pipeline with schema evolution lifecycle, session reconstruction, and churn scoring'
   SCHEDULE 'telecom_daily_schedule'
   TAGS 'telecom,cdr,schema-evolution,churn,sessions'

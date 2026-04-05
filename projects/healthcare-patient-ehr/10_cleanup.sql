@@ -6,7 +6,7 @@
 -- This cleanup pipeline is DISABLED by default. It must be manually
 -- activated before execution to prevent accidental data loss.
 
-PIPELINE 10_cleanup
+PIPELINE healthcare_patient_ehr_cleanup
   DESCRIPTION 'Cleanup pipeline for Healthcare Patient EHR — drops all objects including SCD2 patient_dim, CDF audit_log, and pseudonymisation rules. DISABLED by default.'
   SCHEDULE 'ehr_daily_schedule'
   TAGS 'cleanup', 'maintenance', 'healthcare-patient-ehr'

@@ -2,7 +2,7 @@
 -- Banking Transactions Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE 04_silver_tables
+PIPELINE bank_silver_tables
   DESCRIPTION 'Creates silver layer tables for Banking Transactions'
   SCHEDULE 'bank_4h_schedule'
   TAGS 'setup', 'banking-transactions'

@@ -29,7 +29,7 @@
 --   optimize_zorder (CONTINUE ON FAILURE)
 -- =============================================================================
 
-PIPELINE 07_full_load
+PIPELINE ecommerce_orders_pipeline
   DESCRIPTION 'Omnichannel order pipeline: 3-way MERGE, soft-delete, CDF inventory, RFM segmentation, funnel sessionization'
   SCHEDULE 'ecommerce_30min_schedule'
   TAGS 'ecommerce,orders,medallion,multi-source'

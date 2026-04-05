@@ -2,7 +2,7 @@
 -- E-commerce Orders Pipeline - Security & Pseudonymisation Rules
 -- =============================================================================
 
-PIPELINE 06_security
+PIPELINE ecommerce_security
   DESCRIPTION 'Creates pseudonymisation and security rules for E-commerce Orders'
   SCHEDULE 'ecommerce_30min_schedule'
   TAGS 'setup', 'ecommerce-orders'

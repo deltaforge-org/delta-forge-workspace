@@ -2,7 +2,7 @@
 -- Legal Case Management Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE 05_gold_tables
+PIPELINE legal_gold_tables
   DESCRIPTION 'Creates gold layer tables for Legal Case Management'
   SCHEDULE 'legal_daily_schedule'
   TAGS 'setup', 'legal-case-management'

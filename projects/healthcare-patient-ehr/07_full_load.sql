@@ -7,7 +7,7 @@
 -- -> optimize_and_maintain
 -- =============================================================================
 
-PIPELINE 07_full_load
+PIPELINE ehr_patient_pipeline
   DESCRIPTION 'Daily EHR pipeline: SCD2 patient dim, CDF audit, GDPR erasure, readmission analytics'
   SCHEDULE 'ehr_daily_schedule'
   TAGS 'healthcare,ehr,scd2,cdf,gdpr,hipaa'

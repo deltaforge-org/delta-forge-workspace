@@ -10,7 +10,7 @@ SCHEDULE bank_4h_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE 01_setup
+PIPELINE bank_setup
   DESCRIPTION 'Creates zones and schemas for Banking Transactions'
   SCHEDULE 'bank_4h_schedule'
   TAGS 'setup', 'banking-transactions'

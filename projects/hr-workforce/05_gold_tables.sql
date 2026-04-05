@@ -2,7 +2,7 @@
 -- HR Workforce Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE 05_gold_tables
+PIPELINE hr_gold_tables
   DESCRIPTION 'Creates gold layer tables for HR Workforce'
   SCHEDULE 'hr_daily_schedule'
   TAGS 'setup', 'hr-workforce'

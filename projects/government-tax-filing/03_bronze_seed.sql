@@ -2,7 +2,7 @@
 -- Government Tax Filing Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE 03_bronze_seed
+PIPELINE tax_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for Government Tax Filing'
   SCHEDULE 'tax_daily_schedule'
   TAGS 'setup', 'government-tax-filing'

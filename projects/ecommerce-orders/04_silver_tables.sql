@@ -2,7 +2,7 @@
 -- E-commerce Orders Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE 04_silver_tables
+PIPELINE ecommerce_silver_tables
   DESCRIPTION 'Creates silver layer tables for E-commerce Orders'
   SCHEDULE 'ecommerce_30min_schedule'
   TAGS 'setup', 'ecommerce-orders'

@@ -2,7 +2,7 @@
 -- Telecom CDR Pipeline - Security & Pseudonymisation Rules
 -- =============================================================================
 
-PIPELINE 06_security
+PIPELINE telecom_security
   DESCRIPTION 'Creates pseudonymisation and security rules for Telecom CDR'
   SCHEDULE 'telecom_daily_schedule'
   TAGS 'setup', 'telecom-cdr'

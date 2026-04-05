@@ -2,7 +2,7 @@
 -- Banking Transactions Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE 03_bronze_seed
+PIPELINE bank_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for Banking Transactions'
   SCHEDULE 'bank_4h_schedule'
   TAGS 'setup', 'banking-transactions'

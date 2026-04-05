@@ -2,7 +2,7 @@
 -- Insurance Claims Pipeline - Security & Pseudonymisation Rules
 -- =============================================================================
 
-PIPELINE 06_security
+PIPELINE ins_security
   DESCRIPTION 'Creates pseudonymisation and security rules for Insurance Claims'
   SCHEDULE 'ins_weekly_schedule'
   TAGS 'setup', 'insurance-claims'

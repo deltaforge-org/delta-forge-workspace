@@ -9,7 +9,7 @@
 
 -- ===================== PIPELINE =====================
 
-PIPELINE 07_full_load
+PIPELINE tax_filing_pipeline
   DESCRIPTION 'Daily tax filing pipeline: append-only immutable filings, amendment MERGE with delta computation, CDF audit trail, star schema with amendment-aware facts, revenue and preparer KPIs'
   SCHEDULE 'tax_daily_schedule'
   TAGS 'government,tax,full-load,CDF,append-only,amendments'

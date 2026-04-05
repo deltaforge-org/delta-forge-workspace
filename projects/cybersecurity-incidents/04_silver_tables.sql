@@ -2,7 +2,7 @@
 -- Cybersecurity Incidents Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE 04_silver_tables
+PIPELINE cyber_silver_tables
   DESCRIPTION 'Creates silver layer tables for Cybersecurity Incidents'
   SCHEDULE 'cyber_15min_schedule'
   TAGS 'setup', 'cybersecurity-incidents'

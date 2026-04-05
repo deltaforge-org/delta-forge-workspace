@@ -2,7 +2,7 @@
 -- Insurance Claims Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE 03_bronze_seed
+PIPELINE ins_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for Insurance Claims'
   SCHEDULE 'ins_weekly_schedule'
   TAGS 'setup', 'insurance-claims'

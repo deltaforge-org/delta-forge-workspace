@@ -10,7 +10,7 @@ SCHEDULE manufacturing_2hr_schedule
   MAX_CONCURRENT 1
   INACTIVE;
 
-PIPELINE 01_setup
+PIPELINE manufacturing_setup
   DESCRIPTION 'Creates zones and schemas for Manufacturing IoT'
   SCHEDULE 'manufacturing_2hr_schedule'
   TAGS 'setup', 'manufacturing-iot'

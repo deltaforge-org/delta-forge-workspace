@@ -2,7 +2,7 @@
 -- Banking Transactions Pipeline - Gold Table Definitions
 -- =============================================================================
 
-PIPELINE 05_gold_tables
+PIPELINE bank_gold_tables
   DESCRIPTION 'Creates gold layer tables for Banking Transactions'
   SCHEDULE 'bank_4h_schedule'
   TAGS 'setup', 'banking-transactions'

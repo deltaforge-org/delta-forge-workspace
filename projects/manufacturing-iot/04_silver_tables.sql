@@ -2,7 +2,7 @@
 -- Manufacturing IoT Pipeline - Silver Table Definitions
 -- =============================================================================
 
-PIPELINE 04_silver_tables
+PIPELINE manufacturing_silver_tables
   DESCRIPTION 'Creates silver layer tables for Manufacturing IoT'
   SCHEDULE 'manufacturing_2hr_schedule'
   TAGS 'setup', 'manufacturing-iot'

@@ -5,7 +5,7 @@
 -- before execution to prevent accidental data loss.
 -- =============================================================================
 
-PIPELINE 10_cleanup
+PIPELINE ecommerce_orders_cleanup
   DESCRIPTION 'Cleanup pipeline for E-Commerce Orders — drops all objects. DISABLED by default.'
   SCHEDULE 'ecommerce_30min_schedule'
   TAGS 'cleanup', 'maintenance', 'ecommerce-orders'

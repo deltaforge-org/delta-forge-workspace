@@ -2,7 +2,7 @@
 -- Real Estate Property Pipeline - Bronze Seed Data
 -- =============================================================================
 
-PIPELINE 03_bronze_seed
+PIPELINE realty_bronze_seed
   DESCRIPTION 'Seeds bronze tables with sample data for Real Estate Property'
   SCHEDULE 'realty_daily_schedule'
   TAGS 'setup', 'real-estate-property'
