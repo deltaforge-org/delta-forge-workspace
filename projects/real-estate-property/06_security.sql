@@ -20,4 +20,4 @@ CREATE PSEUDONYMISATION RULE ON realty.silver.transactions_enriched (seller_name
 -- ===================== BLOOM FILTER INDEX =====================
 
 DROP BLOOMFILTER INDEX IF EXISTS ON realty.silver.property_dim (parcel_id);
-CREATE BLOOMFILTER INDEX ON realty.silver.property_dim FOR COLUMNS (parcel_id);
+CREATE BLOOMFILTER INDEX IF NOT EXISTS ON realty.silver.property_dim FOR COLUMNS (parcel_id);

@@ -22,8 +22,8 @@ DROP PSEUDONYMISATION RULE IF EXISTS ON cyber.gold.dim_source_ip (ip_address);
 
 -- ===================== DROP BLOOM FILTER INDEXES =====================
 
-DROP BLOOMFILTER INDEX ON cyber.silver.alerts_deduped FOR COLUMNS (source_ip);
-DROP BLOOMFILTER INDEX ON cyber.gold.fact_incidents FOR COLUMNS (source_ip_key);
+DROP BLOOMFILTER INDEX IF EXISTS ON cyber.silver.alerts_deduped FOR COLUMNS (source_ip);
+DROP BLOOMFILTER INDEX IF EXISTS ON cyber.gold.fact_incidents FOR COLUMNS (source_ip_key);
 
 -- ===================== DROP GOLD TABLES =====================
 

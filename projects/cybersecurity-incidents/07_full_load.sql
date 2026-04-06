@@ -634,8 +634,8 @@ WHEN NOT MATCHED THEN INSERT (
 -- ===================== bloom_and_optimize =====================
 -- Bloom filter on source_ip for fast IP lookups. OPTIMIZE compaction.
 
-CREATE BLOOMFILTER INDEX ON cyber.silver.alerts_deduped FOR COLUMNS (source_ip);
-CREATE BLOOMFILTER INDEX ON cyber.gold.fact_incidents FOR COLUMNS (source_ip_key);
+CREATE BLOOMFILTER INDEX IF NOT EXISTS ON cyber.silver.alerts_deduped FOR COLUMNS (source_ip);
+CREATE BLOOMFILTER INDEX IF NOT EXISTS ON cyber.gold.fact_incidents FOR COLUMNS (source_ip_key);
 OPTIMIZE cyber.silver.alerts_deduped;
 OPTIMIZE cyber.silver.incidents_correlated;
 OPTIMIZE cyber.silver.threat_enriched;

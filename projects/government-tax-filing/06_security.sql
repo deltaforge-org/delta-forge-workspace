@@ -20,4 +20,4 @@ CREATE PSEUDONYMISATION RULE ON tax.silver.taxpayer_profiles (taxpayer_name) TRA
 -- ===================== BLOOM FILTER INDEX =====================
 
 DROP BLOOMFILTER INDEX IF EXISTS ON tax.silver.filings_immutable (taxpayer_id);
-CREATE BLOOMFILTER INDEX ON tax.silver.filings_immutable FOR COLUMNS (taxpayer_id);
+CREATE BLOOMFILTER INDEX IF NOT EXISTS ON tax.silver.filings_immutable FOR COLUMNS (taxpayer_id);
