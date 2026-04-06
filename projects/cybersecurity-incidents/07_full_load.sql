@@ -548,24 +548,39 @@ USING (
         FROM cyber.gold.fact_incidents fi
         GROUP BY DATE_TRUNC('hour', fi.detected_at)
     ),
-    with_top AS (
+    top_tactic AS (
         SELECT
-            h.*,
-            (SELECT fi2.mitre_tactic
-             FROM cyber.gold.fact_incidents fi2
-             WHERE DATE_TRUNC('hour', fi2.detected_at) = h.hour_bucket
-               AND fi2.mitre_tactic IS NOT NULL
-             GROUP BY fi2.mitre_tactic
-             ORDER BY COUNT(*) DESC LIMIT 1) AS top_mitre_tactic,
-            (SELECT dip.ip_address
-             FROM cyber.gold.fact_incidents fi3
-             JOIN cyber.gold.dim_source_ip dip ON fi3.source_ip_key = dip.source_ip_key
-             WHERE DATE_TRUNC('hour', fi3.detected_at) = h.hour_bucket
-             GROUP BY dip.ip_address
-             ORDER BY COUNT(*) DESC LIMIT 1) AS top_source_ip
-        FROM hourly h
+            DATE_TRUNC('hour', fi2.detected_at) AS hour_bucket,
+            fi2.mitre_tactic,
+            ROW_NUMBER() OVER (
+                PARTITION BY DATE_TRUNC('hour', fi2.detected_at)
+                ORDER BY COUNT(*) DESC
+            ) AS rn
+        FROM cyber.gold.fact_incidents fi2
+        WHERE fi2.mitre_tactic IS NOT NULL
+        GROUP BY DATE_TRUNC('hour', fi2.detected_at), fi2.mitre_tactic
+    ),
+    top_ip AS (
+        SELECT
+            DATE_TRUNC('hour', fi3.detected_at) AS hour_bucket,
+            dip.ip_address,
+            ROW_NUMBER() OVER (
+                PARTITION BY DATE_TRUNC('hour', fi3.detected_at)
+                ORDER BY COUNT(*) DESC
+            ) AS rn
+        FROM cyber.gold.fact_incidents fi3
+        JOIN cyber.gold.dim_source_ip dip ON fi3.source_ip_key = dip.source_ip_key
+        GROUP BY DATE_TRUNC('hour', fi3.detected_at), dip.ip_address
     )
-    SELECT * FROM with_top
+    SELECT
+        h.hour_bucket, h.total_alerts, h.unique_sources, h.unique_targets,
+        h.critical_count, h.high_count, h.medium_count, h.low_count,
+        h.avg_severity_score,
+        tt.mitre_tactic AS top_mitre_tactic,
+        ti.ip_address AS top_source_ip
+    FROM hourly h
+    LEFT JOIN top_tactic tt ON h.hour_bucket = tt.hour_bucket AND tt.rn = 1
+    LEFT JOIN top_ip ti ON h.hour_bucket = ti.hour_bucket AND ti.rn = 1
 ) AS source
 ON target.hour_bucket = source.hour_bucket
 WHEN MATCHED THEN UPDATE SET
