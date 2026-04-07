@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS sc.bronze.transport_shipments (
   ingested_at     TIMESTAMP
 );
 
+DELETE FROM sc.bronze.transport_shipments WHERE 1=1;
+
 INSERT INTO sc.bronze.transport_shipments VALUES
   -- SH-001: W001 -> Store ST01 (delivered on time)
   ('TE-001', 'SH-001', 'CAR-A', 'W001', 'ST01', 'dispatched',  '2026-03-08 14:30:00', 40.7128, -74.0060, 'Loaded 120 units SKU-001',   '2026-03-08 15:00:00'),

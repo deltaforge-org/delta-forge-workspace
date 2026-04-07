@@ -22,7 +22,7 @@ PIPELINE bank_transaction_pipeline
 ASSERT ROW_COUNT >= 70
 SELECT COUNT(*) AS row_count FROM bank.bronze.raw_transactions;
 
-ASSERT ROW_COUNT >= 12
+ASSERT ROW_COUNT >= 15
 SELECT COUNT(*) AS row_count FROM bank.bronze.raw_accounts;
 
 ASSERT ROW_COUNT = 15

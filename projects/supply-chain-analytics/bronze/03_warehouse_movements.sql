@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS sc.bronze.warehouse_movements (
   ingested_at     TIMESTAMP
 );
 
+DELETE FROM sc.bronze.warehouse_movements WHERE 1=1;
+
 INSERT INTO sc.bronze.warehouse_movements VALUES
   -- Warehouse W001 (East Coast DC) — Receipts from POs
   ('WM-0001', 'W001', 'SKU-001', 'receipt',      500,  'PO-1001', '2026-03-07 08:30:00', '2026-03-07 09:00:00'),

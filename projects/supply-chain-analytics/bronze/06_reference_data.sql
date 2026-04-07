@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS sc.bronze.suppliers (
   ingested_at       TIMESTAMP
 );
 
+DELETE FROM sc.bronze.suppliers WHERE 1=1;
+
 INSERT INTO sc.bronze.suppliers VALUES
   ('S001', 'Acme Packaging',           'US',      7,  0.94, 'NET30', true,  '2026-03-01 00:00:00'),
   ('S002', 'Global Ingredients',       'US',      10, 0.88, 'NET45', true,  '2026-03-01 00:00:00'),
@@ -42,6 +44,8 @@ CREATE TABLE IF NOT EXISTS sc.bronze.warehouses (
   ingested_at     TIMESTAMP
 );
 
+DELETE FROM sc.bronze.warehouses WHERE 1=1;
+
 INSERT INTO sc.bronze.warehouses VALUES
   ('W001', 'East Coast DC',        'Newark',       'NJ', 'east',    50000, true, '2026-03-01 00:00:00'),
   ('W002', 'West Coast DC',        'Los Angeles',  'CA', 'west',    45000, true, '2026-03-01 00:00:00'),
@@ -61,6 +65,8 @@ CREATE TABLE IF NOT EXISTS sc.bronze.products (
   active          BOOLEAN,
   ingested_at     TIMESTAMP
 );
+
+DELETE FROM sc.bronze.products WHERE 1=1;
 
 INSERT INTO sc.bronze.products VALUES
   -- Beverages (5 SKUs)
@@ -97,6 +103,8 @@ CREATE TABLE IF NOT EXISTS sc.bronze.stores (
   active          BOOLEAN,
   ingested_at     TIMESTAMP
 );
+
+DELETE FROM sc.bronze.stores WHERE 1=1;
 
 INSERT INTO sc.bronze.stores VALUES
   ('ST01', 'DC Metro Supermart',      'Washington',   'DC', 'east',    'supermarket', true, '2026-03-01 00:00:00'),

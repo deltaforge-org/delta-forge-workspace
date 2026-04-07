@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS sc.bronze.purchase_orders (
   ingested_at     TIMESTAMP
 );
 
+DELETE FROM sc.bronze.purchase_orders WHERE 1=1;
+
 INSERT INTO sc.bronze.purchase_orders VALUES
   -- Supplier S001 — Acme Packaging (avg lead time 7 days)
   ('PO-1001', 'S001', 'SKU-001', 500,  2.50, '2026-03-01', '2026-03-08', '2026-03-07', 'received',  '2026-03-07 08:00:00'),
