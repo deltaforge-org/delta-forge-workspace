@@ -12,4 +12,4 @@ PIPELINE cyber_security
 -- ===================== PSEUDONYMISATION RULES =====================
 
 DROP PSEUDONYMISATION RULE IF EXISTS ON cyber.gold.dim_source_ip (ip_address);
-CREATE PSEUDONYMISATION RULE ON cyber.gold.dim_source_ip (ip_address) TRANSFORM generalize PARAMS (range = 24);
+CREATE PSEUDONYMISATION RULE ON cyber.gold.dim_source_ip (ip_address) TRANSFORM generalize PARAMS (granularity = 'subnet', prefix = 24);
