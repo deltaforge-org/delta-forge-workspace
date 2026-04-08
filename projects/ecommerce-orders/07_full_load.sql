@@ -40,23 +40,24 @@ PIPELINE ecommerce_orders_pipeline
 
 -- ===================== validate_bronze =====================
 
-SELECT COUNT(*) AS web_count FROM ecom.bronze.raw_web_orders;
 ASSERT VALUE web_count >= 30
+SELECT COUNT(*) AS web_count FROM ecom.bronze.raw_web_orders;
 
-SELECT COUNT(*) AS mobile_count FROM ecom.bronze.raw_mobile_orders;
 ASSERT VALUE mobile_count >= 20
+SELECT COUNT(*) AS mobile_count FROM ecom.bronze.raw_mobile_orders;
 
-SELECT COUNT(*) AS pos_count FROM ecom.bronze.raw_pos_orders;
 ASSERT VALUE pos_count >= 25
+SELECT COUNT(*) AS pos_count FROM ecom.bronze.raw_pos_orders;
 
-SELECT COUNT(*) AS product_count FROM ecom.bronze.raw_products;
 ASSERT VALUE product_count = 20
+SELECT COUNT(*) AS product_count FROM ecom.bronze.raw_products;
 
-SELECT COUNT(*) AS customer_count FROM ecom.bronze.raw_customers;
 ASSERT VALUE customer_count = 18
+SELECT COUNT(*) AS customer_count FROM ecom.bronze.raw_customers;
 
-SELECT COUNT(*) AS event_count FROM ecom.bronze.raw_browsing_events;
 ASSERT VALUE event_count >= 40
+SELECT COUNT(*) AS event_count FROM ecom.bronze.raw_browsing_events;
+
 SELECT 'Bronze validation passed' AS status;
 
 -- ===================== merge_multi_source_orders =====================

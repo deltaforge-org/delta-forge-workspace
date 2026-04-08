@@ -207,20 +207,20 @@ INSERT INTO ecom.bronze.raw_browsing_events (event_id, customer_id, session_id, 
 
 -- ASSERT final expected counts
 
-SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_customers;
 ASSERT VALUE row_count = 18
+SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_customers;
 
+ASSERT VALUE row_count = 20
 SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_products;
-ASSERT VALUE row_count = 20
 
-SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_web_orders;
 ASSERT VALUE row_count = 30
+SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_web_orders;
 
-SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_mobile_orders;
 ASSERT VALUE row_count = 20
+SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_mobile_orders;
 
-SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_pos_orders;
 ASSERT VALUE row_count = 25
+SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_pos_orders;
 
-SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_browsing_events;
 ASSERT VALUE row_count = 40
+SELECT COUNT(*) AS row_count FROM ecom.bronze.raw_browsing_events;

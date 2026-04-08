@@ -8,42 +8,43 @@
 -- -----------------------------------------------------------------------------
 -- 1. Verify fact table has non-deleted orders only (no cancelled/soft-deleted)
 -- -----------------------------------------------------------------------------
+ASSERT VALUE fact_count > 60
 SELECT COUNT(*) AS fact_count
 FROM ecom.gold.fact_order_lines;
 
-ASSERT VALUE fact_count > 60
 SELECT 'Fact table row count validated' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 2. Verify all 20 products loaded into dim_product
 -- -----------------------------------------------------------------------------
+ASSERT ROW_COUNT = 20
 SELECT COUNT(*) AS product_count
 FROM ecom.gold.dim_product;
 
-ASSERT ROW_COUNT = 20
 SELECT 'All 20 products present in dim_product' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 3. Verify all 18 customers loaded into dim_customer with RFM segments
 -- -----------------------------------------------------------------------------
+ASSERT ROW_COUNT = 18
 SELECT COUNT(*) AS customer_count
 FROM ecom.gold.dim_customer;
 
-ASSERT ROW_COUNT = 18
 SELECT 'All 18 customers present in dim_customer' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 4. Verify all 3 channels present in dim_channel (web, mobile, pos)
 -- -----------------------------------------------------------------------------
+ASSERT ROW_COUNT = 3
 SELECT COUNT(*) AS channel_count
 FROM ecom.gold.dim_channel;
 
-ASSERT ROW_COUNT = 3
 SELECT 'All 3 channels present in dim_channel' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 5. Revenue by channel — verify all 3 channels have revenue
 -- -----------------------------------------------------------------------------
+ASSERT ROW_COUNT = 3
 SELECT
   dc.channel_name,
   COUNT(DISTINCT f.order_key) AS orders,
@@ -54,12 +55,12 @@ JOIN ecom.gold.dim_channel dc ON f.channel_key = dc.channel_key
 GROUP BY dc.channel_name
 ORDER BY total_revenue DESC;
 
-ASSERT ROW_COUNT = 3
 SELECT 'All 3 channels have revenue' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 6. Top 5 products by revenue with margin analysis
 -- -----------------------------------------------------------------------------
+ASSERT ROW_COUNT = 5
 SELECT
   dp.product_name,
   dp.category,
@@ -76,12 +77,12 @@ GROUP BY dp.product_name, dp.category, dp.brand
 ORDER BY total_revenue DESC
 LIMIT 5;
 
-ASSERT ROW_COUNT = 5
 SELECT 'Top 5 product profitability computed' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 7. RFM customer segmentation — verify distribution
 -- -----------------------------------------------------------------------------
+ASSERT VALUE customer_count > 0
 SELECT
   rfm_segment,
   COUNT(*) AS customer_count,
@@ -91,12 +92,12 @@ FROM ecom.gold.dim_customer
 GROUP BY rfm_segment
 ORDER BY customer_count DESC;
 
-ASSERT VALUE customer_count > 0
 SELECT 'RFM segmentation distribution verified' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 8. Monthly revenue trend with running total (window function)
 -- -----------------------------------------------------------------------------
+ASSERT VALUE monthly_orders > 0
 SELECT
   dd.month_name,
   dd.year,
@@ -109,12 +110,12 @@ JOIN ecom.gold.dim_date dd ON f.date_key = dd.date_key
 GROUP BY dd.month_name, dd.year, dd.month
 ORDER BY dd.year, dd.month;
 
-ASSERT VALUE monthly_orders > 0
 SELECT 'Monthly trend with cumulative revenue validated' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 9. Cancellation rate from KPI dashboard by channel
 -- -----------------------------------------------------------------------------
+ASSERT VALUE total_orders > 0
 SELECT
   channel,
   SUM(total_orders) AS total_orders,
@@ -126,12 +127,12 @@ FROM ecom.gold.kpi_sales_dashboard
 GROUP BY channel
 ORDER BY total_revenue DESC;
 
-ASSERT VALUE total_orders > 0
 SELECT 'KPI sales dashboard cancellation rates verified' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 10. Funnel conversion rates from kpi_funnel_analysis
 -- -----------------------------------------------------------------------------
+ASSERT VALUE total_sessions > 0
 SELECT
   report_month,
   total_sessions,
@@ -146,47 +147,47 @@ SELECT
 FROM ecom.gold.kpi_funnel_analysis
 ORDER BY report_month;
 
-ASSERT VALUE total_sessions > 0
 SELECT 'Funnel conversion analysis validated' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 11. Referential integrity: all fact FKs exist in dimensions
 -- -----------------------------------------------------------------------------
+ASSERT VALUE orphaned_customers = 0
 SELECT COUNT(*) AS orphaned_customers
 FROM ecom.gold.fact_order_lines f
 LEFT JOIN ecom.gold.dim_customer dc ON f.customer_key = dc.customer_key
 WHERE dc.customer_key IS NULL;
 
-ASSERT VALUE orphaned_customers = 0
+ASSERT VALUE orphaned_products = 0
 SELECT COUNT(*) AS orphaned_products
 FROM ecom.gold.fact_order_lines f
 LEFT JOIN ecom.gold.dim_product dp ON f.product_key = dp.product_key
 WHERE dp.product_key IS NULL;
 
-ASSERT VALUE orphaned_products = 0
+ASSERT VALUE orphaned_channels = 0
 SELECT COUNT(*) AS orphaned_channels
 FROM ecom.gold.fact_order_lines f
 LEFT JOIN ecom.gold.dim_channel dc ON f.channel_key = dc.channel_key
 WHERE dc.channel_key IS NULL;
 
-ASSERT VALUE orphaned_channels = 0
 SELECT 'Referential integrity: zero orphans across all dimensions' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 12. Soft-delete verification: cancelled orders NOT in fact table
 -- -----------------------------------------------------------------------------
+ASSERT VALUE deleted_in_fact = 0
 SELECT COUNT(*) AS deleted_in_fact
 FROM ecom.gold.fact_order_lines f
 JOIN ecom.silver.orders_unified o
   ON f.order_key = o.order_id AND f.product_key = o.product_id
 WHERE o.is_deleted = true;
 
-ASSERT VALUE deleted_in_fact = 0
 SELECT 'Soft-delete verification: no cancelled orders in fact table' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 13. Inventory adjustments CDF verification
 -- -----------------------------------------------------------------------------
+ASSERT VALUE adjustment_count > 0
 SELECT
   change_type,
   COUNT(*) AS adjustment_count,
@@ -195,12 +196,12 @@ FROM ecom.silver.inventory_adjustments
 GROUP BY change_type
 ORDER BY adjustment_count DESC;
 
-ASSERT VALUE adjustment_count > 0
 SELECT 'Inventory CDF adjustments verified' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 14. Category revenue breakdown with rank
 -- -----------------------------------------------------------------------------
+ASSERT VALUE category_revenue > 0
 SELECT
   dp.category,
   SUM(f.line_total) AS category_revenue,
@@ -211,5 +212,4 @@ JOIN ecom.gold.dim_product dp ON f.product_key = dp.product_key
 GROUP BY dp.category
 ORDER BY category_revenue DESC;
 
-ASSERT VALUE category_revenue > 0
 SELECT 'Gold layer verification COMPLETE' AS final_status;

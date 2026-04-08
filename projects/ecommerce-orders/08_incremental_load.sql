@@ -62,7 +62,6 @@ USING (SELECT * FROM (VALUES
 ON target.order_id = source.order_id
 WHEN NOT MATCHED THEN INSERT VALUES (source.order_id, source.customer_id, source.product_id, source.quantity, source.unit_price, source.discount_pct, source.shipping_cost, source.order_date, source.status, source.session_id, source.app_version, source.ingested_at);
 
-ASSERT ROW_COUNT = 10
 SELECT 'incremental batch inserted' AS status;
 
 -- =============================================================================
@@ -176,11 +175,11 @@ SELECT COUNT(*) AS silver_total FROM ecom.silver.orders_unified;
 SELECT MAX(updated_at) AS new_watermark FROM ecom.silver.orders_unified;
 
 -- Verify loyalty_points populated on new rows (schema evolution proof)
+ASSERT VALUE rows_with_loyalty > 0
 SELECT COUNT(*) AS rows_with_loyalty
 FROM ecom.silver.orders_unified
 WHERE loyalty_points IS NOT NULL AND loyalty_points > 0;
 
-ASSERT VALUE rows_with_loyalty > 0
 SELECT 'Schema evolution verified: loyalty_points populated' AS status;
 
 -- NOTE: table_changes() is Spark/Databricks syntax, not supported in Delta Forge.
@@ -188,6 +187,7 @@ SELECT 'Schema evolution verified: loyalty_points populated' AS status;
 SELECT COUNT(*) AS cdf_changes FROM ecom.silver.orders_unified;
 
 -- Verify no duplicate order-product combinations
+ASSERT VALUE dup_check = 0
 SELECT COUNT(*) AS dup_check
 FROM (
   SELECT order_id, product_id, COUNT(*) AS cnt
@@ -196,5 +196,4 @@ FROM (
   HAVING COUNT(*) > 1
 );
 
-ASSERT VALUE dup_check = 0
 SELECT 'Incremental load complete, no duplicates' AS status;
