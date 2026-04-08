@@ -12,8 +12,10 @@ PIPELINE cyber_bronze_seed
 -- ===================== SEED: THREAT INTELLIGENCE (20 IPs) =====================
 -- 5 critical, 10 high, 5 medium threat scores
 
-MERGE INTO cyber.bronze.raw_threat_intel AS target
-USING (VALUES
+DELETE FROM cyber.bronze.raw_threat_intel WHERE 1=1;
+
+INSERT INTO cyber.bronze.raw_threat_intel (ip_address, subnet, geo_country, geo_city, threat_score, threat_category, is_known_bad, first_seen, last_seen, ingested_at)
+VALUES
 ('185.220.101.34',  '185.220.101.0/24', 'RU', 'Moscow',     95, 'apt',         true,  '2023-06-15', '2024-01-14', '2024-01-15T00:00:00'),
 ('103.235.46.78',   '103.235.46.0/24',  'CN', 'Beijing',    92, 'apt',         true,  '2023-08-01', '2024-01-14', '2024-01-15T00:00:00'),
 ('112.85.42.187',   '112.85.42.0/24',   'CN', 'Shanghai',   97, 'apt',         true,  '2023-05-20', '2024-01-14', '2024-01-15T00:00:00'),
@@ -33,29 +35,14 @@ USING (VALUES
 ('64.233.160.100',  '64.233.160.0/24',  'US', 'Mountain View', 5, 'benign',    false, '2024-01-12', '2024-01-14', '2024-01-15T00:00:00'),
 ('94.102.49.193',   '94.102.49.0/24',   'NL', 'Amsterdam',  88, 'botnet',      true,  '2023-08-15', '2024-01-14', '2024-01-15T00:00:00'),
 ('5.188.86.22',     '5.188.86.0/24',    'RU', 'St Petersburg',91,'apt',        true,  '2023-07-20', '2024-01-14', '2024-01-15T00:00:00'),
-('45.155.205.233',  '45.155.205.0/24',  'DE', 'Berlin',     75, 'scanner',     false, '2023-12-15', '2024-01-14', '2024-01-15T00:00:00')
-) AS source(ip_address, subnet, geo_country, geo_city, threat_score, threat_category, is_known_bad, first_seen, last_seen, ingested_at)
-ON target.ip_address = source.ip_address
-WHEN MATCHED THEN UPDATE SET
-  subnet         = source.subnet,
-  geo_country    = source.geo_country,
-  geo_city       = source.geo_city,
-  threat_score   = source.threat_score,
-  threat_category = source.threat_category,
-  is_known_bad   = source.is_known_bad,
-  first_seen     = source.first_seen,
-  last_seen      = source.last_seen,
-  ingested_at    = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (ip_address, subnet, geo_country, geo_city, threat_score, threat_category, is_known_bad, first_seen, last_seen, ingested_at)
-  VALUES (source.ip_address, source.subnet, source.geo_country, source.geo_city, source.threat_score, source.threat_category, source.is_known_bad, source.first_seen, source.last_seen, source.ingested_at);
-
-ASSERT ROW_COUNT = 20
-SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_threat_intel;
+('45.155.205.233',  '45.155.205.0/24',  'DE', 'Berlin',     75, 'scanner',     false, '2023-12-15', '2024-01-14', '2024-01-15T00:00:00');
 
 -- ===================== SEED: MITRE ATT&CK TECHNIQUES (15 across 7 tactics) =====================
 
-MERGE INTO cyber.bronze.raw_mitre_techniques AS target
-USING (VALUES
+DELETE FROM cyber.bronze.raw_mitre_techniques WHERE 1=1;
+
+INSERT INTO cyber.bronze.raw_mitre_techniques (technique_id, technique_name, tactic, tactic_id, description, severity_weight, ingested_at)
+VALUES
 ('T1190',     'Exploit Public-Facing Application', 'initial-access',      'TA0001', 'Adversary exploits a vulnerability in an internet-facing application', 8, '2024-01-15T00:00:00'),
 ('T1110.001', 'Password Guessing',                 'initial-access',      'TA0001', 'Brute force password guessing against authentication services',        6, '2024-01-15T00:00:00'),
 ('T1059.001', 'PowerShell',                         'execution',           'TA0002', 'Use of PowerShell for command execution',                              7, '2024-01-15T00:00:00'),
@@ -70,27 +57,15 @@ USING (VALUES
 ('T1041',     'Exfiltration Over C2 Channel',        'exfiltration',        'TA0010', 'Large data transfer over HTTPS C2 channel',                           9, '2024-01-15T00:00:00'),
 ('T1566.001', 'Spearphishing Attachment',            'initial-access',      'TA0001', 'Phishing email with malicious attachment',                             7, '2024-01-15T00:00:00'),
 ('T1027',     'Obfuscated Files or Information',     'defense-evasion',     'TA0005', 'Obfuscation of payloads to evade detection',                          6, '2024-01-15T00:00:00'),
-('T1071.001', 'Web Protocols',                       'command-and-control', 'TA0011', 'C2 communication over HTTP/HTTPS',                                    7, '2024-01-15T00:00:00')
-) AS source(technique_id, technique_name, tactic, tactic_id, description, severity_weight, ingested_at)
-ON target.technique_id = source.technique_id
-WHEN MATCHED THEN UPDATE SET
-  technique_name  = source.technique_name,
-  tactic          = source.tactic,
-  tactic_id       = source.tactic_id,
-  description     = source.description,
-  severity_weight = source.severity_weight,
-  ingested_at     = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (technique_id, technique_name, tactic, tactic_id, description, severity_weight, ingested_at)
-  VALUES (source.technique_id, source.technique_name, source.tactic, source.tactic_id, source.description, source.severity_weight, source.ingested_at);
-
-ASSERT ROW_COUNT = 15
-SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_mitre_techniques;
+('T1071.001', 'Web Protocols',                       'command-and-control', 'TA0011', 'C2 communication over HTTP/HTTPS',                                    7, '2024-01-15T00:00:00');
 
 -- ===================== SEED: FIREWALL ALERTS (30 rows) =====================
 -- Includes ~8 duplicates within 5-min windows
 
-MERGE INTO cyber.bronze.raw_firewall_alerts AS target
-USING (VALUES
+DELETE FROM cyber.bronze.raw_firewall_alerts WHERE 1=1;
+
+INSERT INTO cyber.bronze.raw_firewall_alerts (alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, bytes_transferred, protocol, raw_log, ingested_at)
+VALUES
 ('FW-001', '185.220.101.34', 'web-prod-01', 'R-SQL-INJ',   '2024-01-15T02:14:30', 8, 'high',     45200,  'TCP', 'SQL injection payload in POST /api/login',               '2024-01-15T02:15:00'),
 ('FW-002', '185.220.101.34', 'web-prod-01', 'R-SQL-INJ',   '2024-01-15T02:16:45', 8, 'high',     38100,  'TCP', 'SQL injection in GET /api/users DUPLICATE',               '2024-01-15T02:17:00'),
 ('FW-003', '103.235.46.78',  'vpn-gw-01',   'R-BRUTE-SSH', '2024-01-15T03:20:00', 9, 'critical', 1200,   'TCP', 'Brute force: 500 failed SSH attempts in 60s',             '2024-01-15T03:20:30'),
@@ -120,31 +95,15 @@ USING (VALUES
 ('FW-027', '23.129.64.201',  'web-prod-01', 'R-SQL-INJ',   '2024-01-15T23:50:00', 8, 'high',     38000,  'TCP', 'Late night SQL injection from Tor',                       '2024-01-15T23:50:30'),
 ('FW-028', '45.155.205.233', 'web-prod-01', 'R-PORTSCAN',  '2024-01-16T01:00:00', 4, 'low',      800,    'TCP', 'Port scan from known scanner',                            '2024-01-16T01:00:30'),
 ('FW-029', '94.102.49.193',  'vpn-gw-01',   'R-BRUTE-SSH', '2024-01-16T02:30:00', 8, 'high',     1600,   'TCP', 'VPN brute force from botnet',                             '2024-01-16T02:30:30'),
-('FW-030', '5.188.86.22',    'web-prod-01', 'R-SQL-INJ',   '2024-01-16T03:00:00', 9, 'critical', 88000,  'TCP', 'Persistent APT SQL injection next day',                   '2024-01-16T03:00:30')
-) AS source(alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, bytes_transferred, protocol, raw_log, ingested_at)
-ON target.alert_id = source.alert_id
-WHEN MATCHED THEN UPDATE SET
-  source_ip         = source.source_ip,
-  target_host       = source.target_host,
-  rule_id           = source.rule_id,
-  detected_at       = source.detected_at,
-  severity_score    = source.severity_score,
-  severity          = source.severity,
-  bytes_transferred = source.bytes_transferred,
-  protocol          = source.protocol,
-  raw_log           = source.raw_log,
-  ingested_at       = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, bytes_transferred, protocol, raw_log, ingested_at)
-  VALUES (source.alert_id, source.source_ip, source.target_host, source.rule_id, source.detected_at, source.severity_score, source.severity, source.bytes_transferred, source.protocol, source.raw_log, source.ingested_at);
-
-ASSERT ROW_COUNT = 30
-SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_firewall_alerts;
+('FW-030', '5.188.86.22',    'web-prod-01', 'R-SQL-INJ',   '2024-01-16T03:00:00', 9, 'critical', 88000,  'TCP', 'Persistent APT SQL injection next day',                   '2024-01-16T03:00:30');
 
 -- ===================== SEED: IDS ALERTS (25 rows) =====================
 -- Includes ~7 duplicates within 5-min windows
 
-MERGE INTO cyber.bronze.raw_ids_alerts AS target
-USING (VALUES
+DELETE FROM cyber.bronze.raw_ids_alerts WHERE 1=1;
+
+INSERT INTO cyber.bronze.raw_ids_alerts (alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, signature_id, protocol, raw_log, ingested_at)
+VALUES
 ('IDS-001', '23.129.64.201',  'web-prod-01', 'R-PORTSCAN',  '2024-01-15T08:00:00', 4, 'medium',   'SIG-1001', 'TCP', 'Full port scan from Tor exit node',               '2024-01-15T08:00:30'),
 ('IDS-002', '23.129.64.201',  'web-prod-02', 'R-PORTSCAN',  '2024-01-15T08:02:00', 4, 'medium',   'SIG-1001', 'TCP', 'Port scan targeting web cluster',                  '2024-01-15T08:02:30'),
 ('IDS-003', '23.129.64.201',  'api-prod-01', 'R-PORTSCAN',  '2024-01-15T08:04:00', 4, 'medium',   'SIG-1001', 'TCP', 'Port scan targeting API server',                   '2024-01-15T08:04:30'),
@@ -169,31 +128,15 @@ USING (VALUES
 ('IDS-022', '91.215.85.102',  'api-prod-01', 'R-REV-SHELL', '2024-01-15T23:17:00', 9, 'critical', 'SIG-5001', 'TCP', 'Reverse shell DUPLICATE',                         '2024-01-15T23:17:30'),
 ('IDS-023', '64.233.160.100', 'web-prod-01', 'R-PORTSCAN',  '2024-01-15T16:00:00', 2, 'low',      'SIG-1007', 'TCP', 'Benign scan from Google IP',                      '2024-01-15T16:00:30'),
 ('IDS-024', '94.102.49.193',  'api-prod-01', 'R-SQL-INJ',   '2024-01-15T22:00:00', 8, 'high',     'SIG-6001', 'TCP', 'Botnet SQL injection attempt',                    '2024-01-15T22:00:30'),
-('IDS-025', '45.155.205.233', 'dev-app-01',  'R-PORTSCAN',  '2024-01-16T01:05:00', 3, 'low',      'SIG-1008', 'TCP', 'Dev server scan from Berlin',                     '2024-01-16T01:05:30')
-) AS source(alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, signature_id, protocol, raw_log, ingested_at)
-ON target.alert_id = source.alert_id
-WHEN MATCHED THEN UPDATE SET
-  source_ip      = source.source_ip,
-  target_host    = source.target_host,
-  rule_id        = source.rule_id,
-  detected_at    = source.detected_at,
-  severity_score = source.severity_score,
-  severity       = source.severity,
-  signature_id   = source.signature_id,
-  protocol       = source.protocol,
-  raw_log        = source.raw_log,
-  ingested_at    = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, signature_id, protocol, raw_log, ingested_at)
-  VALUES (source.alert_id, source.source_ip, source.target_host, source.rule_id, source.detected_at, source.severity_score, source.severity, source.signature_id, source.protocol, source.raw_log, source.ingested_at);
-
-ASSERT ROW_COUNT = 25
-SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_ids_alerts;
+('IDS-025', '45.155.205.233', 'dev-app-01',  'R-PORTSCAN',  '2024-01-16T01:05:00', 3, 'low',      'SIG-1008', 'TCP', 'Dev server scan from Berlin',                     '2024-01-16T01:05:30');
 
 -- ===================== SEED: ENDPOINT ALERTS (20 rows) =====================
 -- Includes ~5 duplicates within 5-min windows
 
-MERGE INTO cyber.bronze.raw_endpoint_alerts AS target
-USING (VALUES
+DELETE FROM cyber.bronze.raw_endpoint_alerts WHERE 1=1;
+
+INSERT INTO cyber.bronze.raw_endpoint_alerts (alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, process_name, file_hash, raw_log, ingested_at)
+VALUES
 ('EP-001', '10.0.1.50',      'db-prod-01',  'R-POWERSHELL', '2024-01-15T05:30:00', 6, 'medium',   'powershell.exe', 'a1b2c3d4e5', 'PowerShell download cradle detected',           '2024-01-15T05:30:30'),
 ('EP-002', '10.0.1.50',      'db-prod-01',  'R-CRED-DUMP', '2024-01-15T05:32:00', 9, 'critical',  'mimikatz.exe',   'f6g7h8i9j0', 'Mimikatz credential dump detected',             '2024-01-15T05:32:30'),
 ('EP-003', '10.0.1.50',      'db-prod-01',  'R-CRED-DUMP', '2024-01-15T05:33:00', 9, 'critical',  'mimikatz.exe',   'f6g7h8i9j0', 'Credential dump DUPLICATE',                     '2024-01-15T05:33:30'),
@@ -213,22 +156,21 @@ USING (VALUES
 ('EP-017', '46.166.139.111', 'api-prod-01', 'R-REV-SHELL', '2024-01-15T20:00:00', 9, 'critical',  'bash',           'd6e7f8g9h0', 'Reverse shell callback detected',                '2024-01-15T20:00:30'),
 ('EP-018', '46.166.139.111', 'api-prod-01', 'R-REV-SHELL', '2024-01-15T20:02:00', 9, 'critical',  'bash',           'd6e7f8g9h0', 'Reverse shell DUPLICATE',                       '2024-01-15T20:02:30'),
 ('EP-019', '10.0.2.100',     'db-prod-01',  'R-CRED-DUMP', '2024-01-15T20:30:00', 9, 'critical',  'procdump.exe',   'i1j2k3l4m5', 'Second credential dump attempt',                '2024-01-15T20:30:30'),
-('EP-020', '112.85.42.187',  'web-prod-01', 'R-MALWARE',   '2024-01-15T21:00:00', 9, 'critical',  'cobalt.exe',     'n6o7p8q9r0', 'Cobalt Strike beacon detected',                 '2024-01-15T21:00:30')
-) AS source(alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, process_name, file_hash, raw_log, ingested_at)
-ON target.alert_id = source.alert_id
-WHEN MATCHED THEN UPDATE SET
-  source_ip      = source.source_ip,
-  target_host    = source.target_host,
-  rule_id        = source.rule_id,
-  detected_at    = source.detected_at,
-  severity_score = source.severity_score,
-  severity       = source.severity,
-  process_name   = source.process_name,
-  file_hash      = source.file_hash,
-  raw_log        = source.raw_log,
-  ingested_at    = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (alert_id, source_ip, target_host, rule_id, detected_at, severity_score, severity, process_name, file_hash, raw_log, ingested_at)
-  VALUES (source.alert_id, source.source_ip, source.target_host, source.rule_id, source.detected_at, source.severity_score, source.severity, source.process_name, source.file_hash, source.raw_log, source.ingested_at);
+('EP-020', '112.85.42.187',  'web-prod-01', 'R-MALWARE',   '2024-01-15T21:00:00', 9, 'critical',  'cobalt.exe',     'n6o7p8q9r0', 'Cobalt Strike beacon detected',                 '2024-01-15T21:00:30');
+
+-- ===================== ASSERTIONS =====================
+
+ASSERT ROW_COUNT = 20
+SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_threat_intel;
+
+ASSERT ROW_COUNT = 15
+SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_mitre_techniques;
+
+ASSERT ROW_COUNT = 30
+SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_firewall_alerts;
+
+ASSERT ROW_COUNT = 25
+SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_ids_alerts;
 
 ASSERT ROW_COUNT = 20
 SELECT COUNT(*) AS row_count FROM cyber.bronze.raw_endpoint_alerts;

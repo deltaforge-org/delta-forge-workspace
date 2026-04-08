@@ -11,36 +11,23 @@ PIPELINE realty_bronze_seed
 
 -- ===================== BRONZE SEED DATA: NEIGHBORHOODS (6 rows) =====================
 
-MERGE INTO realty.bronze.raw_neighborhoods AS target
-USING (VALUES
+DELETE FROM realty.bronze.raw_neighborhoods WHERE 1=1;
+
+INSERT INTO realty.bronze.raw_neighborhoods (neighborhood_id, neighborhood_name, city, county, state, median_income, school_rating, crime_index, walkability_score, ingested_at)
+VALUES
   ('NBH-OHP', 'Oak Hill Park',     'Austin',  'Travis',    'TX', 125000.00, 9, 1.20, 82, '2025-01-01T00:00:00'),
   ('NBH-LSQ', 'Lakeside Square',   'Austin',  'Travis',    'TX', 98000.00,  7, 2.10, 71, '2025-01-01T00:00:00'),
   ('NBH-MVW', 'Mountain View',     'Denver',  'Denver',    'CO', 110000.00, 8, 1.50, 75, '2025-01-01T00:00:00'),
   ('NBH-RVB', 'Riverbank Estates', 'Denver',  'Jefferson', 'CO', 145000.00, 9, 0.80, 65, '2025-01-01T00:00:00'),
   ('NBH-SUN', 'Sunset Ridge',      'Phoenix', 'Maricopa',  'AZ', 85000.00,  6, 2.50, 58, '2025-01-01T00:00:00'),
-  ('NBH-DWN', 'Downtown Core',     'Austin',  'Travis',    'TX', 135000.00, 8, 1.80, 92, '2025-01-01T00:00:00')
-) AS source(neighborhood_id, neighborhood_name, city, county, state, median_income, school_rating, crime_index, walkability_score, ingested_at)
-ON target.neighborhood_id = source.neighborhood_id
-WHEN MATCHED THEN UPDATE SET
-  neighborhood_name = source.neighborhood_name,
-  city              = source.city,
-  county            = source.county,
-  state             = source.state,
-  median_income     = source.median_income,
-  school_rating     = source.school_rating,
-  crime_index       = source.crime_index,
-  walkability_score = source.walkability_score,
-  ingested_at       = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (neighborhood_id, neighborhood_name, city, county, state, median_income, school_rating, crime_index, walkability_score, ingested_at)
-  VALUES (source.neighborhood_id, source.neighborhood_name, source.city, source.county, source.state, source.median_income, source.school_rating, source.crime_index, source.walkability_score, source.ingested_at);
-
-ASSERT ROW_COUNT = 6
-SELECT COUNT(*) AS row_count FROM realty.bronze.raw_neighborhoods;
+  ('NBH-DWN', 'Downtown Core',     'Austin',  'Travis',    'TX', 135000.00, 8, 1.80, 92, '2025-01-01T00:00:00');
 
 -- ===================== BRONZE SEED DATA: AGENTS (8 rows) =====================
 
-MERGE INTO realty.bronze.raw_agents AS target
-USING (VALUES
+DELETE FROM realty.bronze.raw_agents WHERE 1=1;
+
+INSERT INTO realty.bronze.raw_agents (agent_id, agent_name, brokerage, license_number, years_experience, specialization, county, ingested_at)
+VALUES
   ('AGT-01', 'Jennifer Walsh',    'Premier Realty',       'TX-RE-44521', 15, 'Luxury',       'Travis',    '2025-01-01T00:00:00'),
   ('AGT-02', 'Michael Chen',      'Premier Realty',       'TX-RE-33892', 8,  'Residential',  'Travis',    '2025-01-01T00:00:00'),
   ('AGT-03', 'Sarah Martinez',    'Horizon Properties',   'CO-RE-55673', 12, 'Residential',  'Denver',    '2025-01-01T00:00:00'),
@@ -48,27 +35,14 @@ USING (VALUES
   ('AGT-05', 'Lisa Thompson',     'Desert Sun Realty',    'AZ-RE-88745', 10, 'Investment',   'Maricopa',  '2025-01-01T00:00:00'),
   ('AGT-06', 'Robert Kim',        'Desert Sun Realty',    'AZ-RE-99123', 4,  'Residential',  'Maricopa',  '2025-01-01T00:00:00'),
   ('AGT-07', 'Amanda Foster',     'Premier Realty',       'TX-RE-77234', 7,  'First-time',   'Travis',    '2025-01-01T00:00:00'),
-  ('AGT-08', 'Carlos Mendez',     'Horizon Properties',   'CO-RE-66890', 9,  'Commercial',   'Denver',    '2025-01-01T00:00:00')
-) AS source(agent_id, agent_name, brokerage, license_number, years_experience, specialization, county, ingested_at)
-ON target.agent_id = source.agent_id
-WHEN MATCHED THEN UPDATE SET
-  agent_name        = source.agent_name,
-  brokerage         = source.brokerage,
-  license_number    = source.license_number,
-  years_experience  = source.years_experience,
-  specialization    = source.specialization,
-  county            = source.county,
-  ingested_at       = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (agent_id, agent_name, brokerage, license_number, years_experience, specialization, county, ingested_at)
-  VALUES (source.agent_id, source.agent_name, source.brokerage, source.license_number, source.years_experience, source.specialization, source.county, source.ingested_at);
-
-ASSERT ROW_COUNT = 8
-SELECT COUNT(*) AS row_count FROM realty.bronze.raw_agents;
+  ('AGT-08', 'Carlos Mendez',     'Horizon Properties',   'CO-RE-66890', 9,  'Commercial',   'Denver',    '2025-01-01T00:00:00');
 
 -- ===================== BRONZE SEED DATA: PROPERTIES (18 rows) =====================
 
-MERGE INTO realty.bronze.raw_properties AS target
-USING (VALUES
+DELETE FROM realty.bronze.raw_properties WHERE 1=1;
+
+INSERT INTO realty.bronze.raw_properties (parcel_id, address, city, county, state, zip, neighborhood_id, property_type, bedrooms, bathrooms, sqft, lot_acres, year_built, ingested_at)
+VALUES
   ('PRC-001', '142 Oak Hill Dr',      'Austin',  'Travis',    'TX', '78745', 'NBH-OHP', 'Single Family', 4, 3.0, 2850, 0.280, 2018, '2025-01-01T00:00:00'),
   ('PRC-002', '88 Lakeside Blvd',     'Austin',  'Travis',    'TX', '78748', 'NBH-LSQ', 'Single Family', 3, 2.0, 1950, 0.180, 2005, '2025-01-01T00:00:00'),
   ('PRC-003', '520 Mountain View Ct', 'Denver',  'Denver',    'CO', '80220', 'NBH-MVW', 'Single Family', 4, 2.5, 2400, 0.220, 2015, '2025-01-01T00:00:00'),
@@ -86,35 +60,16 @@ USING (VALUES
   ('PRC-015', '72 Riverbank Way',     'Denver',  'Jefferson', 'CO', '80210', 'NBH-RVB', 'Single Family', 4, 3.0, 2900, 0.350, 2017, '2025-01-01T00:00:00'),
   ('PRC-016', '200 Downtown Ave',     'Austin',  'Travis',    'TX', '78701', 'NBH-DWN', 'Condo',         2, 2.0, 1350, 0.000, 2022, '2025-01-01T00:00:00'),
   ('PRC-017', '55 Sunset Hills Rd',   'Phoenix', 'Maricopa',  'AZ', '85044', 'NBH-SUN', 'Townhouse',     3, 2.0, 1700, 0.080, 2019, '2025-01-01T00:00:00'),
-  ('PRC-018', '610 Mountain Peak Dr', 'Denver',  'Denver',    'CO', '80220', 'NBH-MVW', 'Townhouse',     3, 2.5, 1900, 0.100, 2021, '2025-01-01T00:00:00')
-) AS source(parcel_id, address, city, county, state, zip, neighborhood_id, property_type, bedrooms, bathrooms, sqft, lot_acres, year_built, ingested_at)
-ON target.parcel_id = source.parcel_id
-WHEN MATCHED THEN UPDATE SET
-  address           = source.address,
-  city              = source.city,
-  county            = source.county,
-  state             = source.state,
-  zip               = source.zip,
-  neighborhood_id   = source.neighborhood_id,
-  property_type     = source.property_type,
-  bedrooms          = source.bedrooms,
-  bathrooms         = source.bathrooms,
-  sqft              = source.sqft,
-  lot_acres         = source.lot_acres,
-  year_built        = source.year_built,
-  ingested_at       = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (parcel_id, address, city, county, state, zip, neighborhood_id, property_type, bedrooms, bathrooms, sqft, lot_acres, year_built, ingested_at)
-  VALUES (source.parcel_id, source.address, source.city, source.county, source.state, source.zip, source.neighborhood_id, source.property_type, source.bedrooms, source.bathrooms, source.sqft, source.lot_acres, source.year_built, source.ingested_at);
-
-ASSERT ROW_COUNT = 18
-SELECT COUNT(*) AS row_count FROM realty.bronze.raw_properties;
+  ('PRC-018', '610 Mountain Peak Dr', 'Denver',  'Denver',    'CO', '80220', 'NBH-MVW', 'Townhouse',     3, 2.5, 1900, 0.100, 2021, '2025-01-01T00:00:00');
 
 -- ===================== BRONZE SEED DATA: ASSESSMENTS (40 rows) =====================
 -- 3 annual batches: 2022 (18 properties), 2023 (12 reassessed), 2024 (8 reassessed + 2 new)
 -- 3 properties with significant value changes for SCD2 tracking: PRC-001, PRC-004, PRC-011
 
-MERGE INTO realty.bronze.raw_assessments AS target
-USING (VALUES
+DELETE FROM realty.bronze.raw_assessments WHERE 1=1;
+
+INSERT INTO realty.bronze.raw_assessments (assessment_id, parcel_id, assessment_year, assessed_value, land_value, improvement_value, tax_rate, annual_tax, assessment_date, assessor_notes, ingested_at)
+VALUES
   -- ===== Batch 1: 2022 assessments — all 18 properties =====
   ('ASM-2022-001', 'PRC-001', 2022, 480000.00,  180000.00, 300000.00, 0.02150, 10320.00, '2022-01-15', NULL,                        '2025-01-01T00:00:00'),
   ('ASM-2022-002', 'PRC-002', 2022, 350000.00,  120000.00, 230000.00, 0.02150, 7525.00,  '2022-01-15', NULL,                        '2025-01-01T00:00:00'),
@@ -155,32 +110,16 @@ USING (VALUES
   ('ASM-2024-005', 'PRC-011', 2024, 830000.00,  355000.00, 475000.00, 0.02200, 18260.00, '2024-01-15', 'Premium lot +5.7%',         '2025-01-01T00:00:00'),
   ('ASM-2024-006', 'PRC-014', 2024, 420000.00,  150000.00, 270000.00, 0.02200, 9240.00,  '2024-01-15', 'Lakeside area growth',      '2025-01-01T00:00:00'),
   ('ASM-2024-007', 'PRC-016', 2024, 475000.00,  175000.00, 300000.00, 0.02200, 10450.00, '2024-01-15', 'Downtown demand surge',     '2025-01-01T00:00:00'),
-  ('ASM-2024-008', 'PRC-017', 2024, 315000.00,  102000.00, 213000.00, 0.00650, 2047.50,  '2024-01-15', NULL,                        '2025-01-01T00:00:00')
-) AS source(assessment_id, parcel_id, assessment_year, assessed_value, land_value, improvement_value, tax_rate, annual_tax, assessment_date, assessor_notes, ingested_at)
-ON target.assessment_id = source.assessment_id
-WHEN MATCHED THEN UPDATE SET
-  parcel_id         = source.parcel_id,
-  assessment_year   = source.assessment_year,
-  assessed_value    = source.assessed_value,
-  land_value        = source.land_value,
-  improvement_value = source.improvement_value,
-  tax_rate          = source.tax_rate,
-  annual_tax        = source.annual_tax,
-  assessment_date   = source.assessment_date,
-  assessor_notes    = source.assessor_notes,
-  ingested_at       = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (assessment_id, parcel_id, assessment_year, assessed_value, land_value, improvement_value, tax_rate, annual_tax, assessment_date, assessor_notes, ingested_at)
-  VALUES (source.assessment_id, source.parcel_id, source.assessment_year, source.assessed_value, source.land_value, source.improvement_value, source.tax_rate, source.annual_tax, source.assessment_date, source.assessor_notes, source.ingested_at);
-
-ASSERT ROW_COUNT = 40
-SELECT COUNT(*) AS row_count FROM realty.bronze.raw_assessments;
+  ('ASM-2024-008', 'PRC-017', 2024, 315000.00,  102000.00, 213000.00, 0.00650, 2047.50,  '2024-01-15', NULL,                        '2025-01-01T00:00:00');
 
 -- ===================== BRONZE SEED DATA: TRANSACTIONS (25 rows) =====================
 -- Sales across 2022-2024. Some over asking (bidding wars), some under.
 -- 2 assessment outliers: PRC-013 sells far above assessed, PRC-004 sells far below.
 
-MERGE INTO realty.bronze.raw_transactions AS target
-USING (VALUES
+DELETE FROM realty.bronze.raw_transactions WHERE 1=1;
+
+INSERT INTO realty.bronze.raw_transactions (transaction_id, parcel_id, buyer_name, seller_name, agent_id, transaction_date, sale_price, financing_type, closing_costs, days_on_market, ingested_at)
+VALUES
   -- 2022 sales
   ('TXN-001', 'PRC-001', 'Thomas Wright',     'Margaret Henderson', 'AGT-01', '2022-05-15', 540000.00, 'Conventional', 12500.00, 45, '2025-01-01T00:00:00'),
   ('TXN-002', 'PRC-002', 'Amanda Foster',      'William Chang',     'AGT-02', '2022-07-20', 365000.00, 'FHA',          8800.00,  62, '2025-01-01T00:00:00'),
@@ -208,22 +147,21 @@ USING (VALUES
   ('TXN-022', 'PRC-010', 'Jessica Nguyen',     'Olivia Robinson',   'AGT-05', '2024-12-01', 418000.00, 'Conventional', 10100.00, 55, '2025-01-01T00:00:00'),
   ('TXN-023', 'PRC-016', 'Sophia Anderson',    'Owner LLC',         'AGT-07', '2024-05-20', 470000.00, 'Conventional', 11400.00, 18, '2025-01-01T00:00:00'),
   ('TXN-024', 'PRC-018', 'Thomas Wright',      'Builder Corp',      'AGT-08', '2024-06-10', 465000.00, 'Conventional', 11200.00, 27, '2025-01-01T00:00:00'),
-  ('TXN-025', 'PRC-007', 'Sophia Anderson',    'Daniel Lee',        'AGT-07', '2024-05-15', 298000.00, 'FHA',          7200.00,  33, '2025-01-01T00:00:00')
-) AS source(transaction_id, parcel_id, buyer_name, seller_name, agent_id, transaction_date, sale_price, financing_type, closing_costs, days_on_market, ingested_at)
-ON target.transaction_id = source.transaction_id
-WHEN MATCHED THEN UPDATE SET
-  parcel_id         = source.parcel_id,
-  buyer_name        = source.buyer_name,
-  seller_name       = source.seller_name,
-  agent_id          = source.agent_id,
-  transaction_date  = source.transaction_date,
-  sale_price        = source.sale_price,
-  financing_type    = source.financing_type,
-  closing_costs     = source.closing_costs,
-  days_on_market    = source.days_on_market,
-  ingested_at       = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (transaction_id, parcel_id, buyer_name, seller_name, agent_id, transaction_date, sale_price, financing_type, closing_costs, days_on_market, ingested_at)
-  VALUES (source.transaction_id, source.parcel_id, source.buyer_name, source.seller_name, source.agent_id, source.transaction_date, source.sale_price, source.financing_type, source.closing_costs, source.days_on_market, source.ingested_at);
+  ('TXN-025', 'PRC-007', 'Sophia Anderson',    'Daniel Lee',        'AGT-07', '2024-05-15', 298000.00, 'FHA',          7200.00,  33, '2025-01-01T00:00:00');
+
+-- ===================== ASSERTIONS =====================
+
+ASSERT ROW_COUNT = 6
+SELECT COUNT(*) AS row_count FROM realty.bronze.raw_neighborhoods;
+
+ASSERT ROW_COUNT = 8
+SELECT COUNT(*) AS row_count FROM realty.bronze.raw_agents;
+
+ASSERT ROW_COUNT = 18
+SELECT COUNT(*) AS row_count FROM realty.bronze.raw_properties;
+
+ASSERT ROW_COUNT = 40
+SELECT COUNT(*) AS row_count FROM realty.bronze.raw_assessments;
 
 ASSERT ROW_COUNT = 25
 SELECT COUNT(*) AS row_count FROM realty.bronze.raw_transactions;

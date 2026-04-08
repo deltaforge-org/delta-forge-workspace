@@ -13,8 +13,10 @@ PIPELINE telecom_bronze_seed
 -- Mix of prepaid/postpaid, some declining usage patterns for churn detection.
 -- SUB-012/013/014 have low balances. SUB-015 is already churned.
 
-MERGE INTO telco.bronze.raw_subscribers AS target
-USING (VALUES
+DELETE FROM telco.bronze.raw_subscribers WHERE 1=1;
+
+INSERT INTO telco.bronze.raw_subscribers (subscriber_id, phone_number, plan_type, plan_tier, activation_date, status, monthly_spend, balance, ingested_at)
+VALUES
   ('SUB-001', '+1-212-555-1001', 'postpaid', 'platinum', '2022-03-15', 'active',   89.99, 250.00, '2024-06-01T00:00:00'),
   ('SUB-002', '+1-415-555-2002', 'postpaid', 'gold',     '2022-07-20', 'active',   59.99, 180.00, '2024-06-01T00:00:00'),
   ('SUB-003', '+1-312-555-3003', 'prepaid',  'silver',   '2023-01-10', 'active',   29.99, 45.00,  '2024-06-01T00:00:00'),
@@ -29,29 +31,15 @@ USING (VALUES
   ('SUB-012', '+1-214-555-2012', 'prepaid',  'silver',   '2023-08-08', 'active',   29.99, 3.50,   '2024-06-01T00:00:00'),
   ('SUB-013', '+1-720-555-3013', 'prepaid',  'bronze',   '2024-01-15', 'active',   14.99, 2.00,   '2024-06-01T00:00:00'),
   ('SUB-014', '+1-813-555-4014', 'prepaid',  'silver',   '2023-11-20', 'active',   29.99, 4.25,   '2024-06-01T00:00:00'),
-  ('SUB-015', '+1-901-555-5015', 'postpaid', 'gold',     '2022-05-10', 'churned',  59.99, 0.00,   '2024-06-01T00:00:00')
-) AS source(subscriber_id, phone_number, plan_type, plan_tier, activation_date, status, monthly_spend, balance, ingested_at)
-ON target.subscriber_id = source.subscriber_id
-WHEN MATCHED THEN UPDATE SET
-  phone_number    = source.phone_number,
-  plan_type       = source.plan_type,
-  plan_tier       = source.plan_tier,
-  activation_date = source.activation_date,
-  status          = source.status,
-  monthly_spend   = source.monthly_spend,
-  balance         = source.balance,
-  ingested_at     = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (subscriber_id, phone_number, plan_type, plan_tier, activation_date, status, monthly_spend, balance, ingested_at)
-  VALUES (source.subscriber_id, source.phone_number, source.plan_type, source.plan_tier, source.activation_date, source.status, source.monthly_spend, source.balance, source.ingested_at);
-
-ASSERT ROW_COUNT = 15
-SELECT COUNT(*) AS row_count FROM telco.bronze.raw_subscribers;
+  ('SUB-015', '+1-901-555-5015', 'postpaid', 'gold',     '2022-05-10', 'churned',  59.99, 0.00,   '2024-06-01T00:00:00');
 
 
 -- ===================== SEED DATA: CELL TOWERS (10 rows across 4 regions) =====================
 
-MERGE INTO telco.bronze.raw_cell_towers AS target
-USING (VALUES
+DELETE FROM telco.bronze.raw_cell_towers WHERE 1=1;
+
+INSERT INTO telco.bronze.raw_cell_towers (tower_id, location, city, region, technology, capacity_mhz, ingested_at)
+VALUES
   ('TWR-NE-01', '40.7128,-74.0060',  'New York',      'Northeast', '5G',  100, '2024-06-01T00:00:00'),
   ('TWR-NE-02', '42.3601,-71.0589',  'Boston',        'Northeast', '4G',   60, '2024-06-01T00:00:00'),
   ('TWR-NE-03', '39.9526,-75.1652',  'Philadelphia',  'Northeast', '4G',   55, '2024-06-01T00:00:00'),
@@ -61,21 +49,7 @@ USING (VALUES
   ('TWR-C-02',  '30.2672,-97.7431',  'Austin',        'Central',   '4G',   60, '2024-06-01T00:00:00'),
   ('TWR-S-01',  '25.7617,-80.1918',  'Miami',         'South',     '5G',   80, '2024-06-01T00:00:00'),
   ('TWR-S-02',  '33.7490,-84.3880',  'Atlanta',       'South',     '4G',   60, '2024-06-01T00:00:00'),
-  ('TWR-S-03',  '29.7604,-95.3698',  'Houston',       'South',     '5G',   90, '2024-06-01T00:00:00')
-) AS source(tower_id, location, city, region, technology, capacity_mhz, ingested_at)
-ON target.tower_id = source.tower_id
-WHEN MATCHED THEN UPDATE SET
-  location     = source.location,
-  city         = source.city,
-  region       = source.region,
-  technology   = source.technology,
-  capacity_mhz = source.capacity_mhz,
-  ingested_at  = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (tower_id, location, city, region, technology, capacity_mhz, ingested_at)
-  VALUES (source.tower_id, source.location, source.city, source.region, source.technology, source.capacity_mhz, source.ingested_at);
-
-ASSERT ROW_COUNT = 10
-SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cell_towers;
+  ('TWR-S-03',  '29.7604,-95.3698',  'Houston',       'South',     '5G',   90, '2024-06-01T00:00:00');
 
 
 -- ===================== SEED DATA: CDR V1 — 2023 voice-only (25 rows) =====================
@@ -83,8 +57,10 @@ SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cell_towers;
 -- No call_type, no data_usage, no roaming. Duration in INT (seconds).
 -- Includes 2 dropped calls (duration < 10s).
 
-MERGE INTO telco.bronze.raw_cdr_v1 AS target
-USING (VALUES
+DELETE FROM telco.bronze.raw_cdr_v1 WHERE 1=1;
+
+INSERT INTO telco.bronze.raw_cdr_v1 (call_id, caller, callee, start_time, end_time, tower_id, duration_sec, ingested_at)
+VALUES
   ('V1-001', '+1-212-555-1001', '+1-415-555-2002', '2023-03-15T08:15:00', '2023-03-15T08:19:32', 'TWR-NE-01', 272,  '2023-03-15T12:00:00'),
   ('V1-002', '+1-212-555-1001', '+1-312-555-3003', '2023-03-15T08:45:00', '2023-03-15T08:45:07', 'TWR-NE-01', 7,    '2023-03-15T12:00:00'),
   ('V1-003', '+1-617-555-5005', '+1-212-555-1001', '2023-03-15T09:10:00', '2023-03-15T09:22:15', 'TWR-NE-02', 735,  '2023-03-15T12:00:00'),
@@ -109,30 +85,17 @@ USING (VALUES
   ('V1-022', '+1-813-555-4014', '+1-901-555-5015', '2023-12-01T11:00:00', '2023-12-01T11:15:42', 'TWR-S-03',  942,  '2023-12-01T12:00:00'),
   ('V1-023', '+1-303-555-7007', '+1-812-555-4014', '2023-12-10T13:00:00', '2023-12-10T13:20:18', 'TWR-C-01',  1218, '2023-12-10T18:00:00'),
   ('V1-024', '+1-415-555-2002', '+1-617-555-5005', '2023-12-20T08:00:00', '2023-12-20T08:25:10', 'TWR-W-01',  1510, '2023-12-20T12:00:00'),
-  ('V1-025', '+1-404-555-1011', '+1-212-555-1001', '2023-12-31T20:00:00', '2023-12-31T20:14:25', 'TWR-S-02',  865,  '2023-12-31T22:00:00')
-) AS source(call_id, caller, callee, start_time, end_time, tower_id, duration_sec, ingested_at)
-ON target.call_id = source.call_id
-WHEN MATCHED THEN UPDATE SET
-  caller       = source.caller,
-  callee       = source.callee,
-  start_time   = source.start_time,
-  end_time     = source.end_time,
-  tower_id     = source.tower_id,
-  duration_sec = source.duration_sec,
-  ingested_at  = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (call_id, caller, callee, start_time, end_time, tower_id, duration_sec, ingested_at)
-  VALUES (source.call_id, source.caller, source.callee, source.start_time, source.end_time, source.tower_id, source.duration_sec, source.ingested_at);
-
-ASSERT ROW_COUNT = 25
-SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cdr_v1;
+  ('V1-025', '+1-404-555-1011', '+1-212-555-1001', '2023-12-31T20:00:00', '2023-12-31T20:14:25', 'TWR-S-02',  865,  '2023-12-31T22:00:00');
 
 
 -- ===================== SEED DATA: CDR V2 — 2024 H1 multi-service (25 rows) =====================
 -- Schema v2: adds call_type (voice/sms/data), data_usage_mb, sms_count
 -- Includes 2 dropped voice calls, data sessions, SMS events.
 
-MERGE INTO telco.bronze.raw_cdr_v2 AS target
-USING (VALUES
+DELETE FROM telco.bronze.raw_cdr_v2 WHERE 1=1;
+
+INSERT INTO telco.bronze.raw_cdr_v2 (call_id, caller, callee, start_time, end_time, tower_id, duration_sec, call_type, data_usage_mb, sms_count, ingested_at)
+VALUES
   ('V2-001', '+1-212-555-1001', '+1-415-555-2002', '2024-01-15T08:15:00', '2024-01-15T08:19:32', 'TWR-NE-01', 272,  'voice',  0.00,  0, '2024-01-15T12:00:00'),
   ('V2-002', '+1-212-555-1001', '+1-312-555-3003', '2024-01-15T08:45:00', NULL,                  'TWR-NE-01', 0,    'sms',    0.00,  3, '2024-01-15T12:00:00'),
   ('V2-003', '+1-415-555-2002', '+1-206-555-4004', '2024-01-20T09:00:00', NULL,                  'TWR-W-01',  NULL, 'data',   250.50, 0, '2024-01-20T12:00:00'),
@@ -157,25 +120,7 @@ USING (VALUES
   ('V2-022', '+1-901-555-5015', '+1-404-555-1011', '2024-05-25T10:00:00', '2024-05-25T10:04:30', 'TWR-S-02',  270,  'voice',  0.00,  0, '2024-05-25T12:00:00'),
   ('V2-023', '+1-312-555-3003', '+1-617-555-5005', '2024-06-01T16:00:00', '2024-06-01T16:08:45', 'TWR-C-01',  525,  'voice',  0.00,  0, '2024-06-01T18:00:00'),
   ('V2-024', '+1-617-555-5005', '+1-212-555-1001', '2024-06-10T09:10:00', '2024-06-10T09:22:15', 'TWR-NE-02', 735,  'voice',  0.00,  0, '2024-06-10T12:00:00'),
-  ('V2-025', '+1-305-555-9009', '+1-214-555-2012', '2024-06-15T10:00:00', '2024-06-15T10:25:40', 'TWR-S-01',  1540, 'voice',  0.00,  0, '2024-06-15T12:00:00')
-) AS source(call_id, caller, callee, start_time, end_time, tower_id, duration_sec, call_type, data_usage_mb, sms_count, ingested_at)
-ON target.call_id = source.call_id
-WHEN MATCHED THEN UPDATE SET
-  caller        = source.caller,
-  callee        = source.callee,
-  start_time    = source.start_time,
-  end_time      = source.end_time,
-  tower_id      = source.tower_id,
-  duration_sec  = source.duration_sec,
-  call_type     = source.call_type,
-  data_usage_mb = source.data_usage_mb,
-  sms_count     = source.sms_count,
-  ingested_at   = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (call_id, caller, callee, start_time, end_time, tower_id, duration_sec, call_type, data_usage_mb, sms_count, ingested_at)
-  VALUES (source.call_id, source.caller, source.callee, source.start_time, source.end_time, source.tower_id, source.duration_sec, source.call_type, source.data_usage_mb, source.sms_count, source.ingested_at);
-
-ASSERT ROW_COUNT = 25
-SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cdr_v2;
+  ('V2-025', '+1-305-555-9009', '+1-214-555-2012', '2024-06-15T10:00:00', '2024-06-15T10:25:40', 'TWR-S-01',  1540, 'voice',  0.00,  0, '2024-06-15T12:00:00');
 
 
 -- ===================== SEED DATA: CDR V3 — 2024 H2 5G era (20 rows) =====================
@@ -183,8 +128,10 @@ SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cdr_v2;
 -- Type widening: duration_sec as BIGINT (long data sessions can exceed INT range conceptually).
 -- Includes 3 roaming events, 2 5G handovers, 1 dropped call.
 
-MERGE INTO telco.bronze.raw_cdr_v3 AS target
-USING (VALUES
+DELETE FROM telco.bronze.raw_cdr_v3 WHERE 1=1;
+
+INSERT INTO telco.bronze.raw_cdr_v3 (call_id, caller, callee, start_time, end_time, tower_id, duration_sec, call_type, data_usage_mb, sms_count, roaming_flag, network_type, handover_count, ingested_at)
+VALUES
   ('V3-001', '+1-212-555-1001', '+1-415-555-2002', '2024-07-01T08:00:00', '2024-07-01T08:18:30', 'TWR-NE-01', 1110, 'voice', 0.00,   0, false, '5G',  0, '2024-07-01T12:00:00'),
   ('V3-002', '+1-415-555-2002', '+1-305-555-9009', '2024-07-01T09:00:00', NULL,                  'TWR-W-01',  NULL, 'data',  520.00, 0, true,  '5G',  0, '2024-07-01T12:00:00'),
   ('V3-003', '+1-305-555-9009', '+1-212-555-1001', '2024-07-01T09:30:00', '2024-07-01T09:30:06', 'TWR-S-01',  6,    'voice', 0.00,   0, false, '5G',  1, '2024-07-01T12:00:00'),
@@ -204,25 +151,21 @@ USING (VALUES
   ('V3-017', '+1-512-555-6006', '+1-415-555-2002', '2024-09-05T19:00:00', '2024-09-05T19:09:50', 'TWR-C-02',  590,  'voice', 0.00,   0, false, '4G',  0, '2024-09-05T22:00:00'),
   ('V3-018', '+1-617-555-5005', '+1-303-555-7007', '2024-09-10T18:45:00', NULL,                  'TWR-NE-02', NULL, 'data',  125.30, 0, false, '4G',  0, '2024-09-10T22:00:00'),
   ('V3-019', '+1-214-555-2012', '+1-305-555-9009', '2024-09-15T15:00:00', '2024-09-15T15:05:15', 'TWR-C-02',  315,  'voice', 0.00,   0, false, '4G',  0, '2024-09-15T18:00:00'),
-  ('V3-020', '+1-901-555-5015', '+1-212-555-1001', '2024-09-20T10:00:00', '2024-09-20T10:02:15', 'TWR-S-02',  135,  'voice', 0.00,   0, false, '4G',  0, '2024-09-20T12:00:00')
-) AS source(call_id, caller, callee, start_time, end_time, tower_id, duration_sec, call_type, data_usage_mb, sms_count, roaming_flag, network_type, handover_count, ingested_at)
-ON target.call_id = source.call_id
-WHEN MATCHED THEN UPDATE SET
-  caller         = source.caller,
-  callee         = source.callee,
-  start_time     = source.start_time,
-  end_time       = source.end_time,
-  tower_id       = source.tower_id,
-  duration_sec   = source.duration_sec,
-  call_type      = source.call_type,
-  data_usage_mb  = source.data_usage_mb,
-  sms_count      = source.sms_count,
-  roaming_flag   = source.roaming_flag,
-  network_type   = source.network_type,
-  handover_count = source.handover_count,
-  ingested_at    = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (call_id, caller, callee, start_time, end_time, tower_id, duration_sec, call_type, data_usage_mb, sms_count, roaming_flag, network_type, handover_count, ingested_at)
-  VALUES (source.call_id, source.caller, source.callee, source.start_time, source.end_time, source.tower_id, source.duration_sec, source.call_type, source.data_usage_mb, source.sms_count, source.roaming_flag, source.network_type, source.handover_count, source.ingested_at);
+  ('V3-020', '+1-901-555-5015', '+1-212-555-1001', '2024-09-20T10:00:00', '2024-09-20T10:02:15', 'TWR-S-02',  135,  'voice', 0.00,   0, false, '4G',  0, '2024-09-20T12:00:00');
+
+-- ===================== ASSERTIONS =====================
+
+ASSERT ROW_COUNT = 15
+SELECT COUNT(*) AS row_count FROM telco.bronze.raw_subscribers;
+
+ASSERT ROW_COUNT = 10
+SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cell_towers;
+
+ASSERT ROW_COUNT = 25
+SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cdr_v1;
+
+ASSERT ROW_COUNT = 25
+SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cdr_v2;
 
 ASSERT ROW_COUNT = 20
 SELECT COUNT(*) AS row_count FROM telco.bronze.raw_cdr_v3;

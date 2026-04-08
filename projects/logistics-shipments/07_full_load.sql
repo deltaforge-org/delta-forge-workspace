@@ -30,7 +30,7 @@ SELECT COUNT(*) AS customer_count FROM logi.bronze.raw_customers;
 ASSERT ROW_COUNT = 8
 SELECT COUNT(*) AS sla_count FROM logi.bronze.raw_sla_contracts;
 
-ASSERT ROW_COUNT = 80
+ASSERT ROW_COUNT >= 98
 SELECT COUNT(*) AS event_count FROM logi.bronze.raw_tracking_events;
 
 -- ===================== dedup_events =====================

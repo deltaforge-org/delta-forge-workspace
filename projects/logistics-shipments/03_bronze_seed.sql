@@ -11,8 +11,10 @@ PIPELINE logistics_bronze_seed
 
 -- ===================== SEED DATA: CARRIERS (8 rows) =====================
 
-MERGE INTO logi.bronze.raw_carriers AS target
-USING (VALUES
+DELETE FROM logi.bronze.raw_carriers WHERE 1=1;
+
+INSERT INTO logi.bronze.raw_carriers (carrier_id, carrier_name, carrier_type, fleet_size, headquarters, on_time_rating, cost_per_kg, ingested_at)
+VALUES
   ('CAR-001', 'SwiftFreight',    'LTL',         120, 'Dallas',       0.92, 1.85, '2024-06-01T00:00:00'),
   ('CAR-002', 'GlobalExpress',   'Express',      80, 'Memphis',      0.95, 3.20, '2024-06-01T00:00:00'),
   ('CAR-003', 'OceanLink',       'Ocean',        40, 'Long Beach',   0.88, 0.45, '2024-06-01T00:00:00'),
@@ -20,27 +22,14 @@ USING (VALUES
   ('CAR-005', 'AeroFreight',     'Air',           30, 'Miami',        0.94, 5.50, '2024-06-01T00:00:00'),
   ('CAR-006', 'RegionalHaul',    'Regional LTL', 200, 'Atlanta',      0.87, 1.20, '2024-06-01T00:00:00'),
   ('CAR-007', 'NorthStar Cargo', 'LTL',          90, 'Minneapolis',  0.91, 1.55, '2024-06-01T00:00:00'),
-  ('CAR-008', 'PacificWave',     'Ocean',        55, 'Seattle',      0.86, 0.52, '2024-06-01T00:00:00')
-) AS source(carrier_id, carrier_name, carrier_type, fleet_size, headquarters, on_time_rating, cost_per_kg, ingested_at)
-ON target.carrier_id = source.carrier_id
-WHEN MATCHED THEN UPDATE SET
-  carrier_name   = source.carrier_name,
-  carrier_type   = source.carrier_type,
-  fleet_size     = source.fleet_size,
-  headquarters   = source.headquarters,
-  on_time_rating = source.on_time_rating,
-  cost_per_kg    = source.cost_per_kg,
-  ingested_at    = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (carrier_id, carrier_name, carrier_type, fleet_size, headquarters, on_time_rating, cost_per_kg, ingested_at)
-  VALUES (source.carrier_id, source.carrier_name, source.carrier_type, source.fleet_size, source.headquarters, source.on_time_rating, source.cost_per_kg, source.ingested_at);
-
-ASSERT ROW_COUNT = 8
-SELECT COUNT(*) AS row_count FROM logi.bronze.raw_carriers;
+  ('CAR-008', 'PacificWave',     'Ocean',        55, 'Seattle',      0.86, 0.52, '2024-06-01T00:00:00');
 
 -- ===================== SEED DATA: LOCATIONS (15 rows) =====================
 
-MERGE INTO logi.bronze.raw_locations AS target
-USING (VALUES
+DELETE FROM logi.bronze.raw_locations WHERE 1=1;
+
+INSERT INTO logi.bronze.raw_locations (location_id, hub_name, city, state, country, region, hub_type, latitude, longitude, ingested_at)
+VALUES
   ('LOC-NYC', 'NYC Metro Hub',     'New York',      'NY', 'US', 'Northeast', 'distribution', 40.712800, -74.006000, '2024-06-01T00:00:00'),
   ('LOC-CHI', 'Chicago Central',   'Chicago',       'IL', 'US', 'Midwest',   'distribution', 41.878100, -87.629800, '2024-06-01T00:00:00'),
   ('LOC-LAX', 'LA Port Gateway',   'Los Angeles',   'CA', 'US', 'West',      'port',         34.052200, -118.243700,'2024-06-01T00:00:00'),
@@ -55,29 +44,14 @@ USING (VALUES
   ('LOC-MSP', 'Twin Cities Hub',   'Minneapolis',   'MN', 'US', 'Midwest',   'distribution', 44.977800, -93.265000, '2024-06-01T00:00:00'),
   ('LOC-HOU', 'Houston Gulf',      'Houston',       'TX', 'US', 'South',     'port',         29.760400, -95.369800, '2024-06-01T00:00:00'),
   ('LOC-SLC', 'Salt Lake Depot',   'Salt Lake City','UT', 'US', 'Mountain',  'warehouse',    40.760800, -111.891000,'2024-06-01T00:00:00'),
-  ('LOC-DET', 'Detroit Auto Hub',  'Detroit',       'MI', 'US', 'Midwest',   'cross-dock',   42.331400, -83.045800, '2024-06-01T00:00:00')
-) AS source(location_id, hub_name, city, state, country, region, hub_type, latitude, longitude, ingested_at)
-ON target.location_id = source.location_id
-WHEN MATCHED THEN UPDATE SET
-  hub_name    = source.hub_name,
-  city        = source.city,
-  state       = source.state,
-  country     = source.country,
-  region      = source.region,
-  hub_type    = source.hub_type,
-  latitude    = source.latitude,
-  longitude   = source.longitude,
-  ingested_at = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (location_id, hub_name, city, state, country, region, hub_type, latitude, longitude, ingested_at)
-  VALUES (source.location_id, source.hub_name, source.city, source.state, source.country, source.region, source.hub_type, source.latitude, source.longitude, source.ingested_at);
-
-ASSERT ROW_COUNT = 15
-SELECT COUNT(*) AS row_count FROM logi.bronze.raw_locations;
+  ('LOC-DET', 'Detroit Auto Hub',  'Detroit',       'MI', 'US', 'Midwest',   'cross-dock',   42.331400, -83.045800, '2024-06-01T00:00:00');
 
 -- ===================== SEED DATA: CUSTOMERS (20 rows) =====================
 
-MERGE INTO logi.bronze.raw_customers AS target
-USING (VALUES
+DELETE FROM logi.bronze.raw_customers WHERE 1=1;
+
+INSERT INTO logi.bronze.raw_customers (customer_id, customer_name, tier, industry, city, country, account_manager, ingested_at)
+VALUES
   ('CUST-001', 'Acme Corp',          'Enterprise', 'Manufacturing', 'New York',      'US', 'Alice Chen',     '2024-06-01T00:00:00'),
   ('CUST-002', 'TechStart Inc',      'SMB',        'Technology',    'San Francisco', 'US', 'Bob Rivera',     '2024-06-01T00:00:00'),
   ('CUST-003', 'Global Retail',      'Enterprise', 'Retail',        'Chicago',       'US', 'Alice Chen',     '2024-06-01T00:00:00'),
@@ -97,27 +71,14 @@ USING (VALUES
   ('CUST-017', 'Lake Shore Inc',     'Enterprise', 'Manufacturing', 'Chicago',       'US', 'Alice Chen',     '2024-06-01T00:00:00'),
   ('CUST-018', 'Coastal Freight',    'Mid-Market', 'Logistics',     'Miami',         'US', 'Carol Park',     '2024-06-01T00:00:00'),
   ('CUST-019', 'Summit Solutions',   'SMB',        'Consulting',    'Seattle',       'US', 'Eve Johnson',    '2024-06-01T00:00:00'),
-  ('CUST-020', 'Prairie Goods',      'Mid-Market', 'Agriculture',   'Minneapolis',   'US', 'Dan Lee',        '2024-06-01T00:00:00')
-) AS source(customer_id, customer_name, tier, industry, city, country, account_manager, ingested_at)
-ON target.customer_id = source.customer_id
-WHEN MATCHED THEN UPDATE SET
-  customer_name   = source.customer_name,
-  tier            = source.tier,
-  industry        = source.industry,
-  city            = source.city,
-  country         = source.country,
-  account_manager = source.account_manager,
-  ingested_at     = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (customer_id, customer_name, tier, industry, city, country, account_manager, ingested_at)
-  VALUES (source.customer_id, source.customer_name, source.tier, source.industry, source.city, source.country, source.account_manager, source.ingested_at);
-
-ASSERT ROW_COUNT = 20
-SELECT COUNT(*) AS row_count FROM logi.bronze.raw_customers;
+  ('CUST-020', 'Prairie Goods',      'Mid-Market', 'Agriculture',   'Minneapolis',   'US', 'Dan Lee',        '2024-06-01T00:00:00');
 
 -- ===================== SEED DATA: SLA CONTRACTS (8 rows) =====================
 
-MERGE INTO logi.bronze.raw_sla_contracts AS target
-USING (VALUES
+DELETE FROM logi.bronze.raw_sla_contracts WHERE 1=1;
+
+INSERT INTO logi.bronze.raw_sla_contracts (sla_id, carrier_id, service_level, max_transit_days, penalty_per_day, contract_start, contract_end, ingested_at)
+VALUES
   ('SLA-001', 'CAR-001', 'standard',  5, 150.00, '2024-01-01', '2024-12-31', '2024-06-01T00:00:00'),
   ('SLA-002', 'CAR-002', 'express',   2, 500.00, '2024-01-01', '2024-12-31', '2024-06-01T00:00:00'),
   ('SLA-003', 'CAR-003', 'economy',  14, 75.00,  '2024-01-01', '2024-12-31', '2024-06-01T00:00:00'),
@@ -125,22 +86,7 @@ USING (VALUES
   ('SLA-005', 'CAR-005', 'express',   1, 800.00, '2024-01-01', '2024-12-31', '2024-06-01T00:00:00'),
   ('SLA-006', 'CAR-006', 'standard',  4, 200.00, '2024-01-01', '2024-12-31', '2024-06-01T00:00:00'),
   ('SLA-007', 'CAR-007', 'standard',  5, 150.00, '2024-01-01', '2024-12-31', '2024-06-01T00:00:00'),
-  ('SLA-008', 'CAR-008', 'economy',  12, 80.00,  '2024-01-01', '2024-12-31', '2024-06-01T00:00:00')
-) AS source(sla_id, carrier_id, service_level, max_transit_days, penalty_per_day, contract_start, contract_end, ingested_at)
-ON target.sla_id = source.sla_id
-WHEN MATCHED THEN UPDATE SET
-  carrier_id       = source.carrier_id,
-  service_level    = source.service_level,
-  max_transit_days = source.max_transit_days,
-  penalty_per_day  = source.penalty_per_day,
-  contract_start   = source.contract_start,
-  contract_end     = source.contract_end,
-  ingested_at      = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (sla_id, carrier_id, service_level, max_transit_days, penalty_per_day, contract_start, contract_end, ingested_at)
-  VALUES (source.sla_id, source.carrier_id, source.service_level, source.max_transit_days, source.penalty_per_day, source.contract_start, source.contract_end, source.ingested_at);
-
-ASSERT ROW_COUNT = 8
-SELECT COUNT(*) AS row_count FROM logi.bronze.raw_sla_contracts;
+  ('SLA-008', 'CAR-008', 'economy',  12, 80.00,  '2024-01-01', '2024-12-31', '2024-06-01T00:00:00');
 
 -- ===================== SEED DATA: TRACKING EVENTS (80 rows) =====================
 -- 25 shipments across 8 carriers. Includes:
@@ -151,8 +97,10 @@ SELECT COUNT(*) AS row_count FROM logi.bronze.raw_sla_contracts;
 -- Event types: created, picked_up, in_transit, at_hub, customs_hold,
 --              out_for_delivery, delivered, exception
 
-MERGE INTO logi.bronze.raw_tracking_events AS target
-USING (VALUES
+DELETE FROM logi.bronze.raw_tracking_events WHERE 1=1;
+
+INSERT INTO logi.bronze.raw_tracking_events (event_id, shipment_id, customer_id, carrier_id, origin_id, destination_id, service_level, event_type, event_timestamp, ship_date, promised_date, delivery_date, weight_kg, volume_m3, cost, revenue, ingested_at)
+VALUES
 
   -- === S001: NYC->CHI, SwiftFreight standard, on time (4 events) ===
   ('EVT-001', 'S001', 'CUST-001', 'CAR-001', 'LOC-NYC', 'LOC-CHI', 'standard', 'created',          '2024-04-01T06:00:00', '2024-04-01', '2024-04-05', NULL,          250.00, 1.2000, 462.50, 625.00, '2024-06-01T00:00:00'),
@@ -311,26 +259,21 @@ USING (VALUES
   ('EVT-082', 'S025', 'CUST-012', 'CAR-007', 'LOC-MSP', 'LOC-BOS', 'standard', 'customs_hold',      '2024-05-06T08:00:00', '2024-05-04', '2024-05-08', NULL,          160.00, 0.7000, 248.00, 380.00, '2024-06-01T00:00:00'),
   ('EVT-080', 'S025', 'CUST-012', 'CAR-007', 'LOC-MSP', 'LOC-BOS', 'standard', 'created',          '2024-05-04T08:00:00', '2024-05-04', '2024-05-08', NULL,          160.00, 0.7000, 248.00, 380.00, '2024-06-01T00:00:00'),
   ('EVT-081', 'S025', 'CUST-012', 'CAR-007', 'LOC-MSP', 'LOC-BOS', 'standard', 'in_transit',        '2024-05-04T20:00:00', '2024-05-04', '2024-05-08', NULL,          160.00, 0.7000, 248.00, 380.00, '2024-06-01T00:00:00'),
-  ('EVT-083', 'S025', 'CUST-012', 'CAR-007', 'LOC-MSP', 'LOC-BOS', 'standard', 'delivered',         '2024-05-07T15:00:00', '2024-05-04', '2024-05-08', '2024-05-07', 160.00, 0.7000, 248.00, 380.00, '2024-06-01T00:00:00')
-) AS source(event_id, shipment_id, customer_id, carrier_id, origin_id, destination_id, service_level, event_type, event_timestamp, ship_date, promised_date, delivery_date, weight_kg, volume_m3, cost, revenue, ingested_at)
-ON target.event_id = source.event_id AND target.event_type = source.event_type AND target.event_timestamp = source.event_timestamp
-WHEN MATCHED THEN UPDATE SET
-  shipment_id    = source.shipment_id,
-  customer_id    = source.customer_id,
-  carrier_id     = source.carrier_id,
-  origin_id      = source.origin_id,
-  destination_id = source.destination_id,
-  service_level  = source.service_level,
-  ship_date      = source.ship_date,
-  promised_date  = source.promised_date,
-  delivery_date  = source.delivery_date,
-  weight_kg      = source.weight_kg,
-  volume_m3      = source.volume_m3,
-  cost           = source.cost,
-  revenue        = source.revenue,
-  ingested_at    = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (event_id, shipment_id, customer_id, carrier_id, origin_id, destination_id, service_level, event_type, event_timestamp, ship_date, promised_date, delivery_date, weight_kg, volume_m3, cost, revenue, ingested_at)
-  VALUES (source.event_id, source.shipment_id, source.customer_id, source.carrier_id, source.origin_id, source.destination_id, source.service_level, source.event_type, source.event_timestamp, source.ship_date, source.promised_date, source.delivery_date, source.weight_kg, source.volume_m3, source.cost, source.revenue, source.ingested_at);
+  ('EVT-083', 'S025', 'CUST-012', 'CAR-007', 'LOC-MSP', 'LOC-BOS', 'standard', 'delivered',         '2024-05-07T15:00:00', '2024-05-04', '2024-05-08', '2024-05-07', 160.00, 0.7000, 248.00, 380.00, '2024-06-01T00:00:00');
 
-ASSERT ROW_COUNT = 80
+-- ===================== ASSERT FINAL COUNTS =====================
+
+ASSERT ROW_COUNT = 8
+SELECT COUNT(*) AS row_count FROM logi.bronze.raw_carriers;
+
+ASSERT ROW_COUNT = 15
+SELECT COUNT(*) AS row_count FROM logi.bronze.raw_locations;
+
+ASSERT ROW_COUNT = 20
+SELECT COUNT(*) AS row_count FROM logi.bronze.raw_customers;
+
+ASSERT ROW_COUNT = 8
+SELECT COUNT(*) AS row_count FROM logi.bronze.raw_sla_contracts;
+
+ASSERT ROW_COUNT = 98
 SELECT COUNT(*) AS row_count FROM logi.bronze.raw_tracking_events;

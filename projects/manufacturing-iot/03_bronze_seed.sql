@@ -13,8 +13,10 @@ PIPELINE manufacturing_bronze_seed
 -- 4 plants x varying lines x 4 sensor types (temperature, pressure, vibration, rpm)
 -- Each sensor has physical threshold_min/threshold_max for anomaly detection.
 
-MERGE INTO mfg.bronze.raw_sensors AS target
-USING (VALUES
+DELETE FROM mfg.bronze.raw_sensors WHERE 1=1;
+
+INSERT INTO mfg.bronze.raw_sensors (sensor_id, sensor_type, manufacturer, install_date, calibration_date, threshold_min, threshold_max, plant_id, line_name, ingested_at)
+VALUES
 ('SEN-P1LA-TEMP', 'temperature', 'ThermoTech',  '2023-01-15', '2024-05-01', -50.00, 500.00,  'PLANT-01', 'Line-A', '2024-06-01T00:00:00'),
 ('SEN-P1LA-PRES', 'pressure',    'PressurePro', '2023-01-15', '2024-05-01',   0.00, 200.00,  'PLANT-01', 'Line-A', '2024-06-01T00:00:00'),
 ('SEN-P1LA-VIB',  'vibration',   'VibraSense',  '2023-03-20', '2024-04-15',   0.00, 50000.00,'PLANT-01', 'Line-A', '2024-06-01T00:00:00'),
@@ -30,31 +32,16 @@ USING (VALUES
 ('SEN-P3LB-TEMP', 'temperature', 'ThermoTech',  '2023-07-01', '2024-04-01', -50.00, 500.00,  'PLANT-03', 'Line-B', '2024-06-01T00:00:00'),
 ('SEN-P3LB-PRES', 'pressure',    'PressurePro', '2023-07-01', '2024-04-01',   0.00, 200.00,  'PLANT-03', 'Line-B', '2024-06-01T00:00:00'),
 ('SEN-P4LA-TEMP', 'temperature', 'ThermoTech',  '2023-09-10', '2024-05-15', -50.00, 500.00,  'PLANT-04', 'Line-A', '2024-06-01T00:00:00'),
-('SEN-P4LA-RPM',  'rpm',         'RotorMax',    '2023-09-10', '2024-05-15',   0.00, 20000.00,'PLANT-04', 'Line-A', '2024-06-01T00:00:00')
-) AS source(sensor_id, sensor_type, manufacturer, install_date, calibration_date, threshold_min, threshold_max, plant_id, line_name, ingested_at)
-ON target.sensor_id = source.sensor_id
-WHEN MATCHED THEN UPDATE SET
-  sensor_type      = source.sensor_type,
-  manufacturer     = source.manufacturer,
-  install_date     = source.install_date,
-  calibration_date = source.calibration_date,
-  threshold_min    = source.threshold_min,
-  threshold_max    = source.threshold_max,
-  plant_id         = source.plant_id,
-  line_name        = source.line_name,
-  ingested_at      = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (sensor_id, sensor_type, manufacturer, install_date, calibration_date, threshold_min, threshold_max, plant_id, line_name, ingested_at)
-  VALUES (source.sensor_id, source.sensor_type, source.manufacturer, source.install_date, source.calibration_date, source.threshold_min, source.threshold_max, source.plant_id, source.line_name, source.ingested_at);
-
-ASSERT ROW_COUNT = 16
-SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_sensors;
+('SEN-P4LA-RPM',  'rpm',         'RotorMax',    '2023-09-10', '2024-05-15',   0.00, 20000.00,'PLANT-04', 'Line-A', '2024-06-01T00:00:00');
 
 
 -- ===================== SEED DATA: PRODUCTION LINES (12 rows) =====================
 -- 4 plants x 3 lines each
 
-MERGE INTO mfg.bronze.raw_production_lines AS target
-USING (VALUES
+DELETE FROM mfg.bronze.raw_production_lines WHERE 1=1;
+
+INSERT INTO mfg.bronze.raw_production_lines (line_id, plant_id, line_name, product_type, capacity_units_per_hour, ingested_at)
+VALUES
 ('PL-P1-LA', 'PLANT-01', 'Line-A', 'Automotive Parts',     120, '2024-06-01T00:00:00'),
 ('PL-P1-LB', 'PLANT-01', 'Line-B', 'Automotive Parts',     100, '2024-06-01T00:00:00'),
 ('PL-P1-LC', 'PLANT-01', 'Line-C', 'Electronics Boards',    80, '2024-06-01T00:00:00'),
@@ -66,49 +53,27 @@ USING (VALUES
 ('PL-P3-LC', 'PLANT-03', 'Line-C', 'Consumer Goods',       130, '2024-06-01T00:00:00'),
 ('PL-P4-LA', 'PLANT-04', 'Line-A', 'Medical Devices',       90, '2024-06-01T00:00:00'),
 ('PL-P4-LB', 'PLANT-04', 'Line-B', 'Medical Devices',       85, '2024-06-01T00:00:00'),
-('PL-P4-LC', 'PLANT-04', 'Line-C', 'Medical Devices',       80, '2024-06-01T00:00:00')
-) AS source(line_id, plant_id, line_name, product_type, capacity_units_per_hour, ingested_at)
-ON target.line_id = source.line_id
-WHEN MATCHED THEN UPDATE SET
-  plant_id                = source.plant_id,
-  line_name               = source.line_name,
-  product_type            = source.product_type,
-  capacity_units_per_hour = source.capacity_units_per_hour,
-  ingested_at             = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (line_id, plant_id, line_name, product_type, capacity_units_per_hour, ingested_at)
-  VALUES (source.line_id, source.plant_id, source.line_name, source.product_type, source.capacity_units_per_hour, source.ingested_at);
-
-ASSERT ROW_COUNT = 12
-SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_production_lines;
+('PL-P4-LC', 'PLANT-04', 'Line-C', 'Medical Devices',       80, '2024-06-01T00:00:00');
 
 
 -- ===================== SEED DATA: SHIFTS (3 rows) =====================
 
-MERGE INTO mfg.bronze.raw_shifts AS target
-USING (VALUES
+DELETE FROM mfg.bronze.raw_shifts WHERE 1=1;
+
+INSERT INTO mfg.bronze.raw_shifts (shift_id, shift_name, start_hour, end_hour, supervisor, ingested_at)
+VALUES
 ('SHIFT-AM',   'Morning',   6, 14, 'Sarah Chen',    '2024-06-01T00:00:00'),
 ('SHIFT-PM',   'Afternoon', 14, 22, 'Mike Johnson',  '2024-06-01T00:00:00'),
-('SHIFT-NIGHT','Night',     22,  6, 'Lisa Rodriguez','2024-06-01T00:00:00')
-) AS source(shift_id, shift_name, start_hour, end_hour, supervisor, ingested_at)
-ON target.shift_id = source.shift_id
-WHEN MATCHED THEN UPDATE SET
-  shift_name  = source.shift_name,
-  start_hour  = source.start_hour,
-  end_hour    = source.end_hour,
-  supervisor  = source.supervisor,
-  ingested_at = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (shift_id, shift_name, start_hour, end_hour, supervisor, ingested_at)
-  VALUES (source.shift_id, source.shift_name, source.start_hour, source.end_hour, source.supervisor, source.ingested_at);
-
-ASSERT ROW_COUNT = 3
-SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_shifts;
+('SHIFT-NIGHT','Night',     22,  6, 'Lisa Rodriguez','2024-06-01T00:00:00');
 
 
 -- ===================== SEED DATA: PRODUCTION TARGETS (12 rows) =====================
 -- Target units per shift for each plant/line combination
 
-MERGE INTO mfg.bronze.raw_production_targets AS target
-USING (VALUES
+DELETE FROM mfg.bronze.raw_production_targets WHERE 1=1;
+
+INSERT INTO mfg.bronze.raw_production_targets (target_id, plant_id, line_name, shift_id, target_units_per_shift, max_acceptable_defect_pct, ingested_at)
+VALUES
 ('TGT-P1LA-AM', 'PLANT-01', 'Line-A', 'SHIFT-AM', 960,  3.00, '2024-06-01T00:00:00'),
 ('TGT-P1LB-AM', 'PLANT-01', 'Line-B', 'SHIFT-AM', 800,  3.50, '2024-06-01T00:00:00'),
 ('TGT-P1LA-PM', 'PLANT-01', 'Line-A', 'SHIFT-PM', 960,  3.00, '2024-06-01T00:00:00'),
@@ -120,21 +85,7 @@ USING (VALUES
 ('TGT-P4LA-NT', 'PLANT-04', 'Line-A', 'SHIFT-NIGHT', 720, 2.00, '2024-06-01T00:00:00'),
 ('TGT-P1LA-NT', 'PLANT-01', 'Line-A', 'SHIFT-NIGHT', 960, 3.50, '2024-06-01T00:00:00'),
 ('TGT-P2LA-NT', 'PLANT-02', 'Line-A', 'SHIFT-NIGHT', 480, 2.50, '2024-06-01T00:00:00'),
-('TGT-P3LA-PM', 'PLANT-03', 'Line-A', 'SHIFT-PM', 1200, 4.00, '2024-06-01T00:00:00')
-) AS source(target_id, plant_id, line_name, shift_id, target_units_per_shift, max_acceptable_defect_pct, ingested_at)
-ON target.target_id = source.target_id
-WHEN MATCHED THEN UPDATE SET
-  plant_id                   = source.plant_id,
-  line_name                  = source.line_name,
-  shift_id                   = source.shift_id,
-  target_units_per_shift     = source.target_units_per_shift,
-  max_acceptable_defect_pct  = source.max_acceptable_defect_pct,
-  ingested_at                = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (target_id, plant_id, line_name, shift_id, target_units_per_shift, max_acceptable_defect_pct, ingested_at)
-  VALUES (source.target_id, source.plant_id, source.line_name, source.shift_id, source.target_units_per_shift, source.max_acceptable_defect_pct, source.ingested_at);
-
-ASSERT ROW_COUNT = 12
-SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_production_targets;
+('TGT-P3LA-PM', 'PLANT-03', 'Line-A', 'SHIFT-PM', 1200, 4.00, '2024-06-01T00:00:00');
 
 
 -- ===================== SEED DATA: SENSOR READINGS (90 rows) =====================
@@ -146,8 +97,10 @@ SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_production_targets;
 --   2 vibration spikes (R-034, R-063)
 -- Also 3 unplanned downtime events (R-010: 15min, R-069: 20min, R-044: 5min)
 
-MERGE INTO mfg.bronze.raw_readings AS target
-USING (VALUES
+DELETE FROM mfg.bronze.raw_readings WHERE 1=1;
+
+INSERT INTO mfg.bronze.raw_readings (reading_id, sensor_id, plant_id, line_name, reading_time, value, units_produced, defect_units, downtime_min, ingested_at)
+VALUES
 -- PLANT-01, Line-A, Morning shift (temp sensor), June 1
 ('R-001', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-01T06:00:00', 42.50,  30, 0, 0,  '2024-06-01T08:00:00'),
 ('R-002', 'SEN-P1LA-TEMP', 'PLANT-01', 'Line-A', '2024-06-01T06:15:00', 43.10,  31, 1, 0,  '2024-06-01T08:00:00'),
@@ -266,21 +219,21 @@ USING (VALUES
 
 -- PLANT-03, Line-B, Night (pressure sensor)
 ('R-089', 'SEN-P3LB-PRES', 'PLANT-03', 'Line-B', '2024-06-01T22:00:00', 4.80,   34, 0, 0,  '2024-06-02T00:00:00'),
-('R-090', 'SEN-P3LB-PRES', 'PLANT-03', 'Line-B', '2024-06-01T22:15:00', 4.90,   35, 0, 0,  '2024-06-02T00:00:00')
-) AS source(reading_id, sensor_id, plant_id, line_name, reading_time, value, units_produced, defect_units, downtime_min, ingested_at)
-ON target.reading_id = source.reading_id
-WHEN MATCHED THEN UPDATE SET
-  sensor_id      = source.sensor_id,
-  plant_id       = source.plant_id,
-  line_name      = source.line_name,
-  reading_time   = source.reading_time,
-  value          = source.value,
-  units_produced = source.units_produced,
-  defect_units   = source.defect_units,
-  downtime_min   = source.downtime_min,
-  ingested_at    = source.ingested_at
-WHEN NOT MATCHED THEN INSERT (reading_id, sensor_id, plant_id, line_name, reading_time, value, units_produced, defect_units, downtime_min, ingested_at)
-  VALUES (source.reading_id, source.sensor_id, source.plant_id, source.line_name, source.reading_time, source.value, source.units_produced, source.defect_units, source.downtime_min, source.ingested_at);
+('R-090', 'SEN-P3LB-PRES', 'PLANT-03', 'Line-B', '2024-06-01T22:15:00', 4.90,   35, 0, 0,  '2024-06-02T00:00:00');
+
+-- ===================== ASSERTIONS =====================
+
+ASSERT ROW_COUNT = 16
+SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_sensors;
+
+ASSERT ROW_COUNT = 12
+SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_production_lines;
+
+ASSERT ROW_COUNT = 3
+SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_shifts;
+
+ASSERT ROW_COUNT = 12
+SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_production_targets;
 
 ASSERT ROW_COUNT = 90
 SELECT COUNT(*) AS row_count FROM mfg.bronze.raw_readings;
