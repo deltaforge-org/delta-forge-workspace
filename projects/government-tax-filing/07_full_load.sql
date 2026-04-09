@@ -268,13 +268,13 @@ SELECT
 FROM tax.bronze.raw_preparers p
 LEFT JOIN (
     SELECT
-        preparer_id,
+        fi.preparer_id,
         COUNT(*)                                                   AS total_filings,
         SUM(CASE WHEN aa.amendment_id IS NOT NULL THEN 1 ELSE 0 END) AS amended_count
     FROM tax.silver.filings_immutable fi
     LEFT JOIN tax.silver.amendments_applied aa
         ON fi.filing_id = aa.original_filing_id
-    GROUP BY preparer_id
+    GROUP BY fi.preparer_id
 ) stats ON p.preparer_id = stats.preparer_id;
 
 -- ===================== dim_fiscal_year =====================
