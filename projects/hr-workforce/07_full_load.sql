@@ -87,11 +87,11 @@ USING (
     WHERE rn = 1
 ) AS changes
 ON tgt.employee_id = changes.employee_id
-   AND tgt.is_current = true
-   AND (tgt.department_id != changes.new_dept
-        OR tgt.position_id != changes.new_pos
-        OR tgt.base_salary != changes.new_salary)
-WHEN MATCHED THEN UPDATE SET
+WHEN MATCHED AND tgt.is_current = true
+             AND (tgt.department_id != changes.new_dept
+                  OR tgt.position_id != changes.new_pos
+                  OR tgt.base_salary != changes.new_salary)
+THEN UPDATE SET
     valid_to   = changes.change_date,
     is_current = false;
 
