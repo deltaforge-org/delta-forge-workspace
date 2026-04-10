@@ -73,14 +73,18 @@ SELECT COUNT(*) AS row_count FROM hr.silver.employee_dim;
 
 MERGE INTO hr.silver.employee_dim AS tgt
 USING (
-    SELECT DISTINCT
-        ce.employee_id,
-        ce.department_id AS new_dept,
-        ce.position_id   AS new_pos,
-        ce.base_salary   AS new_salary,
-        CAST(ce.event_date AS DATE) AS change_date
-    FROM hr.bronze.raw_comp_events ce
-    WHERE ce.event_type IN ('promotion', 'salary_adjustment', 'transfer')
+    SELECT employee_id,
+           department_id AS new_dept,
+           position_id   AS new_pos,
+           base_salary   AS new_salary,
+           CAST(event_date AS DATE) AS change_date
+    FROM (
+        SELECT employee_id, department_id, position_id, base_salary, event_date,
+               ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date DESC) AS rn
+        FROM hr.bronze.raw_comp_events
+        WHERE event_type IN ('promotion', 'salary_adjustment', 'transfer')
+    ) t
+    WHERE rn = 1
 ) AS changes
 ON tgt.employee_id = changes.employee_id
    AND tgt.is_current = true
