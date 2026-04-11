@@ -32,114 +32,90 @@ SELECT COUNT(*) AS row_count FROM hr.bronze.raw_departments;
 ASSERT ROW_COUNT = 10
 SELECT COUNT(*) AS row_count FROM hr.bronze.raw_positions;
 
--- ===================== build_employee_scd2_initial =====================
--- Pass 1 of 3: Load initial hire records for each employee
+-- ===================== build_employee_scd2 =====================
+-- Single-pass SCD2: hire row (historical if changes exist) + current row (latest state)
+-- Avoids multi-pass MERGE: UNION ALL in one INSERT gives deterministic results
 
 DELETE FROM hr.silver.employee_dim WHERE 1=1;
 
 INSERT INTO hr.silver.employee_dim
-SELECT
-    ROW_NUMBER() OVER (ORDER BY e.employee_id) AS surrogate_key,
-    e.employee_id,
-    TRIM(e.employee_name) AS employee_name,
-    e.ssn,
-    e.email,
-    CAST(e.hire_date AS DATE) AS hire_date,
-    CAST(e.termination_date AS DATE) AS termination_date,
-    e.department_id,
-    e.position_id,
-    e.education_level,
-    e.gender,
-    CAST(e.date_of_birth AS DATE) AS date_of_birth,
-    ce.base_salary,
-    e.status,
-    CAST(e.hire_date AS DATE) AS valid_from,
-    CAST(NULL AS DATE) AS valid_to,
-    true AS is_current
-FROM hr.bronze.raw_employees e
-JOIN (
-    SELECT employee_id, base_salary,
-           ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date) AS rn
-    FROM hr.bronze.raw_comp_events
-    WHERE event_type = 'hire'
-) ce ON e.employee_id = ce.employee_id AND ce.rn = 1;
-
-ASSERT ROW_COUNT = 20
-SELECT COUNT(*) AS row_count FROM hr.silver.employee_dim;
-
--- ===================== expire_scd2_records =====================
--- Pass 2 of 3: Expire current records where a dimension-changing event occurred
--- (promotion, transfer, salary_adjustment that changes dept/position/salary)
-
-MERGE INTO hr.silver.employee_dim AS tgt
-USING (
-    SELECT employee_id,
-           department_id AS new_dept,
-           position_id   AS new_pos,
-           base_salary   AS new_salary,
-           CAST(event_date AS DATE) AS change_date
-    FROM (
-        SELECT employee_id, department_id, position_id, base_salary, event_date,
-               ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date DESC) AS rn
-        FROM hr.bronze.raw_comp_events
-        WHERE event_type IN ('promotion', 'salary_adjustment', 'transfer')
-    ) t
-    WHERE rn = 1
-) AS changes
-ON tgt.employee_id = changes.employee_id
-WHEN MATCHED AND tgt.is_current = true
-             AND (tgt.department_id != changes.new_dept
-                  OR tgt.position_id != changes.new_pos
-                  OR tgt.base_salary != changes.new_salary)
-THEN UPDATE SET
-    valid_to   = changes.change_date,
-    is_current = false;
-
--- ===================== insert_scd2_current =====================
--- Pass 3 of 3: Insert new current version for each changed employee
--- Takes the LATEST change event per employee as the current state
-
-MERGE INTO hr.silver.employee_dim AS tgt
-USING (
+SELECT surrogate_key, employee_id, employee_name, ssn, email, hire_date, termination_date,
+       department_id, position_id, education_level, gender, date_of_birth, base_salary,
+       status, valid_from, valid_to, is_current
+FROM (
+    -- Row A: initial hire version (expired if a dimension change exists, current otherwise)
     SELECT
-        20 + ROW_NUMBER() OVER (ORDER BY ce.employee_id, ce.event_date) AS surrogate_key,
-        ce.employee_id,
+        ROW_NUMBER() OVER (ORDER BY e.employee_id) AS surrogate_key,
+        e.employee_id,
         TRIM(e.employee_name) AS employee_name,
         e.ssn,
         e.email,
         CAST(e.hire_date AS DATE) AS hire_date,
         CAST(e.termination_date AS DATE) AS termination_date,
-        ce.department_id,
-        ce.position_id,
+        e.department_id,
+        e.position_id,
         e.education_level,
         e.gender,
         CAST(e.date_of_birth AS DATE) AS date_of_birth,
-        ce.base_salary,
+        h.base_salary,
         e.status,
-        CAST(ce.event_date AS DATE) AS valid_from,
+        CAST(e.hire_date AS DATE) AS valid_from,
+        lc.change_date AS valid_to,
+        CASE WHEN lc.change_date IS NULL THEN true ELSE false END AS is_current
+    FROM hr.bronze.raw_employees e
+    JOIN (
+        SELECT employee_id, base_salary,
+               ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date) AS rn
+        FROM hr.bronze.raw_comp_events
+        WHERE event_type = 'hire'
+    ) h ON e.employee_id = h.employee_id AND h.rn = 1
+    LEFT JOIN (
+        SELECT employee_id, CAST(event_date AS DATE) AS change_date
+        FROM (
+            SELECT employee_id, event_date,
+                   ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date DESC) AS rn
+            FROM hr.bronze.raw_comp_events
+            WHERE event_type IN ('promotion', 'salary_adjustment', 'transfer')
+        ) t
+        WHERE rn = 1
+    ) lc ON e.employee_id = lc.employee_id
+
+    UNION ALL
+
+    -- Row B: current version after latest dimension change (one row per changed employee)
+    SELECT
+        20 + ROW_NUMBER() OVER (ORDER BY e.employee_id) AS surrogate_key,
+        e.employee_id,
+        TRIM(e.employee_name) AS employee_name,
+        e.ssn,
+        e.email,
+        CAST(e.hire_date AS DATE) AS hire_date,
+        CAST(e.termination_date AS DATE) AS termination_date,
+        lc.department_id,
+        lc.position_id,
+        e.education_level,
+        e.gender,
+        CAST(e.date_of_birth AS DATE) AS date_of_birth,
+        lc.base_salary,
+        e.status,
+        lc.change_date AS valid_from,
         CAST(NULL AS DATE) AS valid_to,
         true AS is_current
-    FROM (
-        SELECT employee_id, department_id, position_id, base_salary, event_date,
-               ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date DESC) AS rn
-        FROM hr.bronze.raw_comp_events
-        WHERE event_type IN ('promotion', 'salary_adjustment', 'transfer')
-    ) ce
-    JOIN hr.bronze.raw_employees e ON ce.employee_id = e.employee_id
-    WHERE ce.rn = 1
-) AS src
-ON tgt.employee_id = src.employee_id AND tgt.valid_from = src.valid_from AND tgt.is_current = true
-WHEN NOT MATCHED THEN INSERT (
-    surrogate_key, employee_id, employee_name, ssn, email, hire_date, termination_date,
-    department_id, position_id, education_level, gender, date_of_birth, base_salary,
-    status, valid_from, valid_to, is_current
-) VALUES (
-    src.surrogate_key, src.employee_id, src.employee_name, src.ssn, src.email, src.hire_date,
-    src.termination_date, src.department_id, src.position_id, src.education_level, src.gender,
-    src.date_of_birth, src.base_salary, src.status, src.valid_from, src.valid_to, src.is_current
-);
+    FROM hr.bronze.raw_employees e
+    JOIN (
+        SELECT employee_id, department_id, position_id, base_salary,
+               CAST(event_date AS DATE) AS change_date
+        FROM (
+            SELECT employee_id, department_id, position_id, base_salary, event_date,
+                   ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY event_date DESC) AS rn
+            FROM hr.bronze.raw_comp_events
+            WHERE event_type IN ('promotion', 'salary_adjustment', 'transfer')
+        ) t
+        WHERE rn = 1
+    ) lc ON e.employee_id = lc.employee_id
+) scd2;
 
--- SCD2 should have 20 initial + dimension-change rows
+-- 20 hire rows + 19 current rows (employees with qualifying change events) = 39 total
 ASSERT ROW_COUNT >= 32
 SELECT COUNT(*) AS row_count FROM hr.silver.employee_dim;
 

@@ -156,10 +156,9 @@ SELECT
     fi.loaded_at                                                   AS change_timestamp,
     CONCAT('Incremental Gross=', CAST(fi.gross_income AS STRING)) AS details
 FROM tax.silver.filings_immutable fi
-WHERE fi.filing_date > (
-    SELECT COALESCE(MAX(CAST(SUBSTRING(details, 18) AS DATE)), CAST('2025-01-01' AS DATE))
-    FROM tax.silver.audit_trail
-    WHERE table_name = 'filings_immutable' AND operation = 'INSERT'
+WHERE fi.filing_id NOT IN (
+    SELECT record_key FROM tax.silver.audit_trail
+    WHERE table_name = 'filings_immutable'
 );
 
 -- ===================== merge_fact_filings =====================
