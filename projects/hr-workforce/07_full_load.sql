@@ -190,7 +190,7 @@ SELECT
 FROM hr.silver.employee_dim expired
 JOIN hr.silver.employee_dim current_row
     ON expired.employee_id = current_row.employee_id
-    AND current_row.valid_from = expired.valid_to
+    AND current_row.is_current = true
 WHERE expired.is_current = false;
 
 ASSERT ROW_COUNT > 0
