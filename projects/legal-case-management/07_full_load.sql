@@ -315,6 +315,8 @@ CREATE GRAPH IF NOT EXISTS legal.gold.legal_network
         EDGE TYPE COLUMN relationship_type
     DIRECTED;
 
+GRANT ADMIN ON TABLE legal.gold.legal_network TO USER admin;
+
 -- ===================== run_graph_analytics =====================
 -- PageRank, community detection, multi-hop conflict check, adversarial pairs
 
