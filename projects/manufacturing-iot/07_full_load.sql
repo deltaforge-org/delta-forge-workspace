@@ -23,20 +23,20 @@ PIPELINE manufacturing_iot_pipeline
 -- Validate bronze tables
 -- =============================================================================
 
-SELECT COUNT(*) AS reading_count FROM mfg.bronze.raw_readings;
 ASSERT VALUE reading_count = 90
+SELECT COUNT(*) AS reading_count FROM mfg.bronze.raw_readings;
 
-SELECT COUNT(*) AS sensor_count FROM mfg.bronze.raw_sensors;
 ASSERT VALUE sensor_count = 16
+SELECT COUNT(*) AS sensor_count FROM mfg.bronze.raw_sensors;
 
-SELECT COUNT(*) AS line_count FROM mfg.bronze.raw_production_lines;
 ASSERT VALUE line_count = 12
+SELECT COUNT(*) AS line_count FROM mfg.bronze.raw_production_lines;
 
-SELECT COUNT(*) AS shift_count FROM mfg.bronze.raw_shifts;
 ASSERT VALUE shift_count = 3
+SELECT COUNT(*) AS shift_count FROM mfg.bronze.raw_shifts;
 
+ASSERT VALUE target_count = 12
 SELECT COUNT(*) AS target_count FROM mfg.bronze.raw_production_targets;
-ASSERT VALUE target_count = 12;
 
 -- =============================================================================
 -- STEP 2a: Validate readings — CHECK constraints, out-of-range flagging

@@ -191,20 +191,21 @@ WHEN NOT MATCHED THEN INSERT (
 -- =============================================================================
 
 -- Validated should now have 90 + 10 = 100
+ASSERT VALUE validated_total = 100
 SELECT COUNT(*) AS validated_total FROM mfg.silver.readings_validated;
 
-ASSERT VALUE validated_total = 100
+-- Verify R-093 is in range after validation
+ASSERT VALUE in_range_flag = true
 SELECT reading_id, value, in_range_flag
 FROM mfg.silver.readings_validated
 WHERE reading_id = 'R-093';
 
 -- Verify anomaly detection in incremental batch (R-093 temp = 91.0 spike)
-ASSERT VALUE in_range_flag = true
+ASSERT VALUE anomaly_flag = true
 SELECT reading_id, value, anomaly_flag, anomaly_reason
 FROM mfg.silver.readings_smoothed
 WHERE reading_id = 'R-093';
 
-ASSERT VALUE anomaly_flag = true
 SELECT MAX(validated_at) AS new_watermark
 FROM mfg.silver.readings_validated;
 

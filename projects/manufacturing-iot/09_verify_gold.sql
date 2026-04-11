@@ -5,38 +5,35 @@
 -- -----------------------------------------------------------------------------
 -- 1. Verify fact table row count (90 readings)
 -- -----------------------------------------------------------------------------
+ASSERT VALUE fact_readings_count >= 90
 SELECT COUNT(*) AS fact_readings_count
 FROM mfg.gold.fact_readings;
-
-ASSERT VALUE fact_readings_count >= 90
 
 -- -----------------------------------------------------------------------------
 -- 2. Verify all 16 sensors in dimension
 -- -----------------------------------------------------------------------------
+ASSERT VALUE sensor_count = 16
 SELECT COUNT(*) AS sensor_count
 FROM mfg.gold.dim_sensor;
-
-ASSERT VALUE sensor_count = 16
 
 -- -----------------------------------------------------------------------------
 -- 3. Verify 12 production lines in dimension
 -- -----------------------------------------------------------------------------
+ASSERT VALUE line_count = 12
 SELECT COUNT(*) AS line_count
 FROM mfg.gold.dim_line;
-
-ASSERT VALUE line_count = 12
 
 -- -----------------------------------------------------------------------------
 -- 4. Verify 3 shifts in dimension
 -- -----------------------------------------------------------------------------
+ASSERT VALUE shift_count = 3
 SELECT COUNT(*) AS shift_count
 FROM mfg.gold.dim_shift;
-
-ASSERT VALUE shift_count = 3
 
 -- -----------------------------------------------------------------------------
 -- 5. Anomaly detection verification — anomalies must exist
 -- -----------------------------------------------------------------------------
+ASSERT VALUE total_readings > 0
 SELECT
   ds.sensor_type,
   COUNT(*) AS total_readings,
@@ -49,11 +46,10 @@ JOIN mfg.gold.dim_sensor ds ON f.sensor_key = ds.sensor_key
 GROUP BY ds.sensor_type
 ORDER BY anomaly_pct DESC;
 
-ASSERT VALUE total_readings > 0
-
 -- -----------------------------------------------------------------------------
 -- 6. OEE by plant/line/shift — all OEE components must be > 0
 -- -----------------------------------------------------------------------------
+ASSERT VALUE oee_pct > 0
 SELECT
   plant_id,
   line_name,
@@ -71,11 +67,10 @@ SELECT
 FROM mfg.gold.kpi_oee
 ORDER BY oee_pct DESC;
 
-ASSERT VALUE oee_pct > 0
-
 -- -----------------------------------------------------------------------------
 -- 7. Anomaly trend analysis — trends by sensor type and month
 -- -----------------------------------------------------------------------------
+ASSERT VALUE anomaly_count > 0
 SELECT
   sensor_type,
   plant_id,
@@ -89,11 +84,10 @@ FROM mfg.gold.kpi_anomaly_trends
 WHERE anomaly_count > 0
 ORDER BY anomaly_rate_pct DESC;
 
-ASSERT VALUE anomaly_count > 0
-
 -- -----------------------------------------------------------------------------
 -- 8. Equipment status verification — downtime events captured
 -- -----------------------------------------------------------------------------
+ASSERT VALUE downtime_minutes > 0
 SELECT
   plant_id,
   line_name,
@@ -108,11 +102,10 @@ FROM mfg.silver.equipment_status
 WHERE unplanned_stops > 0
 ORDER BY downtime_minutes DESC;
 
-ASSERT VALUE downtime_minutes > 0
-
 -- -----------------------------------------------------------------------------
 -- 9. Predictive maintenance signals using LAG/LEAD
 -- -----------------------------------------------------------------------------
+ASSERT VALUE reading_id IS NOT NULL
 SELECT
   sm.reading_id,
   sm.sensor_id,
@@ -129,11 +122,10 @@ FROM mfg.silver.readings_smoothed sm
 WHERE sm.anomaly_flag = true
 ORDER BY sm.reading_time;
 
-ASSERT VALUE reading_id IS NOT NULL
-
 -- -----------------------------------------------------------------------------
 -- 10. Quality score distribution by shift
 -- -----------------------------------------------------------------------------
+ASSERT VALUE readings > 0
 SELECT
   dsh.shift_name,
   dsh.supervisor,
@@ -146,11 +138,10 @@ JOIN mfg.gold.dim_shift dsh ON f.shift_key = dsh.shift_key
 GROUP BY dsh.shift_name, dsh.supervisor
 ORDER BY avg_quality DESC;
 
-ASSERT VALUE readings > 0
-
 -- -----------------------------------------------------------------------------
 -- 11. Plant-level smoothed value trend with anomaly count
 -- -----------------------------------------------------------------------------
+ASSERT VALUE avg_value > 0
 SELECT
   sm.plant_id,
   sm.line_name,
@@ -162,11 +153,10 @@ FROM mfg.silver.readings_smoothed sm
 GROUP BY sm.plant_id, sm.line_name, CAST(sm.reading_time AS DATE)
 ORDER BY sm.plant_id, reading_date;
 
-ASSERT VALUE avg_value > 0
-
 -- -----------------------------------------------------------------------------
 -- 12. CHECK constraint validation: no readings outside absolute physical limits
 -- -----------------------------------------------------------------------------
+ASSERT VALUE out_of_range = 0
 SELECT COUNT(*) AS out_of_range
 FROM mfg.bronze.raw_readings r
 JOIN mfg.bronze.raw_sensors s ON r.sensor_id = s.sensor_id
@@ -175,5 +165,4 @@ WHERE (s.sensor_type = 'temperature' AND r.value NOT BETWEEN -50 AND 500)
  OR (s.sensor_type = 'vibration'   AND r.value NOT BETWEEN 0 AND 50000)
  OR (s.sensor_type = 'rpm'         AND r.value NOT BETWEEN 0 AND 20000);
 
-ASSERT VALUE out_of_range = 0
 SELECT 'All 12 gold-layer assertions passed' AS verification_status;
