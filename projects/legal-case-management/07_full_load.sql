@@ -54,7 +54,7 @@ SELECT
     agg.total_billed_amount,
     -- Complexity: log(hours+1) * sqrt(attorney_count) * ln(party_count+1) normalized 1-10
     LEAST(10.0, GREATEST(1.0, ROUND(
-        LN(GREATEST(1, agg.total_billed_hours + 1))
+        LN(GREATEST(1.0, CAST(agg.total_billed_hours AS DOUBLE) + 1.0))
         * SQRT(CAST(agg.attorney_count AS DOUBLE))
         * LN(CAST(agg.party_count + 1 AS DOUBLE))
         / 2.0
