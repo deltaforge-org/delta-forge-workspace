@@ -422,7 +422,7 @@ USING (
     SELECT
         sm.sensor_type,
         sm.plant_id,
-        DATE_TRUNC('month', sm.reading_time) AS trend_month,
+        CAST(DATE_TRUNC('month', sm.reading_time) AS STRING) AS trend_month,
         COUNT(*) AS total_readings,
         COUNT(CASE WHEN sm.anomaly_flag = true THEN 1 END) AS anomaly_count,
         CAST(
