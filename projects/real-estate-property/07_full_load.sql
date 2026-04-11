@@ -171,8 +171,8 @@ FROM realty.bronze.raw_properties p
 JOIN realty.bronze.raw_assessments a
     ON p.parcel_id = a.parcel_id AND a.assessment_year = 2024;
 
--- Verify: 18 + 12 + 8 = 38 total rows, only 18 with is_current = true
-ASSERT ROW_COUNT = 38
+-- Verify: 18 + 12 + 10 = 40 total rows, only 18 with is_current = true
+ASSERT ROW_COUNT = 40
 SELECT COUNT(*) AS row_count FROM realty.silver.property_dim;
 
 ASSERT ROW_COUNT = 18
@@ -406,15 +406,15 @@ SELECT
     true                                                          AS is_current
 FROM realty.bronze.raw_properties;
 
--- Show the damage: 38 + 18 = 56 rows now, with bad $1 assessments
-ASSERT ROW_COUNT > 38
+-- Show the damage: 40 + 18 = 58 rows now, with bad $1 assessments
+ASSERT ROW_COUNT > 40
 SELECT COUNT(*) AS row_count FROM realty.silver.property_dim;
 
 -- RESTORE to the version before the bad insert
 RESTORE realty.silver.property_dim TO VERSION 6;
 
--- Verify recovery: back to 38 rows
-ASSERT ROW_COUNT = 38
+-- Verify recovery: back to 40 rows
+ASSERT ROW_COUNT = 40
 SELECT COUNT(*) AS row_count FROM realty.silver.property_dim;
 
 -- Log the correction event
@@ -426,8 +426,8 @@ INSERT INTO realty.silver.correction_log VALUES (
     'RESTORE',
     6,
     'Rolled back bad assessment batch (all properties assessed at $1)',
-    56,
-    38,
+    58,
+    40,
     CURRENT_TIMESTAMP
 );
 

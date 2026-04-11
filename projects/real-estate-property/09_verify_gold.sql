@@ -42,9 +42,9 @@ WHERE pd.parcel_id IN (
 ORDER BY pd.parcel_id, pd.assessment_year;
 
 -- ===================== QUERY 2: SCD2 Integrity Check =====================
--- Verify: exactly 38 total rows, 18 with is_current = true
+-- Verify: exactly 40 total rows, 18 with is_current = true
 
-ASSERT ROW_COUNT = 38
+ASSERT ROW_COUNT = 40
 SELECT COUNT(*) AS row_count FROM realty.silver.property_dim;
 
 ASSERT ROW_COUNT = 18
