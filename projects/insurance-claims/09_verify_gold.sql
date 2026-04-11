@@ -15,31 +15,31 @@ FROM ins.silver.policy_dim
 WHERE policy_id = 'POL001'
 ORDER BY valid_from;
 
+ASSERT VALUE pol001_versions = 3
 SELECT COUNT(*) AS pol001_versions
 FROM ins.silver.policy_dim
 WHERE policy_id = 'POL001';
 
-ASSERT VALUE pol001_versions = 3
 SELECT 'POL001 has 3 SCD2 versions (new, premium_increase, coverage_upgrade)' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 2. SCD2: Only 1 current version per policy
 -- -----------------------------------------------------------------------------
+ASSERT VALUE current_pol001 = 1
 SELECT COUNT(*) AS current_pol001
 FROM ins.silver.policy_dim
 WHERE policy_id = 'POL001' AND is_current = 1;
 
-ASSERT VALUE current_pol001 = 1
 SELECT 'Exactly 1 current version per policy verified' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 3. SCD2: Total current policies = 15 (distinct policy_ids)
 -- -----------------------------------------------------------------------------
+ASSERT VALUE total_current = 15
 SELECT COUNT(*) AS total_current
 FROM ins.silver.policy_dim
 WHERE is_current = 1;
 
-ASSERT VALUE total_current = 15
 SELECT '15 current policies verified' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -58,11 +58,10 @@ ORDER BY ce.incident_date;
 
 -- POL001 claim from 2023-03-15 should use auto/1380 (premium_increase version)
 -- POL001 claim from 2024-01-05 should use auto_plus/1650 (coverage_upgrade version)
-SELECT ce.coverage_type AS jan2024_coverage
-FROM ins.silver.claims_enriched ce
-WHERE ce.claim_id = 'C0039';
+ASSERT VALUE jan2024_coverage = 'auto_plus' WHERE claim_id = 'C0039'
+SELECT claim_id, coverage_type AS jan2024_coverage
+FROM ins.silver.claims_enriched;
 
-ASSERT VALUE jan2024_coverage = 'auto_plus'
 SELECT 'Point-in-time join correctly resolved to coverage_upgrade version' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -74,11 +73,11 @@ FROM ins.silver.claims_enriched
 WHERE fraud_risk = 'high_risk'
 ORDER BY fraud_score DESC;
 
+ASSERT VALUE high_risk_count >= 2
 SELECT COUNT(*) AS high_risk_count
 FROM ins.silver.claims_enriched
 WHERE fraud_risk = 'high_risk';
 
-ASSERT VALUE high_risk_count >= 2
 SELECT 'Fraud outlier detection identified high-risk claims' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -105,10 +104,10 @@ ORDER BY fc.claim_amount DESC
 LIMIT 10;
 
 -- Highest claim should be >= $150k (outlier liability claims)
+ASSERT VALUE max_claim >= 150000
 SELECT MAX(fc.claim_amount) AS max_claim
 FROM ins.gold.fact_claims fc;
 
-ASSERT VALUE max_claim >= 150000
 SELECT 'Max claim exceeds $150K (outlier liability verified)' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -122,11 +121,11 @@ ORDER BY loss_ratio DESC
 LIMIT 10;
 
 -- Liability should have the highest loss ratio
+ASSERT VALUE liability_total >= 200000
 SELECT SUM(total_claimed) AS liability_total
 FROM ins.gold.kpi_loss_ratios
 WHERE coverage_type = 'liability';
 
-ASSERT VALUE liability_total >= 200000
 SELECT 'Liability coverage has substantial claim volume' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -139,12 +138,12 @@ FROM ins.gold.kpi_adjuster_performance
 ORDER BY claims_handled DESC;
 
 -- ADJ02 (auto) or ADJ04 (health) should handle the most claims
+ASSERT VALUE top_adjuster IS NOT NULL
 SELECT adjuster_id AS top_adjuster
 FROM ins.gold.kpi_adjuster_performance
 ORDER BY claims_handled DESC
 LIMIT 1;
 
-ASSERT VALUE top_adjuster IS NOT NULL
 SELECT 'Top adjuster by volume identified' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -161,45 +160,46 @@ FROM ins.gold.fact_claims fc
 GROUP BY fc.status
 ORDER BY claim_count DESC;
 
+ASSERT VALUE status_count >= 3
 SELECT COUNT(DISTINCT status) AS status_count
 FROM ins.gold.fact_claims;
 
-ASSERT VALUE status_count >= 3
 SELECT 'Multiple claim statuses present (settled, filed, under_review, denied)' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 10. Dimension completeness
 -- -----------------------------------------------------------------------------
-SELECT COUNT(*) AS claimant_count FROM ins.gold.dim_claimant;
 ASSERT VALUE claimant_count = 12
+SELECT COUNT(*) AS claimant_count FROM ins.gold.dim_claimant;
 
-SELECT COUNT(*) AS adjuster_count FROM ins.gold.dim_adjuster;
 ASSERT VALUE adjuster_count = 6
+SELECT COUNT(*) AS adjuster_count FROM ins.gold.dim_adjuster;
 
-SELECT COUNT(*) AS coverage_count FROM ins.gold.dim_coverage_type;
 ASSERT VALUE coverage_count >= 6
+SELECT COUNT(*) AS coverage_count FROM ins.gold.dim_coverage_type;
+
 SELECT 'All dimensions fully loaded (12 claimants, 6 adjusters, 6+ coverage types)' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 11. Referential integrity: fact -> dim_claimant
 -- -----------------------------------------------------------------------------
+ASSERT VALUE orphan_claimants = 0
 SELECT COUNT(*) AS orphan_claimants
 FROM ins.gold.fact_claims fc
 LEFT JOIN ins.gold.dim_claimant dc ON fc.claimant_key = dc.claimant_key
 WHERE dc.claimant_key IS NULL;
 
-ASSERT VALUE orphan_claimants = 0
 SELECT 'Zero orphan claimants in fact table' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 12. Referential integrity: fact -> dim_adjuster
 -- -----------------------------------------------------------------------------
+ASSERT VALUE orphan_adjusters = 0
 SELECT COUNT(*) AS orphan_adjusters
 FROM ins.gold.fact_claims fc
 LEFT JOIN ins.gold.dim_adjuster da ON fc.adjuster_key = da.adjuster_key
 WHERE da.adjuster_key IS NULL;
 
-ASSERT VALUE orphan_adjusters = 0
 SELECT 'Zero orphan adjusters in fact table' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -216,19 +216,19 @@ JOIN ins.silver.policy_dim pd ON fc.policy_surrogate_key = pd.surrogate_key
 GROUP BY pd.region
 ORDER BY total_claimed DESC;
 
+ASSERT VALUE region_count >= 4
 SELECT COUNT(DISTINCT pd.region) AS region_count
 FROM ins.gold.fact_claims fc
 JOIN ins.silver.policy_dim pd ON fc.policy_surrogate_key = pd.surrogate_key;
 
-ASSERT VALUE region_count >= 4
 SELECT 'Claims distributed across 4+ regions' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 14. Actuarial snapshot captured initial policy loads
 -- -----------------------------------------------------------------------------
+ASSERT VALUE snapshot_count > 0
 SELECT COUNT(*) AS snapshot_count FROM ins.silver.actuarial_snapshots;
 
-ASSERT VALUE snapshot_count > 0
 SELECT 'Actuarial snapshots captured via CDF' AS status;
 
 -- =============================================================================

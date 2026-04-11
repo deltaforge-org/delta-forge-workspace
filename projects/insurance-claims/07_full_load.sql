@@ -45,17 +45,18 @@ PIPELINE ins_claims_pipeline
 ;
 -- ===================== validate_bronze =====================
 
-SELECT COUNT(*) AS raw_policy_count FROM ins.bronze.raw_policies;
 ASSERT VALUE raw_policy_count = 23
+SELECT COUNT(*) AS raw_policy_count FROM ins.bronze.raw_policies;
 
-SELECT COUNT(*) AS raw_claim_count FROM ins.bronze.raw_claims;
 ASSERT VALUE raw_claim_count = 45
+SELECT COUNT(*) AS raw_claim_count FROM ins.bronze.raw_claims;
 
-SELECT COUNT(*) AS raw_claimant_count FROM ins.bronze.raw_claimants;
 ASSERT VALUE raw_claimant_count = 12
+SELECT COUNT(*) AS raw_claimant_count FROM ins.bronze.raw_claimants;
 
-SELECT COUNT(*) AS raw_adjuster_count FROM ins.bronze.raw_adjusters;
 ASSERT VALUE raw_adjuster_count = 6
+SELECT COUNT(*) AS raw_adjuster_count FROM ins.bronze.raw_adjusters;
+
 SELECT 'Bronze validation passed: 23 policies, 45 claims, 12 claimants, 6 adjusters' AS status;
 
 -- ===================== expire_scd2_policies =====================
@@ -138,11 +139,12 @@ WHEN MATCHED THEN UPDATE SET
     processed_at   = CURRENT_TIMESTAMP;
 
 -- Verify SCD2 structure: 23 total rows, 15 current
-SELECT COUNT(*) AS scd2_total FROM ins.silver.policy_dim;
 ASSERT VALUE scd2_total = 23
+SELECT COUNT(*) AS scd2_total FROM ins.silver.policy_dim;
 
-SELECT COUNT(*) AS scd2_current FROM ins.silver.policy_dim WHERE is_current = 1;
 ASSERT VALUE scd2_current = 15
+SELECT COUNT(*) AS scd2_current FROM ins.silver.policy_dim WHERE is_current = 1;
+
 SELECT 'SCD2 verified: 23 total versions, 15 current' AS status;
 
 -- ===================== enable_cdf_actuarial =====================
@@ -174,18 +176,17 @@ WHEN NOT MATCHED THEN INSERT (
 -- Parallel with SCD2 steps: validate claims data quality
 
 -- Check for claims with invalid dates (reported before incident)
+ASSERT VALUE invalid_dates = 0
 SELECT COUNT(*) AS invalid_dates
 FROM ins.bronze.raw_claims
 WHERE reported_date < incident_date;
 
-ASSERT VALUE invalid_dates = 0
-
 -- Check for negative claim amounts
+ASSERT VALUE negative_amounts = 0
 SELECT COUNT(*) AS negative_amounts
 FROM ins.bronze.raw_claims
 WHERE claim_amount <= 0;
 
-ASSERT VALUE negative_amounts = 0
 SELECT 'Claims data quality validated' AS status;
 
 -- ===================== enrich_claims_point_in_time =====================
@@ -272,15 +273,15 @@ WHEN NOT MATCHED THEN INSERT (
     source.fraud_risk, source.fraud_score, CURRENT_TIMESTAMP
 );
 
-SELECT COUNT(*) AS enriched_count FROM ins.silver.claims_enriched;
 ASSERT VALUE enriched_count = 45
+SELECT COUNT(*) AS enriched_count FROM ins.silver.claims_enriched;
 
 -- Verify fraud detection found the 3 outliers
+ASSERT VALUE high_risk_count >= 2
 SELECT COUNT(*) AS high_risk_count
 FROM ins.silver.claims_enriched
 WHERE fraud_risk = 'high_risk';
 
-ASSERT VALUE high_risk_count >= 2
 SELECT 'Claims enriched with point-in-time policy + fraud scoring' AS status;
 
 -- ===================== build_dim_claimant =====================
@@ -504,8 +505,9 @@ SELECT COUNT(*) AS post_bad_count FROM ins.silver.claims_enriched;
 RESTORE ins.silver.claims_enriched TO VERSION 1;
 
 -- Verify restoration: count should be back to original
-SELECT COUNT(*) AS post_restore_count FROM ins.silver.claims_enriched;
 ASSERT VALUE post_restore_count = 45
+SELECT COUNT(*) AS post_restore_count FROM ins.silver.claims_enriched;
+
 SELECT 'RESTORE correction verified: bad batch rolled back successfully' AS status;
 
 -- ===================== optimize =====================

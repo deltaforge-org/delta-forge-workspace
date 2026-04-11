@@ -248,21 +248,23 @@ WHEN NOT MATCHED THEN INSERT (
 -- =============================================================================
 
 -- Claims should have grown by 5 (C0025 updated, not added)
+ASSERT VALUE post_claim_count = 50
 SELECT COUNT(*) AS post_claim_count FROM ins.silver.claims_enriched;
 
-ASSERT VALUE post_claim_count = 50
 SELECT 'Incremental claims: 45 -> 50 (5 new)' AS status;
 
 -- Verify C0025 was updated to settled
-SELECT status AS c0025_status FROM ins.silver.claims_enriched WHERE claim_id = 'C0025';
-ASSERT VALUE c0025_status = 'settled'
+ASSERT VALUE c0025_status = 'settled' WHERE claim_id = 'C0025'
+SELECT claim_id, status AS c0025_status FROM ins.silver.claims_enriched;
 
 -- Verify SCD2 grew by 2 (POL003 premium_increase + POL010 coverage_upgrade)
-SELECT COUNT(*) AS post_scd2_count FROM ins.silver.policy_dim;
 ASSERT VALUE post_scd2_count = 25
+SELECT COUNT(*) AS post_scd2_count FROM ins.silver.policy_dim;
+
 SELECT 'SCD2 grew: 23 -> 25 (2 new changes)' AS status;
 
 -- Verify no duplicate claims
+ASSERT VALUE dup_check = 0
 SELECT COUNT(*) AS dup_check
 FROM (
   SELECT claim_id, COUNT(*) AS cnt
@@ -271,5 +273,4 @@ FROM (
   HAVING COUNT(*) > 1
 );
 
-ASSERT VALUE dup_check = 0
 SELECT 'Incremental load complete: no duplicates, SCD2 updated, CDF captured' AS status;
