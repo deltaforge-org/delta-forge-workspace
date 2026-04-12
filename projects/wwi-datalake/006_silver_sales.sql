@@ -5,7 +5,17 @@
 --   method, and geography into a single wide row.
 -- Sale view: joins invoice lines with invoice and order headers to produce
 --   the invoice-line grain fact with profit margin and fulfillment metrics.
+-- CREATE OR REPLACE VIEW is idempotent - safe to run on every schedule.
 -- ============================================================================
+
+PIPELINE wwi_lake.silver_sales
+    DESCRIPTION 'Create/refresh customer, sale, and transaction silver views'
+    SCHEDULE '0 4 * * *'
+    TIMEZONE 'UTC'
+    TAGS 'wwi', 'silver', 'views', 'sales'
+    SLA 0.5
+    FAIL_FAST true
+    LIFECYCLE PRODUCTION;
 
 -- Customer with all lookups resolved
 

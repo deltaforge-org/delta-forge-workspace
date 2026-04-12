@@ -5,7 +5,17 @@
 -- Purchase view: PO-line grain with order/received totals, fulfillment %,
 --   and supplier lead time in days.
 -- Supplier transaction view: settlement metrics.
+-- CREATE OR REPLACE VIEW is idempotent - safe to run on every schedule.
 -- ============================================================================
+
+PIPELINE wwi_lake.silver_purchasing
+    DESCRIPTION 'Create/refresh supplier, purchase, and transaction silver views'
+    SCHEDULE '0 4 * * *'
+    TIMEZONE 'UTC'
+    TAGS 'wwi', 'silver', 'views', 'purchasing'
+    SLA 0.5
+    FAIL_FAST true
+    LIFECYCLE PRODUCTION;
 
 -- Supplier with all lookups resolved
 
