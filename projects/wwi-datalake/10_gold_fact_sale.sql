@@ -9,7 +9,6 @@ PIPELINE wwi_lake.gold_fact_sale
     SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'gold', 'fact'
     FAIL_FAST true
-    STATUS DISABLED
     LIFECYCLE PRODUCTION;
 
 CREATE DELTA TABLE IF NOT EXISTS wwi_lake.gold.fact_sale (

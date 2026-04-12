@@ -10,7 +10,6 @@ PIPELINE wwi_lake.gold_calendar
     SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'gold', 'dimension'
     FAIL_FAST true
-    STATUS DISABLED
     LIFECYCLE PRODUCTION;
 
 CREATE DELTA TABLE IF NOT EXISTS wwi_lake.gold.dim_date (

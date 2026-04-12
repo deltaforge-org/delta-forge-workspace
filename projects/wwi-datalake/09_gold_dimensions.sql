@@ -10,7 +10,6 @@ PIPELINE wwi_lake.gold_dimensions
     SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'gold', 'dimension'
     FAIL_FAST true
-    STATUS DISABLED
     LIFECYCLE PRODUCTION;
 
 -- dim_customer

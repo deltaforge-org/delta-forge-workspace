@@ -15,7 +15,6 @@ PIPELINE wwi_lake.setup
     SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'mssql', 'setup'
     FAIL_FAST true
-    STATUS DISABLED
     LIFECYCLE PRODUCTION;
 
 -- Preflight: verify MSSQL connection

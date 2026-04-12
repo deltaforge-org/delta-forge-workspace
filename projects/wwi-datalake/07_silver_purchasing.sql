@@ -13,7 +13,6 @@ PIPELINE wwi_lake.silver_purchasing
     SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'silver', 'purchasing'
     FAIL_FAST true
-    STATUS DISABLED
     LIFECYCLE PRODUCTION;
 
 -- Supplier with all lookups resolved

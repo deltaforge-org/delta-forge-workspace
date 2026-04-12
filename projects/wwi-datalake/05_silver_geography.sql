@@ -12,7 +12,6 @@ PIPELINE wwi_lake.silver_geography
     SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'silver', 'geography'
     FAIL_FAST true
-    STATUS DISABLED
     LIFECYCLE PRODUCTION;
 
 -- Full geographic hierarchy in one row

@@ -9,7 +9,6 @@ PIPELINE wwi_lake.gold_fact_transactions
     SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'gold', 'fact'
     FAIL_FAST true
-    STATUS DISABLED
     LIFECYCLE PRODUCTION;
 
 -- fact_customer_transaction

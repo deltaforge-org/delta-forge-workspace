@@ -11,7 +11,6 @@ PIPELINE wwi_lake.bronze_purchasing
     SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'mssql', 'bronze', 'purchasing'
     FAIL_FAST true
-    STATUS DISABLED
     LIFECYCLE PRODUCTION;
 
 -- People

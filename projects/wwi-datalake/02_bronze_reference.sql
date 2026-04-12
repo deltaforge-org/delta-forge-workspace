@@ -10,7 +10,6 @@ PIPELINE wwi_lake.bronze_reference
     SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'mssql', 'bronze', 'reference'
     FAIL_FAST true
-    STATUS DISABLED
     LIFECYCLE PRODUCTION;
 
 -- Countries
