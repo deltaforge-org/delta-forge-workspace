@@ -174,34 +174,72 @@ GROUP BY pd.city, dpt.property_type,
     );
 
 -- ===================== rebuild_kpi_assessment =====================
+-- NOTE: PERCENTILE_CONT() must not appear more than once in the same SELECT list.
+-- Repeating it triggers a DataFusion optimizer bug in common_sub_expression_eliminate.
+-- Workaround: compute the percentile once in a CTE and reference the result by name.
 
 DELETE FROM realty.gold.kpi_assessment_accuracy WHERE 1=1;
 
 INSERT INTO realty.gold.kpi_assessment_accuracy
+WITH base_agg AS (
+    SELECT
+        pd.county,
+        dpt.property_type,
+        pd.assessment_year,
+        COUNT(*)                                                            AS total_sales,
+        ROUND(AVG(ft.assessed_value_at_sale), 2)                           AS avg_assessed_value,
+        ROUND(AVG(ft.sale_price), 2)                                       AS avg_sale_price,
+        ROUND(AVG(ft.assessed_vs_sale_ratio), 2)                           AS avg_ratio,
+        ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.assessed_vs_sale_ratio), 2) AS median_ratio,
+        SUM(CASE WHEN ft.assessment_outlier = true THEN 1 ELSE 0 END)      AS outlier_count
+    FROM realty.gold.fact_transactions ft
+    JOIN realty.silver.property_dim pd
+        ON ft.parcel_id = pd.parcel_id
+        AND pd.valid_from <= ft.transaction_date
+        AND (pd.valid_to IS NULL OR pd.valid_to > ft.transaction_date)
+    JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
+    GROUP BY pd.county, dpt.property_type, pd.assessment_year
+),
+-- Compute COD: need per-row deviation from median, so join median back to detail rows
+cod_calc AS (
+    SELECT
+        pd.county,
+        dpt.property_type,
+        pd.assessment_year,
+        ROUND(
+            100.0 * AVG(ABS(ft.assessed_vs_sale_ratio - ba.median_ratio))
+            / NULLIF(ba.median_ratio, 0),
+            2
+        ) AS cod
+    FROM realty.gold.fact_transactions ft
+    JOIN realty.silver.property_dim pd
+        ON ft.parcel_id = pd.parcel_id
+        AND pd.valid_from <= ft.transaction_date
+        AND (pd.valid_to IS NULL OR pd.valid_to > ft.transaction_date)
+    JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
+    JOIN base_agg ba
+        ON pd.county = ba.county
+        AND dpt.property_type = ba.property_type
+        AND pd.assessment_year = ba.assessment_year
+    GROUP BY pd.county, dpt.property_type, pd.assessment_year, ba.median_ratio
+)
 SELECT
-    pd.county,
-    dpt.property_type,
-    pd.assessment_year,
-    COUNT(*),
-    ROUND(AVG(ft.assessed_value_at_sale), 2),
-    ROUND(AVG(ft.sale_price), 2),
-    ROUND(AVG(ft.assessed_vs_sale_ratio), 2),
-    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.assessed_vs_sale_ratio), 2),
-    SUM(CASE WHEN ft.assessment_outlier = true THEN 1 ELSE 0 END),
-    ROUND(100.0 * SUM(CASE WHEN ft.assessment_outlier = true THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 2),
-    ROUND(
-        100.0 * AVG(ABS(ft.assessed_vs_sale_ratio
-            - PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.assessed_vs_sale_ratio)))
-        / NULLIF(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.assessed_vs_sale_ratio), 0),
-        2
-    )
-FROM realty.gold.fact_transactions ft
-JOIN realty.silver.property_dim pd
-    ON ft.parcel_id = pd.parcel_id
-    AND pd.valid_from <= ft.transaction_date
-    AND (pd.valid_to IS NULL OR pd.valid_to > ft.transaction_date)
-JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
-GROUP BY pd.county, dpt.property_type, pd.assessment_year;
+    b.county,
+    b.property_type,
+    b.assessment_year,
+    b.total_sales,
+    b.avg_assessed_value,
+    b.avg_sale_price,
+    b.avg_ratio,
+    b.median_ratio,
+    b.outlier_count,
+    ROUND(100.0 * b.outlier_count / NULLIF(b.total_sales, 0), 2) AS outlier_rate_pct,
+    COALESCE(c.cod, 0.00)                                         AS cod
+FROM base_agg b
+LEFT JOIN cod_calc c
+    ON b.county = c.county
+    AND b.property_type = c.property_type
+    AND b.assessment_year = c.assessment_year;
 
 -- ===================== scd2_incremental_assessment =====================
 -- Placeholder for processing new assessment batches arriving incrementally.
