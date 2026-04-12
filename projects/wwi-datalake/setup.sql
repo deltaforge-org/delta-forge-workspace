@@ -48,28 +48,3 @@ CREATE SCHEMA IF NOT EXISTS wwi_lake.silver
 CREATE SCHEMA IF NOT EXISTS wwi_lake.gold
     COMMENT 'Star schema for end users - materialized dimensions and facts';
 
--- ---------------------------------------------------------------------------
--- Bronze: ingest from MSSQL source
--- ---------------------------------------------------------------------------
-
-INCLUDE SCRIPT 'bronze/01_reference.sql';
-INCLUDE SCRIPT 'bronze/02_sales.sql';
-INCLUDE SCRIPT 'bronze/03_purchasing.sql';
-
--- ---------------------------------------------------------------------------
--- Silver: transformation views over bronze
--- ---------------------------------------------------------------------------
-
-INCLUDE SCRIPT 'silver/01_geography.sql';
-INCLUDE SCRIPT 'silver/02_sales.sql';
-INCLUDE SCRIPT 'silver/03_purchasing.sql';
-
--- ---------------------------------------------------------------------------
--- Gold: materialize star schema from silver views
--- ---------------------------------------------------------------------------
-
-INCLUDE SCRIPT 'gold/01_calendar.sql';
-INCLUDE SCRIPT 'gold/02_dimensions.sql';
-INCLUDE SCRIPT 'gold/03_fact_sale.sql';
-INCLUDE SCRIPT 'gold/04_fact_purchase.sql';
-INCLUDE SCRIPT 'gold/05_fact_transactions.sql';
