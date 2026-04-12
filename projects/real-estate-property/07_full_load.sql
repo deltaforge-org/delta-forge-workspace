@@ -303,85 +303,119 @@ JOIN realty.gold.dim_property_type dpt
 
 -- ===================== kpi_market_trends =====================
 -- Market trends by city x property_type x quarter.
+-- NOTE: The CONCAT quarter expression is computed once in a CTE to avoid
+-- duplicating complex expressions in SELECT + GROUP BY, which triggers
+-- the DataFusion common_sub_expression_eliminate optimizer bug.
 
 DELETE FROM realty.gold.kpi_market_trends WHERE 1=1;
 
 INSERT INTO realty.gold.kpi_market_trends
+WITH market_base AS (
+    SELECT
+        pd.city,
+        dpt.property_type,
+        CONCAT(
+            CAST(EXTRACT(YEAR FROM ft.transaction_date) AS STRING),
+            '-Q',
+            CAST(
+                CASE
+                    WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 3 THEN 1
+                    WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 6 THEN 2
+                    WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 9 THEN 3
+                    ELSE 4
+                END
+            AS STRING)
+        ) AS sale_quarter,
+        ft.sale_price,
+        ft.price_per_sqft,
+        ft.days_on_market,
+        ft.over_asking_pct
+    FROM realty.gold.fact_transactions ft
+    JOIN realty.silver.property_dim pd ON ft.parcel_id = pd.parcel_id AND pd.is_current = true
+    JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
+)
 SELECT
-    pd.city,
-    dpt.property_type,
-    CONCAT(
-        CAST(EXTRACT(YEAR FROM ft.transaction_date) AS STRING),
-        '-Q',
-        CAST(
-            CASE
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 3 THEN 1
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 6 THEN 2
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 9 THEN 3
-                ELSE 4
-            END
-        AS STRING)
-    )                                                             AS sale_quarter,
-    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.sale_price), 2) AS median_sale_price,
-    ROUND(AVG(ft.price_per_sqft), 2)                             AS avg_price_per_sqft,
-    ROUND(AVG(ft.days_on_market), 1)                             AS avg_days_on_market,
+    city,
+    property_type,
+    sale_quarter,
+    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price), 2) AS median_sale_price,
+    ROUND(AVG(price_per_sqft), 2)                                AS avg_price_per_sqft,
+    ROUND(AVG(days_on_market), 1)                                AS avg_days_on_market,
     COUNT(*)                                                      AS total_transactions,
-    ROUND(AVG(ft.over_asking_pct), 2)                            AS avg_over_asking_pct,
-    -- Inventory months approximation
+    ROUND(AVG(over_asking_pct), 2)                               AS avg_over_asking_pct,
     ROUND(18.0 / NULLIF(COUNT(*) / 3.0, 0), 1)                  AS inventory_months,
     0.00                                                          AS yoy_price_change_pct
-FROM realty.gold.fact_transactions ft
-JOIN realty.silver.property_dim pd ON ft.parcel_id = pd.parcel_id AND pd.is_current = true
-JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
-GROUP BY pd.city, dpt.property_type,
-    CONCAT(
-        CAST(EXTRACT(YEAR FROM ft.transaction_date) AS STRING),
-        '-Q',
-        CAST(
-            CASE
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 3 THEN 1
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 6 THEN 2
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 9 THEN 3
-                ELSE 4
-            END
-        AS STRING)
-    );
+FROM market_base
+GROUP BY city, property_type, sale_quarter;
 
 -- ===================== kpi_assessment_accuracy =====================
 -- Assessed value vs actual sale price analysis by county x property_type x assessment_year.
 -- COD (Coefficient of Dispersion) = avg absolute deviation from median ratio.
+-- NOTE: PERCENTILE_CONT() must not appear more than once in the same SELECT list.
+-- Repeating it triggers a DataFusion optimizer bug in common_sub_expression_eliminate.
+-- Workaround: compute the percentile once in a CTE and reference the result by name.
 
 DELETE FROM realty.gold.kpi_assessment_accuracy WHERE 1=1;
 
 INSERT INTO realty.gold.kpi_assessment_accuracy
+WITH base_agg AS (
+    SELECT
+        pd.county,
+        dpt.property_type,
+        pd.assessment_year,
+        COUNT(*)                                                            AS total_sales,
+        ROUND(AVG(ft.assessed_value_at_sale), 2)                           AS avg_assessed_value,
+        ROUND(AVG(ft.sale_price), 2)                                       AS avg_sale_price,
+        ROUND(AVG(ft.assessed_vs_sale_ratio), 2)                           AS avg_ratio,
+        ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.assessed_vs_sale_ratio), 2) AS median_ratio,
+        SUM(CASE WHEN ft.assessment_outlier = true THEN 1 ELSE 0 END)      AS outlier_count
+    FROM realty.gold.fact_transactions ft
+    JOIN realty.silver.property_dim pd
+        ON ft.parcel_id = pd.parcel_id
+        AND pd.valid_from <= ft.transaction_date
+        AND (pd.valid_to IS NULL OR pd.valid_to > ft.transaction_date)
+    JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
+    GROUP BY pd.county, dpt.property_type, pd.assessment_year
+),
+cod_calc AS (
+    SELECT
+        pd.county,
+        dpt.property_type,
+        pd.assessment_year,
+        ROUND(
+            100.0 * AVG(ABS(ft.assessed_vs_sale_ratio - ba.median_ratio))
+            / NULLIF(ba.median_ratio, 0),
+            2
+        ) AS cod
+    FROM realty.gold.fact_transactions ft
+    JOIN realty.silver.property_dim pd
+        ON ft.parcel_id = pd.parcel_id
+        AND pd.valid_from <= ft.transaction_date
+        AND (pd.valid_to IS NULL OR pd.valid_to > ft.transaction_date)
+    JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
+    JOIN base_agg ba
+        ON pd.county = ba.county
+        AND dpt.property_type = ba.property_type
+        AND pd.assessment_year = ba.assessment_year
+    GROUP BY pd.county, dpt.property_type, pd.assessment_year, ba.median_ratio
+)
 SELECT
-    pd.county,
-    dpt.property_type,
-    pd.assessment_year,
-    COUNT(*)                                                      AS total_sales,
-    ROUND(AVG(ft.assessed_value_at_sale), 2)                     AS avg_assessed_value,
-    ROUND(AVG(ft.sale_price), 2)                                 AS avg_sale_price,
-    ROUND(AVG(ft.assessed_vs_sale_ratio), 2)                     AS avg_ratio,
-    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.assessed_vs_sale_ratio), 2) AS median_ratio,
-    SUM(CASE WHEN ft.assessment_outlier = true THEN 1 ELSE 0 END) AS outlier_count,
-    ROUND(
-        100.0 * SUM(CASE WHEN ft.assessment_outlier = true THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0),
-        2
-    )                                                             AS outlier_rate_pct,
-    -- COD: average |ratio - median_ratio| / median_ratio * 100
-    ROUND(
-        100.0 * AVG(ABS(ft.assessed_vs_sale_ratio
-            - PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.assessed_vs_sale_ratio)))
-        / NULLIF(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.assessed_vs_sale_ratio), 0),
-        2
-    )                                                             AS cod
-FROM realty.gold.fact_transactions ft
-JOIN realty.silver.property_dim pd
-    ON ft.parcel_id = pd.parcel_id
-    AND pd.valid_from <= ft.transaction_date
-    AND (pd.valid_to IS NULL OR pd.valid_to > ft.transaction_date)
-JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
-GROUP BY pd.county, dpt.property_type, pd.assessment_year;
+    b.county,
+    b.property_type,
+    b.assessment_year,
+    b.total_sales,
+    b.avg_assessed_value,
+    b.avg_sale_price,
+    b.avg_ratio,
+    b.median_ratio,
+    b.outlier_count,
+    ROUND(100.0 * b.outlier_count / NULLIF(b.total_sales, 0), 2) AS outlier_rate_pct,
+    COALESCE(c.cod, 0.00)                                         AS cod
+FROM base_agg b
+LEFT JOIN cod_calc c
+    ON b.county = c.county
+    AND b.property_type = c.property_type
+    AND b.assessment_year = c.assessment_year;
 
 -- ===================== restore_correction_demo =====================
 -- Simulate a bad assessment batch: insert garbage data, capture the damage,
