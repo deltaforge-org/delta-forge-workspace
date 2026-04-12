@@ -1,5 +1,5 @@
 -- ============================================================================
--- WWI Data Lake - Silver Geography & Reference Views
+-- Silver Geography & Reference Views
 -- ============================================================================
 -- Flattens the city -> state -> country hierarchy into a single row.
 -- Resolves employee subset from people.
@@ -7,6 +7,12 @@
 -- CREATE OR REPLACE VIEW is idempotent - safe to run on every schedule.
 -- ============================================================================
 
+PIPELINE wwi_lake.silver_geography
+    DESCRIPTION 'WWI silver - geography hierarchy and employee views'
+    TAGS 'wwi', 'medallion', 'silver', 'geography'
+    FAIL_FAST true
+    STATUS DISABLED
+    LIFECYCLE PRODUCTION;
 
 -- Full geographic hierarchy in one row
 

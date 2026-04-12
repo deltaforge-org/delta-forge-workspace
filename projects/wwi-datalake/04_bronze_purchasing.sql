@@ -6,6 +6,13 @@
 -- Each table: CREATE IF NOT EXISTS + SET INCREMENTAL CONFIG + MERGE.
 -- ============================================================================
 
+PIPELINE wwi_lake.bronze_purchasing
+    DESCRIPTION 'WWI bronze - incremental purchasing & people from MSSQL'
+    TAGS 'wwi', 'medallion', 'mssql', 'bronze', 'purchasing'
+    FAIL_FAST true
+    STATUS DISABLED
+    LIFECYCLE PRODUCTION;
+
 -- People
 
 CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.people (

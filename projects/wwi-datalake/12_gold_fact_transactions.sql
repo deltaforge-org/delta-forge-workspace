@@ -4,6 +4,13 @@
 -- Customer + supplier transactions with settlement metrics.
 -- ============================================================================
 
+PIPELINE wwi_lake.gold_fact_transactions
+    DESCRIPTION 'WWI gold - customer and supplier transaction facts'
+    TAGS 'wwi', 'medallion', 'gold', 'fact'
+    FAIL_FAST true
+    STATUS DISABLED
+    LIFECYCLE PRODUCTION;
+
 -- fact_customer_transaction
 
 CREATE DELTA TABLE IF NOT EXISTS wwi_lake.gold.fact_customer_transaction (

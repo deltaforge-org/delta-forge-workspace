@@ -4,6 +4,13 @@
 -- Invoice-line grain with profit margin, fulfillment days, backorder flag.
 -- ============================================================================
 
+PIPELINE wwi_lake.gold_fact_sale
+    DESCRIPTION 'WWI gold - fact_sale from silver sale view'
+    TAGS 'wwi', 'medallion', 'gold', 'fact'
+    FAIL_FAST true
+    STATUS DISABLED
+    LIFECYCLE PRODUCTION;
+
 CREATE DELTA TABLE IF NOT EXISTS wwi_lake.gold.fact_sale (
     invoice_line_id INT NOT NULL, invoice_id INT NOT NULL, order_id INT,
     customer_key INT NOT NULL, bill_to_customer_key INT, salesperson_key INT,

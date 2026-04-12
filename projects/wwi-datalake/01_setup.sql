@@ -1,5 +1,5 @@
 -- ============================================================================
--- WWI Data Lake - Master Pipeline
+-- WWI Data Lake - Zone & Schema Setup
 -- ============================================================================
 --
 -- PREREQUISITE:
@@ -7,33 +7,24 @@
 --   connection manager pointing to a WideWorldImporters database instance.
 --   All source tables are accessed as: mssql_WideWorldImporters.<Schema>.<Table>
 --
--- Execution order (fully idempotent, safe to run repeatedly):
---   1. Preflight  - verify MSSQL connection is reachable
---   2. Zones      - create zone and schemas (IF NOT EXISTS)
---   3. Bronze     - create tables + ingest from MSSQL
---   4. Silver     - create/refresh transformation views
---   5. Gold       - create tables + materialize star schema
+-- Creates zone and schemas (IF NOT EXISTS). Safe to run repeatedly.
 -- ============================================================================
 
-PIPELINE wwi_lake.pipeline
-    DESCRIPTION 'WWI datalake - bronze/silver/gold medallion from MSSQL source'
-    TAGS 'wwi', 'medallion', 'mssql'
+PIPELINE wwi_lake.setup
+    DESCRIPTION 'WWI datalake - zone and schema setup'
+    TAGS 'wwi', 'medallion', 'mssql', 'setup'
     FAIL_FAST true
     STATUS DISABLED
     LIFECYCLE PRODUCTION;
 
--- ---------------------------------------------------------------------------
 -- Preflight: verify MSSQL connection
--- ---------------------------------------------------------------------------
 
 ASSERT ERROR ROW_COUNT > 0
 SELECT cityid FROM mssql_WideWorldImporters.Application.Cities LIMIT 1;
 -- If this fails: create an MSSQL connection named "mssql" pointing to
 -- a WideWorldImporters database in the Connections page, then re-run.
 
--- ---------------------------------------------------------------------------
 -- Zone & Schemas
--- ---------------------------------------------------------------------------
 
 CREATE ZONE IF NOT EXISTS wwi_lake
     TYPE MANAGED
@@ -47,4 +38,3 @@ CREATE SCHEMA IF NOT EXISTS wwi_lake.silver
 
 CREATE SCHEMA IF NOT EXISTS wwi_lake.gold
     COMMENT 'Star schema for end users - materialized dimensions and facts';
-

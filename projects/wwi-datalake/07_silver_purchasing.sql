@@ -1,5 +1,5 @@
 -- ============================================================================
--- WWI Data Lake - Silver Purchasing Views
+-- Silver Purchasing Views
 -- ============================================================================
 -- Supplier view: denormalizes category, contact, delivery method, geography.
 -- Purchase view: PO-line grain with order/received totals, fulfillment %,
@@ -8,6 +8,12 @@
 -- CREATE OR REPLACE VIEW is idempotent - safe to run on every schedule.
 -- ============================================================================
 
+PIPELINE wwi_lake.silver_purchasing
+    DESCRIPTION 'WWI silver - supplier, purchase, and supplier transaction views'
+    TAGS 'wwi', 'medallion', 'silver', 'purchasing'
+    FAIL_FAST true
+    STATUS DISABLED
+    LIFECYCLE PRODUCTION;
 
 -- Supplier with all lookups resolved
 

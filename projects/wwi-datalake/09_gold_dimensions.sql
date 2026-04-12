@@ -5,6 +5,13 @@
 -- Each: CREATE IF NOT EXISTS + MERGE with NOT MATCHED BY SOURCE.
 -- ============================================================================
 
+PIPELINE wwi_lake.gold_dimensions
+    DESCRIPTION 'WWI gold - star schema dimensions from silver views'
+    TAGS 'wwi', 'medallion', 'gold', 'dimension'
+    FAIL_FAST true
+    STATUS DISABLED
+    LIFECYCLE PRODUCTION;
+
 -- dim_customer
 
 CREATE DELTA TABLE IF NOT EXISTS wwi_lake.gold.dim_customer (

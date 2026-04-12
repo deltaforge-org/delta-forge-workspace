@@ -5,6 +5,13 @@
 -- Idempotent: CREATE IF NOT EXISTS + MERGE on date_key.
 -- ============================================================================
 
+PIPELINE wwi_lake.gold_calendar
+    DESCRIPTION 'WWI gold - calendar date dimension'
+    TAGS 'wwi', 'medallion', 'gold', 'dimension'
+    FAIL_FAST true
+    STATUS DISABLED
+    LIFECYCLE PRODUCTION;
+
 CREATE DELTA TABLE IF NOT EXISTS wwi_lake.gold.dim_date (
     date_key INT NOT NULL, full_date DATE NOT NULL, day_of_week INT, day_name VARCHAR,
     day_of_month INT, day_of_year INT, week_of_year INT, month_number INT,

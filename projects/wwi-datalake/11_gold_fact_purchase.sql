@@ -4,6 +4,13 @@
 -- PO-line grain with fulfillment %, lead time, order/received totals.
 -- ============================================================================
 
+PIPELINE wwi_lake.gold_fact_purchase
+    DESCRIPTION 'WWI gold - fact_purchase from silver purchase view'
+    TAGS 'wwi', 'medallion', 'gold', 'fact'
+    FAIL_FAST true
+    STATUS DISABLED
+    LIFECYCLE PRODUCTION;
+
 CREATE DELTA TABLE IF NOT EXISTS wwi_lake.gold.fact_purchase (
     purchase_order_line_id INT NOT NULL, purchase_order_id INT NOT NULL,
     supplier_key INT NOT NULL, delivery_method_key INT,

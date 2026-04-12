@@ -5,6 +5,13 @@
 -- Each table: CREATE IF NOT EXISTS + MERGE with NOT MATCHED BY SOURCE.
 -- ============================================================================
 
+PIPELINE wwi_lake.bronze_reference
+    DESCRIPTION 'WWI bronze - full-load reference tables from MSSQL'
+    TAGS 'wwi', 'medallion', 'mssql', 'bronze', 'reference'
+    FAIL_FAST true
+    STATUS DISABLED
+    LIFECYCLE PRODUCTION;
+
 -- Countries
 
 CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.countries (

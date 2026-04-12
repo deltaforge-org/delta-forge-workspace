@@ -1,5 +1,5 @@
 -- ============================================================================
--- WWI Data Lake - Silver Sales Views
+-- Silver Sales Views
 -- ============================================================================
 -- Customer view: denormalizes category, buying group, contact, delivery
 --   method, and geography into a single wide row.
@@ -8,6 +8,12 @@
 -- CREATE OR REPLACE VIEW is idempotent - safe to run on every schedule.
 -- ============================================================================
 
+PIPELINE wwi_lake.silver_sales
+    DESCRIPTION 'WWI silver - customer and sale views over bronze'
+    TAGS 'wwi', 'medallion', 'silver', 'sales'
+    FAIL_FAST true
+    STATUS DISABLED
+    LIFECYCLE PRODUCTION;
 
 -- Customer with all lookups resolved
 
