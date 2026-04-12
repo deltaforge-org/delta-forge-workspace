@@ -37,7 +37,7 @@ USING (
         faxnumber AS fax_number, emailaddress AS email_address,
         customfields AS custom_fields, lasteditedby AS last_edited_by,
         validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Application.People
+    FROM mssql_WideWorldImporters.application.people
     WHERE validfrom >= (
         SELECT COALESCE(MAX(valid_from) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.people
@@ -84,7 +84,7 @@ USING (
         postaladdressline2 AS postal_address_line2,
         postalpostalcode AS postal_postal_code,
         lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Purchasing.Suppliers
+    FROM mssql_WideWorldImporters.purchasing.suppliers
     WHERE validfrom >= (
         SELECT COALESCE(MAX(valid_from) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.suppliers
@@ -113,7 +113,7 @@ USING (
         supplierreference AS supplier_reference, isorderfinalized AS is_order_finalized,
         comments, internalcomments AS internal_comments, lasteditedby AS last_edited_by,
         lasteditedwhen AS last_edited_when
-    FROM mssql_WideWorldImporters.Purchasing.PurchaseOrders
+    FROM mssql_WideWorldImporters.purchasing.purchase_orders
     WHERE lasteditedwhen >= (
         SELECT COALESCE(MAX(last_edited_when) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.purchase_orders
@@ -143,7 +143,7 @@ USING (
         expectedunitpriceperouter AS expected_unit_price_per_outer,
         lastreceiptdate AS last_receipt_date, isorderlinefinalized AS is_order_line_finalized,
         lasteditedby AS last_edited_by, lasteditedwhen AS last_edited_when
-    FROM mssql_WideWorldImporters.Purchasing.PurchaseOrderLines
+    FROM mssql_WideWorldImporters.purchasing.purchase_order_lines
     WHERE lasteditedwhen >= (
         SELECT COALESCE(MAX(last_edited_when) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.purchase_order_lines
@@ -175,7 +175,7 @@ USING (
         transactionamount AS transaction_amount, outstandingbalance AS outstanding_balance,
         finalizationdate AS finalization_date, lasteditedby AS last_edited_by,
         lasteditedwhen AS last_edited_when
-    FROM mssql_WideWorldImporters.Purchasing.SupplierTransactions
+    FROM mssql_WideWorldImporters.purchasing.supplier_transactions
     WHERE lasteditedwhen >= (
         SELECT COALESCE(MAX(last_edited_when) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.supplier_transactions

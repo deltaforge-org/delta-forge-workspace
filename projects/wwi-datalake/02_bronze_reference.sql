@@ -28,7 +28,7 @@ USING (
         countrytype AS country_type, latestrecordedpopulation AS latest_recorded_population,
         continent, region, subregion, lasteditedby AS last_edited_by,
         validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Application.Countries
+    FROM mssql_WideWorldImporters.application.countries
 ) AS src ON tgt.country_id = src.country_id
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
@@ -49,7 +49,7 @@ USING (
         stateprovincename AS state_province_name, countryid AS country_id,
         salesterritory AS sales_territory, latestrecordedpopulation AS latest_recorded_population,
         lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Application.StateProvinces
+    FROM mssql_WideWorldImporters.application.state_provinces
 ) AS src ON tgt.state_province_id = src.state_province_id
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
@@ -68,7 +68,7 @@ USING (
     SELECT cityid AS city_id, cityname AS city_name, stateprovinceid AS state_province_id,
         latestrecordedpopulation AS latest_recorded_population,
         lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Application.Cities
+    FROM mssql_WideWorldImporters.application.cities
 ) AS src ON tgt.city_id = src.city_id
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
@@ -85,7 +85,7 @@ MERGE INTO wwi_lake.bronze.delivery_methods AS tgt
 USING (
     SELECT deliverymethodid AS delivery_method_id, deliverymethodname AS delivery_method_name,
         lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Application.DeliveryMethods
+    FROM mssql_WideWorldImporters.application.delivery_methods
 ) AS src ON tgt.delivery_method_id = src.delivery_method_id
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
@@ -102,7 +102,7 @@ MERGE INTO wwi_lake.bronze.payment_methods AS tgt
 USING (
     SELECT paymentmethodid AS payment_method_id, paymentmethodname AS payment_method_name,
         lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Application.PaymentMethods
+    FROM mssql_WideWorldImporters.application.payment_methods
 ) AS src ON tgt.payment_method_id = src.payment_method_id
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
@@ -119,7 +119,7 @@ MERGE INTO wwi_lake.bronze.transaction_types AS tgt
 USING (
     SELECT transactiontypeid AS transaction_type_id, transactiontypename AS transaction_type_name,
         lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Application.TransactionTypes
+    FROM mssql_WideWorldImporters.application.transaction_types
 ) AS src ON tgt.transaction_type_id = src.transaction_type_id
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
@@ -136,7 +136,7 @@ MERGE INTO wwi_lake.bronze.supplier_categories AS tgt
 USING (
     SELECT suppliercategoryid AS supplier_category_id, suppliercategoryname AS supplier_category_name,
         lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Purchasing.SupplierCategories
+    FROM mssql_WideWorldImporters.purchasing.supplier_categories
 ) AS src ON tgt.supplier_category_id = src.supplier_category_id
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
@@ -153,7 +153,7 @@ MERGE INTO wwi_lake.bronze.buying_groups AS tgt
 USING (
     SELECT buyinggroupid AS buying_group_id, buyinggroupname AS buying_group_name,
         lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Sales.BuyingGroups
+    FROM mssql_WideWorldImporters.sales.buying_groups
 ) AS src ON tgt.buying_group_id = src.buying_group_id
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
@@ -170,7 +170,7 @@ MERGE INTO wwi_lake.bronze.customer_categories AS tgt
 USING (
     SELECT customercategoryid AS customer_category_id, customercategoryname AS customer_category_name,
         lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Sales.CustomerCategories
+    FROM mssql_WideWorldImporters.sales.customer_categories
 ) AS src ON tgt.customer_category_id = src.customer_category_id
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
@@ -194,7 +194,7 @@ USING (
         postaladdressline2 AS postal_address_line2, postalcityid AS postal_city_id,
         postalpostalcode AS postal_postal_code, applicationsettings AS application_settings,
         lasteditedby AS last_edited_by, lasteditedwhen AS last_edited_when
-    FROM mssql_WideWorldImporters.Application.SystemParameters
+    FROM mssql_WideWorldImporters.application.system_parameters
 ) AS src ON tgt.system_parameter_id = src.system_parameter_id
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
@@ -219,7 +219,7 @@ USING (
         discountamount AS discount_amount, discountpercentage AS discount_percentage,
         unitprice AS unit_price, lasteditedby AS last_edited_by,
         lasteditedwhen AS last_edited_when
-    FROM mssql_WideWorldImporters.Sales.SpecialDeals
+    FROM mssql_WideWorldImporters.sales.special_deals
 ) AS src ON tgt.special_deal_id = src.special_deal_id
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *

@@ -50,7 +50,7 @@ USING (
         deliverypostalcode AS delivery_postal_code, postaladdressline1 AS postal_address_line1,
         postaladdressline2 AS postal_address_line2, postalpostalcode AS postal_postal_code,
         lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
-    FROM mssql_WideWorldImporters.Sales.Customers
+    FROM mssql_WideWorldImporters.sales.customers
     WHERE validfrom >= (
         SELECT COALESCE(MAX(valid_from) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.customers
@@ -84,7 +84,7 @@ USING (
         deliveryinstructions AS delivery_instructions, internalcomments AS internal_comments,
         pickingcompletedwhen AS picking_completed_when, lasteditedby AS last_edited_by,
         lasteditedwhen AS last_edited_when
-    FROM mssql_WideWorldImporters.Sales.Orders
+    FROM mssql_WideWorldImporters.sales.orders
     WHERE lasteditedwhen >= (
         SELECT COALESCE(MAX(last_edited_when) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.orders
@@ -112,7 +112,7 @@ USING (
         taxrate AS tax_rate, pickedquantity AS picked_quantity,
         pickingcompletedwhen AS picking_completed_when, lasteditedby AS last_edited_by,
         lasteditedwhen AS last_edited_when
-    FROM mssql_WideWorldImporters.Sales.OrderLines
+    FROM mssql_WideWorldImporters.sales.order_lines
     WHERE lasteditedwhen >= (
         SELECT COALESCE(MAX(last_edited_when) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.order_lines
@@ -153,7 +153,7 @@ USING (
         confirmeddeliverytime AS confirmed_delivery_time,
         confirmedreceivedby AS confirmed_received_by, lasteditedby AS last_edited_by,
         lasteditedwhen AS last_edited_when
-    FROM mssql_WideWorldImporters.Sales.Invoices
+    FROM mssql_WideWorldImporters.sales.invoices
     WHERE lasteditedwhen >= (
         SELECT COALESCE(MAX(last_edited_when) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.invoices
@@ -182,7 +182,7 @@ USING (
         quantity, unitprice AS unit_price, taxrate AS tax_rate, taxamount AS tax_amount,
         lineprofit AS line_profit, extendedprice AS extended_price,
         lasteditedby AS last_edited_by, lasteditedwhen AS last_edited_when
-    FROM mssql_WideWorldImporters.Sales.InvoiceLines
+    FROM mssql_WideWorldImporters.sales.invoice_lines
     WHERE lasteditedwhen >= (
         SELECT COALESCE(MAX(last_edited_when) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.invoice_lines
@@ -214,7 +214,7 @@ USING (
         transactionamount AS transaction_amount, outstandingbalance AS outstanding_balance,
         finalizationdate AS finalization_date, lasteditedby AS last_edited_by,
         lasteditedwhen AS last_edited_when
-    FROM mssql_WideWorldImporters.Sales.CustomerTransactions
+    FROM mssql_WideWorldImporters.sales.customer_transactions
     WHERE lasteditedwhen >= (
         SELECT COALESCE(MAX(last_edited_when) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.customer_transactions
