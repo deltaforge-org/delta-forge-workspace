@@ -1,6 +1,17 @@
 -- ============================================================================
 -- WWI Data Lake - Teardown (complete cleanup)
 -- ============================================================================
+-- Drops all objects in reverse dependency order.
+-- STATUS DISABLED - must be explicitly activated before running.
+-- ============================================================================
+
+PIPELINE wwi_lake.teardown
+    DESCRIPTION 'Drop all WWI datalake objects (zone, schemas, tables, views)'
+    TAGS 'wwi', 'teardown'
+    FAIL_FAST true
+    STATUS DISABLED;
+
+-- ============================================================================
 -- Drops all objects in reverse dependency order:
 --   1. Gold facts (depend on dimensions via FK convention)
 --   2. Gold dimensions
