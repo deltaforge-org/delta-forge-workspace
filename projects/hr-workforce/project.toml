@@ -16,7 +16,7 @@ categories = ["pipeline", "medallion", "hr", "workforce"]
 tags = ["SCD2", "MERGE", "pseudonymisation", "CDF", "deletion-vectors", "GDPR", "star-schema", "compa-ratio", "gender-pay-gap", "retention-risk"]
 difficulty = "advanced"
 estimated_time_minutes = 25
-load_type = "both"
+load_type = "full"
 
 [project.pipeline]
 name = "hr_workforce_pipeline"

@@ -18,7 +18,7 @@ categories = ["pipeline", "medallion", "government", "tax"]
 tags = ["pseudonymisation", "partitioning", "CDF", "MERGE", "star-schema", "incremental", "audit-detection", "append-only", "amendments", "bloom-filter", "RESTORE"]
 difficulty = "advanced"
 estimated_time_minutes = 25
-load_type = "both"
+load_type = "full"
 
 [project.pipeline]
 name = "tax_filing_pipeline"

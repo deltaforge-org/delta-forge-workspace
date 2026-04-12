@@ -17,7 +17,7 @@ categories = ["pipeline", "medallion", "legal", "graph"]
 tags = ["PII", "data-protection", "graph", "cypher", "pagerank", "community-detection", "star-schema", "billing", "pseudonymisation"]
 difficulty = "advanced"
 estimated_time_minutes = 20
-load_type = "both"
+load_type = "full"
 
 [project.pipeline]
 name = "legal_billing_pipeline"

@@ -18,7 +18,7 @@ categories = ["pipeline", "medallion", "manufacturing"]
 tags = ["IoT", "sensors", "anomaly-detection", "moving-average", "stddev", "OEE", "CHECK-constraints", "VACUUM", "OPTIMIZE", "bloom-filter", "multi-partition", "star-schema", "equipment-status"]
 difficulty = "advanced"
 estimated_time_minutes = 20
-load_type = "incremental"
+load_type = "full"
 
 [project.pipeline]
 name = "manufacturing_iot_pipeline"

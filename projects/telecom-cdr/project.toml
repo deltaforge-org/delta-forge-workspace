@@ -17,7 +17,7 @@ categories = ["pipeline", "medallion", "telecommunications"]
 tags = ["CDR", "schema-evolution", "type-widening", "session-reconstruction", "MERGE", "VACUUM", "OPTIMIZE", "network-quality", "churn-scoring", "star-schema", "LAG-LEAD", "pseudonymisation"]
 difficulty = "advanced"
 estimated_time_minutes = 20
-load_type = "incremental"
+load_type = "full"
 
 [project.pipeline]
 name = "telecom_cdr_pipeline"

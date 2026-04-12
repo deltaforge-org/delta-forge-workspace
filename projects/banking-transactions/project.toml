@@ -17,7 +17,7 @@ categories = ["pipeline", "medallion", "banking", "compliance"]
 tags = ["PII", "data-protection", "transformation", "incremental-load", "CDF", "time-travel", "fraud-detection", "partitioning", "star-schema", "SCD2", "Z-order", "bloom-filter"]
 difficulty = "advanced"
 estimated_time_minutes = 25
-load_type = "incremental"
+load_type = "full"
 
 [project.pipeline]
 name = "bank_transaction_pipeline"

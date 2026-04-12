@@ -16,7 +16,7 @@ categories = ["pipeline", "medallion", "cybersecurity"]
 tags = ["PII", "data-protection", "MITRE", "threat-intel", "bloom-filter", "OPTIMIZE", "star-schema", "multi-source", "incident-correlation", "pseudonymisation", "window-dedup"]
 difficulty = "advanced"
 estimated_time_minutes = 20
-load_type = "incremental"
+load_type = "full"
 
 [project.pipeline]
 name = "cyber_incident_pipeline"

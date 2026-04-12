@@ -16,7 +16,7 @@ categories = ["pipeline", "medallion", "logistics"]
 tags = ["event-sourcing", "idempotent-dedup", "composite-key", "schema-evolution", "Z-order", "SLA-compliance", "star-schema", "window-functions", "timeline-reconstruction"]
 difficulty = "advanced"
 estimated_time_minutes = 20
-load_type = "incremental"
+load_type = "full"
 
 [project.pipeline]
 name = "logistics_shipments_pipeline"

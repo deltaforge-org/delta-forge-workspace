@@ -17,7 +17,7 @@ categories = ["pipeline", "medallion", "ecommerce"]
 tags = ["multi-source-merge", "soft-delete", "CDF", "MERGE", "RFM-segmentation", "star-schema", "incremental", "pseudonymisation", "sessionization", "funnel-analysis", "schema-evolution", "Z-order", "bloom-filter"]
 difficulty = "advanced"
 estimated_time_minutes = 20
-load_type = "incremental"
+load_type = "full"
 
 [project.pipeline]
 name = "ecommerce_orders_pipeline"
