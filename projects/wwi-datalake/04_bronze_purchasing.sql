@@ -29,16 +29,16 @@ SET INCREMENTAL CONFIG ON wwi_lake.bronze.people
 
 MERGE INTO wwi_lake.bronze.people AS tgt
 USING (
-    SELECT personid AS person_id, fullname AS full_name, preferredname AS preferred_name,
-        ispermittedtologon AS is_permitted_to_logon, logonname AS logon_name,
-        isexternallogonprovider AS is_external_logon_provider, issystemuser AS is_system_user,
-        isemployee AS is_employee, issalesperson AS is_salesperson,
-        userpreferences AS user_preferences, phonenumber AS phone_number,
-        faxnumber AS fax_number, emailaddress AS email_address,
-        customfields AS custom_fields, lasteditedby AS last_edited_by,
-        validfrom AS valid_from, validto AS valid_to
+    SELECT person_id, full_name, preferred_name,
+        is_permitted_to_logon, logon_name,
+        is_external_logon_provider, is_system_user,
+        is_employee, is_salesperson,
+        user_preferences, phone_number,
+        fax_number, email_address,
+        custom_fields, last_edited_by,
+        valid_from, valid_to
     FROM mssql_WideWorldImporters.application.people
-    WHERE validfrom >= (
+    WHERE valid_from >= (
         SELECT COALESCE(MAX(valid_from) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.people
     )
@@ -66,26 +66,26 @@ SET INCREMENTAL CONFIG ON wwi_lake.bronze.suppliers
 
 MERGE INTO wwi_lake.bronze.suppliers AS tgt
 USING (
-    SELECT supplierid AS supplier_id, suppliername AS supplier_name,
-        suppliercategoryid AS supplier_category_id,
-        primarycontactpersonid AS primary_contact_person_id,
-        alternatecontactpersonid AS alternate_contact_person_id,
-        deliverymethodid AS delivery_method_id, deliverycityid AS delivery_city_id,
-        postalcityid AS postal_city_id, supplierreference AS supplier_reference,
-        bankaccountname AS bank_account_name, bankaccountbranch AS bank_account_branch,
-        bankaccountcode AS bank_account_code, bankaccountnumber AS bank_account_number,
-        bankinternationalcode AS bank_international_code, paymentdays AS payment_days,
-        internalcomments AS internal_comments, phonenumber AS phone_number,
-        faxnumber AS fax_number, websiteurl AS website_url,
-        deliveryaddressline1 AS delivery_address_line1,
-        deliveryaddressline2 AS delivery_address_line2,
-        deliverypostalcode AS delivery_postal_code,
-        postaladdressline1 AS postal_address_line1,
-        postaladdressline2 AS postal_address_line2,
-        postalpostalcode AS postal_postal_code,
-        lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
+    SELECT supplier_id, supplier_name,
+        supplier_category_id,
+        primary_contact_person_id,
+        alternate_contact_person_id,
+        delivery_method_id, delivery_city_id,
+        postal_city_id, supplier_reference,
+        bank_account_name, bank_account_branch,
+        bank_account_code, bank_account_number,
+        bank_international_code, payment_days,
+        internal_comments, phone_number,
+        fax_number, website_url,
+        delivery_address_line1,
+        delivery_address_line2,
+        delivery_postal_code,
+        postal_address_line1,
+        postal_address_line2,
+        postal_postal_code,
+        last_edited_by, valid_from, valid_to
     FROM mssql_WideWorldImporters.purchasing.suppliers
-    WHERE validfrom >= (
+    WHERE valid_from >= (
         SELECT COALESCE(MAX(valid_from) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.suppliers
     )
@@ -107,14 +107,14 @@ SET INCREMENTAL CONFIG ON wwi_lake.bronze.purchase_orders
 
 MERGE INTO wwi_lake.bronze.purchase_orders AS tgt
 USING (
-    SELECT purchaseorderid AS purchase_order_id, supplierid AS supplier_id,
-        orderdate AS order_date, deliverymethodid AS delivery_method_id,
-        contactpersonid AS contact_person_id, expecteddeliverydate AS expected_delivery_date,
-        supplierreference AS supplier_reference, isorderfinalized AS is_order_finalized,
-        comments, internalcomments AS internal_comments, lasteditedby AS last_edited_by,
-        lasteditedwhen AS last_edited_when
+    SELECT purchase_order_id, supplier_id,
+        order_date, delivery_method_id,
+        contact_person_id, expected_delivery_date,
+        supplier_reference, is_order_finalized,
+        comments, internal_comments, last_edited_by,
+        last_edited_when
     FROM mssql_WideWorldImporters.purchasing.purchase_orders
-    WHERE lasteditedwhen >= (
+    WHERE last_edited_when >= (
         SELECT COALESCE(MAX(last_edited_when) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.purchase_orders
     )
@@ -137,14 +137,14 @@ SET INCREMENTAL CONFIG ON wwi_lake.bronze.purchase_order_lines
 
 MERGE INTO wwi_lake.bronze.purchase_order_lines AS tgt
 USING (
-    SELECT purchaseorderlineid AS purchase_order_line_id, purchaseorderid AS purchase_order_id,
-        stockitemid AS stock_item_id, orderedouters AS ordered_outers, description,
-        receivedouters AS received_outers, packagetypeid AS package_type_id,
-        expectedunitpriceperouter AS expected_unit_price_per_outer,
-        lastreceiptdate AS last_receipt_date, isorderlinefinalized AS is_order_line_finalized,
-        lasteditedby AS last_edited_by, lasteditedwhen AS last_edited_when
+    SELECT purchase_order_line_id, purchase_order_id,
+        stock_item_id, ordered_outers, description,
+        received_outers, package_type_id,
+        expected_unit_price_per_outer,
+        last_receipt_date, is_order_line_finalized,
+        last_edited_by, last_edited_when
     FROM mssql_WideWorldImporters.purchasing.purchase_order_lines
-    WHERE lasteditedwhen >= (
+    WHERE last_edited_when >= (
         SELECT COALESCE(MAX(last_edited_when) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.purchase_order_lines
     )
@@ -168,15 +168,15 @@ SET INCREMENTAL CONFIG ON wwi_lake.bronze.supplier_transactions
 
 MERGE INTO wwi_lake.bronze.supplier_transactions AS tgt
 USING (
-    SELECT suppliertransactionid AS supplier_transaction_id, supplierid AS supplier_id,
-        transactiontypeid AS transaction_type_id, purchaseorderid AS purchase_order_id,
-        paymentmethodid AS payment_method_id, transactiondate AS transaction_date,
-        amountexcludingtax AS amount_excluding_tax, taxamount AS tax_amount,
-        transactionamount AS transaction_amount, outstandingbalance AS outstanding_balance,
-        finalizationdate AS finalization_date, lasteditedby AS last_edited_by,
-        lasteditedwhen AS last_edited_when
+    SELECT supplier_transaction_id, supplier_id,
+        transaction_type_id, purchase_order_id,
+        payment_method_id, transaction_date,
+        amount_excluding_tax, tax_amount,
+        transaction_amount, outstanding_balance,
+        finalization_date, last_edited_by,
+        last_edited_when
     FROM mssql_WideWorldImporters.purchasing.supplier_transactions
-    WHERE lasteditedwhen >= (
+    WHERE last_edited_when >= (
         SELECT COALESCE(MAX(last_edited_when) - INTERVAL '7' DAY, TIMESTAMP '1900-01-01 00:00:00')
         FROM wwi_lake.bronze.supplier_transactions
     )

@@ -23,11 +23,11 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.countries (
 
 MERGE INTO wwi_lake.bronze.countries AS tgt
 USING (
-    SELECT countryid AS country_id, countryname AS country_name, formalname AS formal_name,
-        isoalpha3code AS iso_alpha3_code, isonumericcode AS iso_numeric_code,
-        countrytype AS country_type, latestrecordedpopulation AS latest_recorded_population,
-        continent, region, subregion, lasteditedby AS last_edited_by,
-        validfrom AS valid_from, validto AS valid_to
+    SELECT country_id, country_name, formal_name,
+        iso_alpha3_code, iso_numeric_code,
+        country_type, latest_recorded_population,
+        continent, region, subregion, last_edited_by,
+        valid_from, valid_to
     FROM mssql_WideWorldImporters.application.countries
 ) AS src ON tgt.country_id = src.country_id
 WHEN MATCHED THEN UPDATE SET *
@@ -45,10 +45,10 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.state_provinces (
 
 MERGE INTO wwi_lake.bronze.state_provinces AS tgt
 USING (
-    SELECT stateprovinceid AS state_province_id, stateprovincecode AS state_province_code,
-        stateprovincename AS state_province_name, countryid AS country_id,
-        salesterritory AS sales_territory, latestrecordedpopulation AS latest_recorded_population,
-        lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
+    SELECT state_province_id, state_province_code,
+        state_province_name, country_id,
+        sales_territory, latest_recorded_population,
+        last_edited_by, valid_from, valid_to
     FROM mssql_WideWorldImporters.application.state_provinces
 ) AS src ON tgt.state_province_id = src.state_province_id
 WHEN MATCHED THEN UPDATE SET *
@@ -65,9 +65,9 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.cities (
 
 MERGE INTO wwi_lake.bronze.cities AS tgt
 USING (
-    SELECT cityid AS city_id, cityname AS city_name, stateprovinceid AS state_province_id,
-        latestrecordedpopulation AS latest_recorded_population,
-        lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
+    SELECT city_id, city_name, state_province_id,
+        latest_recorded_population,
+        last_edited_by, valid_from, valid_to
     FROM mssql_WideWorldImporters.application.cities
 ) AS src ON tgt.city_id = src.city_id
 WHEN MATCHED THEN UPDATE SET *
@@ -83,8 +83,8 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.delivery_methods (
 
 MERGE INTO wwi_lake.bronze.delivery_methods AS tgt
 USING (
-    SELECT deliverymethodid AS delivery_method_id, deliverymethodname AS delivery_method_name,
-        lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
+    SELECT delivery_method_id, delivery_method_name,
+        last_edited_by, valid_from, valid_to
     FROM mssql_WideWorldImporters.application.delivery_methods
 ) AS src ON tgt.delivery_method_id = src.delivery_method_id
 WHEN MATCHED THEN UPDATE SET *
@@ -100,8 +100,8 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.payment_methods (
 
 MERGE INTO wwi_lake.bronze.payment_methods AS tgt
 USING (
-    SELECT paymentmethodid AS payment_method_id, paymentmethodname AS payment_method_name,
-        lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
+    SELECT payment_method_id, payment_method_name,
+        last_edited_by, valid_from, valid_to
     FROM mssql_WideWorldImporters.application.payment_methods
 ) AS src ON tgt.payment_method_id = src.payment_method_id
 WHEN MATCHED THEN UPDATE SET *
@@ -117,8 +117,8 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.transaction_types (
 
 MERGE INTO wwi_lake.bronze.transaction_types AS tgt
 USING (
-    SELECT transactiontypeid AS transaction_type_id, transactiontypename AS transaction_type_name,
-        lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
+    SELECT transaction_type_id, transaction_type_name,
+        last_edited_by, valid_from, valid_to
     FROM mssql_WideWorldImporters.application.transaction_types
 ) AS src ON tgt.transaction_type_id = src.transaction_type_id
 WHEN MATCHED THEN UPDATE SET *
@@ -134,8 +134,8 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.supplier_categories (
 
 MERGE INTO wwi_lake.bronze.supplier_categories AS tgt
 USING (
-    SELECT suppliercategoryid AS supplier_category_id, suppliercategoryname AS supplier_category_name,
-        lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
+    SELECT supplier_category_id, supplier_category_name,
+        last_edited_by, valid_from, valid_to
     FROM mssql_WideWorldImporters.purchasing.supplier_categories
 ) AS src ON tgt.supplier_category_id = src.supplier_category_id
 WHEN MATCHED THEN UPDATE SET *
@@ -151,8 +151,8 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.buying_groups (
 
 MERGE INTO wwi_lake.bronze.buying_groups AS tgt
 USING (
-    SELECT buyinggroupid AS buying_group_id, buyinggroupname AS buying_group_name,
-        lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
+    SELECT buying_group_id, buying_group_name,
+        last_edited_by, valid_from, valid_to
     FROM mssql_WideWorldImporters.sales.buying_groups
 ) AS src ON tgt.buying_group_id = src.buying_group_id
 WHEN MATCHED THEN UPDATE SET *
@@ -168,8 +168,8 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.customer_categories (
 
 MERGE INTO wwi_lake.bronze.customer_categories AS tgt
 USING (
-    SELECT customercategoryid AS customer_category_id, customercategoryname AS customer_category_name,
-        lasteditedby AS last_edited_by, validfrom AS valid_from, validto AS valid_to
+    SELECT customer_category_id, customer_category_name,
+        last_edited_by, valid_from, valid_to
     FROM mssql_WideWorldImporters.sales.customer_categories
 ) AS src ON tgt.customer_category_id = src.customer_category_id
 WHEN MATCHED THEN UPDATE SET *
@@ -188,12 +188,12 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.system_parameters (
 
 MERGE INTO wwi_lake.bronze.system_parameters AS tgt
 USING (
-    SELECT systemparameterid AS system_parameter_id, deliveryaddressline1 AS delivery_address_line1,
-        deliveryaddressline2 AS delivery_address_line2, deliverycityid AS delivery_city_id,
-        deliverypostalcode AS delivery_postal_code, postaladdressline1 AS postal_address_line1,
-        postaladdressline2 AS postal_address_line2, postalcityid AS postal_city_id,
-        postalpostalcode AS postal_postal_code, applicationsettings AS application_settings,
-        lasteditedby AS last_edited_by, lasteditedwhen AS last_edited_when
+    SELECT system_parameter_id, delivery_address_line1,
+        delivery_address_line2, delivery_city_id,
+        delivery_postal_code, postal_address_line1,
+        postal_address_line2, postal_city_id,
+        postal_postal_code, application_settings,
+        last_edited_by, last_edited_when
     FROM mssql_WideWorldImporters.application.system_parameters
 ) AS src ON tgt.system_parameter_id = src.system_parameter_id
 WHEN MATCHED THEN UPDATE SET *
@@ -212,13 +212,13 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.special_deals (
 
 MERGE INTO wwi_lake.bronze.special_deals AS tgt
 USING (
-    SELECT specialdealid AS special_deal_id, stockitemid AS stock_item_id,
-        customerid AS customer_id, buyinggroupid AS buying_group_id,
-        customercategoryid AS customer_category_id, stockgroupid AS stock_group_id,
-        dealdescription AS deal_description, startdate AS start_date, enddate AS end_date,
-        discountamount AS discount_amount, discountpercentage AS discount_percentage,
-        unitprice AS unit_price, lasteditedby AS last_edited_by,
-        lasteditedwhen AS last_edited_when
+    SELECT special_deal_id, stock_item_id,
+        customer_id, buying_group_id,
+        customer_category_id, stock_group_id,
+        deal_description, start_date, end_date,
+        discount_amount, discount_percentage,
+        unit_price, last_edited_by,
+        last_edited_when
     FROM mssql_WideWorldImporters.sales.special_deals
 ) AS src ON tgt.special_deal_id = src.special_deal_id
 WHEN MATCHED THEN UPDATE SET *

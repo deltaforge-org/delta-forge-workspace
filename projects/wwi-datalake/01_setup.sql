@@ -20,7 +20,7 @@ PIPELINE wwi_lake.setup
 -- Preflight: verify MSSQL connection
 
 ASSERT ERROR ROW_COUNT > 0
-SELECT cityid FROM mssql_WideWorldImporters.application.cities LIMIT 1;
+SELECT city_id FROM mssql_WideWorldImporters.application.cities LIMIT 1;
 -- If this fails: create an MSSQL connection named "mssql" pointing to
 -- a WideWorldImporters database in the Connections page, then re-run.
 
