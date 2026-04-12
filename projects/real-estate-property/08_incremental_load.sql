@@ -89,8 +89,8 @@ WHERE {{INCREMENTAL_FILTER(realty.silver.transactions_enriched, transaction_id, 
 MERGE INTO realty.gold.fact_transactions AS tgt
 USING (
     SELECT
-        (SELECT COALESCE(MAX(transaction_key), 0) FROM realty.gold.fact_transactions)
-            + ROW_NUMBER() OVER (ORDER BY te.transaction_id)     AS transaction_key,
+        CAST((SELECT COALESCE(MAX(transaction_key), 0) FROM realty.gold.fact_transactions)
+            + ROW_NUMBER() OVER (ORDER BY te.transaction_id) AS INT)  AS transaction_key,
         te.parcel_id,
         dn.neighborhood_key,
         da.agent_key,
