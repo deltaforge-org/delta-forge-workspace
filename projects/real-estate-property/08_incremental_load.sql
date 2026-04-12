@@ -130,48 +130,50 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- ===================== rebuild_kpi_market =====================
+-- NOTE: The CONCAT quarter expression is computed once in a CTE to avoid
+-- duplicating complex expressions in SELECT + GROUP BY, which can trigger
+-- the DataFusion common_sub_expression_eliminate optimizer bug.
 
 DELETE FROM realty.gold.kpi_market_trends WHERE 1=1;
 
 INSERT INTO realty.gold.kpi_market_trends
+WITH market_base AS (
+    SELECT
+        pd.city,
+        dpt.property_type,
+        CONCAT(
+            CAST(EXTRACT(YEAR FROM ft.transaction_date) AS STRING),
+            '-Q',
+            CAST(
+                CASE
+                    WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 3 THEN 1
+                    WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 6 THEN 2
+                    WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 9 THEN 3
+                    ELSE 4
+                END
+            AS STRING)
+        ) AS sale_quarter,
+        ft.sale_price,
+        ft.price_per_sqft,
+        ft.days_on_market,
+        ft.over_asking_pct
+    FROM realty.gold.fact_transactions ft
+    JOIN realty.silver.property_dim pd ON ft.parcel_id = pd.parcel_id AND pd.is_current = true
+    JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
+)
 SELECT
-    pd.city,
-    dpt.property_type,
-    CONCAT(
-        CAST(EXTRACT(YEAR FROM ft.transaction_date) AS STRING),
-        '-Q',
-        CAST(
-            CASE
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 3 THEN 1
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 6 THEN 2
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 9 THEN 3
-                ELSE 4
-            END
-        AS STRING)
-    ),
-    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ft.sale_price), 2),
-    ROUND(AVG(ft.price_per_sqft), 2),
-    ROUND(AVG(ft.days_on_market), 1),
+    city,
+    property_type,
+    sale_quarter,
+    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price), 2),
+    ROUND(AVG(price_per_sqft), 2),
+    ROUND(AVG(days_on_market), 1),
     COUNT(*),
-    ROUND(AVG(ft.over_asking_pct), 2),
+    ROUND(AVG(over_asking_pct), 2),
     ROUND(18.0 / NULLIF(COUNT(*) / 3.0, 0), 1),
     0.00
-FROM realty.gold.fact_transactions ft
-JOIN realty.silver.property_dim pd ON ft.parcel_id = pd.parcel_id AND pd.is_current = true
-JOIN realty.gold.dim_property_type dpt ON ft.property_type_key = dpt.property_type_key
-GROUP BY pd.city, dpt.property_type,
-    CONCAT(
-        CAST(EXTRACT(YEAR FROM ft.transaction_date) AS STRING),
-        '-Q',
-        CAST(
-            CASE
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 3 THEN 1
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 6 THEN 2
-                WHEN EXTRACT(MONTH FROM ft.transaction_date) <= 9 THEN 3
-                ELSE 4
-            END
-        AS STRING)
-    );
+FROM market_base
+GROUP BY city, property_type, sale_quarter;
 
 -- ===================== rebuild_kpi_assessment =====================
 -- NOTE: PERCENTILE_CONT() must not appear more than once in the same SELECT list.
