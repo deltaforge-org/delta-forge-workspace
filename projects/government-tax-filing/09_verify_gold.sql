@@ -5,6 +5,14 @@
 -- revenue KPIs, preparer quality, and derived metrics.
 -- =============================================================================
 
+PIPELINE tax_verify_gold
+  DESCRIPTION 'Gold layer verification for Government Tax Filing'
+  SCHEDULE 'tax_daily_schedule'
+  TAGS 'verification', 'government-tax-filing'
+  LIFECYCLE production
+;
+
+
 -- ===================== QUERY 1: Revenue Analysis by Fiscal Year x Jurisdiction =====================
 
 ASSERT ROW_COUNT > 0

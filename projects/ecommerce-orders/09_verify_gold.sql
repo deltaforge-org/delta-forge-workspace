@@ -5,6 +5,14 @@
 -- channel mix, funnel conversion, inventory CDF, and referential integrity.
 -- =============================================================================
 
+PIPELINE ecommerce_verify_gold
+  DESCRIPTION 'Gold layer verification for E-Commerce Orders'
+  SCHEDULE 'ecommerce_30min_schedule'
+  TAGS 'verification', 'ecommerce-orders'
+  LIFECYCLE production
+;
+
+
 -- -----------------------------------------------------------------------------
 -- 1. Verify fact table has non-deleted orders only (no cancelled/soft-deleted)
 -- -----------------------------------------------------------------------------

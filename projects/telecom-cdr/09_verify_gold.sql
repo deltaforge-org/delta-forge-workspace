@@ -2,6 +2,14 @@
 -- Telecom CDR Pipeline: Gold Layer Verification (12 ASSERTs)
 -- =============================================================================
 
+PIPELINE telecom_verify_gold
+  DESCRIPTION 'Gold layer verification for Telecom CDR'
+  SCHEDULE 'telecom_daily_schedule'
+  TAGS 'verification', 'telecom-cdr'
+  LIFECYCLE production
+;
+
+
 -- -----------------------------------------------------------------------------
 -- 1. Verify fact_calls row count (all 70 CDRs from 3 schema versions)
 -- -----------------------------------------------------------------------------

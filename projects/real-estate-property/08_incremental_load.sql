@@ -17,17 +17,6 @@
 
 PRINT {{INCREMENTAL_FILTER(realty.silver.transactions_enriched, transaction_id, transaction_date, 7)}};
 
--- ===================== PIPELINE =====================
-
-PIPELINE realty_incremental_pipeline
-  DESCRIPTION 'Incremental property pipeline: new transactions, SCD2 assessment updates, rebuilt KPIs'
-  SCHEDULE 'realty_daily_schedule'
-  TAGS 'real-estate,property,incremental,SCD2'
-  SLA 1800
-  FAIL_FAST true
-  LIFECYCLE production
-;
-
 -- ===================== check_watermark =====================
 
 SELECT MAX(transaction_date) AS last_transaction_watermark

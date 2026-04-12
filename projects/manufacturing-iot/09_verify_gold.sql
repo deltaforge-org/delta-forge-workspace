@@ -2,6 +2,14 @@
 -- Manufacturing IoT Pipeline: Gold Layer Verification (12 ASSERTs)
 -- =============================================================================
 
+PIPELINE manufacturing_verify_gold
+  DESCRIPTION 'Gold layer verification for Manufacturing IoT'
+  SCHEDULE 'manufacturing_2hr_schedule'
+  TAGS 'verification', 'manufacturing-iot'
+  LIFECYCLE production
+;
+
+
 -- -----------------------------------------------------------------------------
 -- 1. Verify fact table row count (90 readings)
 -- -----------------------------------------------------------------------------

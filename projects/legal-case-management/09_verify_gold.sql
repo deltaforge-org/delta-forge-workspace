@@ -4,6 +4,14 @@
 -- 12+ ASSERTs covering dimensions, facts, graph queries, and business logic
 -- =============================================================================
 
+PIPELINE legal_verify_gold
+  DESCRIPTION 'Gold layer verification for Legal Case Management'
+  SCHEDULE 'legal_daily_schedule'
+  TAGS 'verification', 'legal-case-management'
+  LIFECYCLE production
+;
+
+
 -- ===================== TEST 1: Dimension Completeness =====================
 
 ASSERT ROW_COUNT = 15

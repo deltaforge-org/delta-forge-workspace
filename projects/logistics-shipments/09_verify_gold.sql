@@ -2,6 +2,14 @@
 -- Logistics Shipments Pipeline: Gold Layer Verification
 -- =============================================================================
 
+PIPELINE logistics_verify_gold
+  DESCRIPTION 'Gold layer verification for Logistics Shipments'
+  SCHEDULE 'logistics_6hr_schedule'
+  TAGS 'verification', 'logistics-shipments'
+  LIFECYCLE production
+;
+
+
 -- -----------------------------------------------------------------------------
 -- 1. Verify dedup removed all 15 duplicates: 80 raw -> 65 unique events
 -- -----------------------------------------------------------------------------

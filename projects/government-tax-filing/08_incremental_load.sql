@@ -21,17 +21,6 @@
 
 PRINT {{INCREMENTAL_FILTER(tax.silver.filings_immutable, filing_id, filing_date, 7)}};
 
--- ===================== PIPELINE =====================
-
-PIPELINE tax_incremental_pipeline
-  DESCRIPTION 'Incremental tax filing pipeline: appends new filings, applies new amendments, rebuilds KPIs'
-  SCHEDULE 'tax_daily_schedule'
-  TAGS 'government,tax,incremental,CDF'
-  SLA 1800
-  FAIL_FAST true
-  LIFECYCLE production
-;
-
 -- ===================== check_watermark =====================
 
 SELECT MAX(filing_date) AS last_filing_watermark

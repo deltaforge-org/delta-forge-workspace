@@ -5,6 +5,14 @@
 -- detection, loss ratios, adjuster performance, and referential integrity.
 -- =============================================================================
 
+PIPELINE ins_verify_gold
+  DESCRIPTION 'Gold layer verification for Insurance Claims'
+  SCHEDULE 'ins_weekly_schedule'
+  TAGS 'verification', 'insurance-claims'
+  LIFECYCLE production
+;
+
+
 -- -----------------------------------------------------------------------------
 -- 1. SCD2 Policy Versioning: POL001 should have 3 versions
 -- -----------------------------------------------------------------------------

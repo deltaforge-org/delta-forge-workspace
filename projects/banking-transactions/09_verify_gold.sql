@@ -5,6 +5,14 @@
 -- running balances, 7-day moving average, tier migration counts, and more.
 -- =============================================================================
 
+PIPELINE bank_verify_gold
+  DESCRIPTION 'Gold layer verification for Banking Transactions'
+  SCHEDULE 'bank_4h_schedule'
+  TAGS 'verification', 'banking-transactions'
+  LIFECYCLE production
+;
+
+
 -- ===================== TEST 1: Dimension Table Completeness =====================
 
 ASSERT ROW_COUNT = 12

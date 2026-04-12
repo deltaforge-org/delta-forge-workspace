@@ -5,6 +5,14 @@
 -- gender pay gap, retention risk, and GDPR erasure proof
 -- =============================================================================
 
+PIPELINE hr_verify_gold
+  DESCRIPTION 'Gold layer verification for HR Workforce'
+  SCHEDULE 'hr_daily_schedule'
+  TAGS 'verification', 'hr-workforce'
+  LIFECYCLE production
+;
+
+
 -- ===================== TEST 1: Dimension Completeness =====================
 
 ASSERT ROW_COUNT = 6

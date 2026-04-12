@@ -5,6 +5,14 @@
 -- market trends, neighborhood benchmarking, and derived metrics.
 -- =============================================================================
 
+PIPELINE realty_verify_gold
+  DESCRIPTION 'Gold layer verification for Real Estate Property'
+  SCHEDULE 'realty_daily_schedule'
+  TAGS 'verification', 'real-estate-property'
+  LIFECYCLE production
+;
+
+
 -- ===================== QUERY 1: SCD2 Property Assessment History =====================
 -- Show properties with multiple assessment versions (value changes over time)
 

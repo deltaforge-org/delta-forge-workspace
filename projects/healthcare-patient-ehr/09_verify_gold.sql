@@ -5,6 +5,14 @@
 -- pseudonymisation, readmission rates, CDF audit count, and more.
 -- =============================================================================
 
+PIPELINE ehr_verify_gold
+  DESCRIPTION 'Gold layer verification for Healthcare Patient EHR'
+  SCHEDULE 'ehr_daily_schedule'
+  TAGS 'verification', 'healthcare-patient-ehr'
+  LIFECYCLE production
+;
+
+
 -- ===================== TEST 1: Dimension Table Completeness =====================
 
 ASSERT ROW_COUNT = 9

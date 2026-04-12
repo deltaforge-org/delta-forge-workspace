@@ -2,6 +2,14 @@
 -- Cybersecurity Incidents Pipeline: Gold Layer Verification
 -- =============================================================================
 
+PIPELINE cyber_verify_gold
+  DESCRIPTION 'Gold layer verification for Cybersecurity Incidents'
+  SCHEDULE 'cyber_15min_schedule'
+  TAGS 'verification', 'cybersecurity-incidents'
+  LIFECYCLE production
+;
+
+
 -- -----------------------------------------------------------------------------
 -- 1. Top Attacking Source IPs (star schema query)
 -- -----------------------------------------------------------------------------
