@@ -10,6 +10,7 @@
 
 PIPELINE wwi_lake.silver_sales
     DESCRIPTION 'WWI silver - customer and sale views over bronze'
+    SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'silver', 'sales'
     FAIL_FAST true
     STATUS DISABLED

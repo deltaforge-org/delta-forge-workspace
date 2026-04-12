@@ -12,6 +12,7 @@
 
 PIPELINE wwi_lake.setup
     DESCRIPTION 'WWI datalake - zone and schema setup'
+    SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'mssql', 'setup'
     FAIL_FAST true
     STATUS DISABLED

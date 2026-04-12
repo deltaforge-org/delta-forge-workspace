@@ -10,6 +10,7 @@
 
 PIPELINE wwi_lake.silver_purchasing
     DESCRIPTION 'WWI silver - supplier, purchase, and supplier transaction views'
+    SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'silver', 'purchasing'
     FAIL_FAST true
     STATUS DISABLED

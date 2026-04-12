@@ -7,6 +7,7 @@
 
 PIPELINE wwi_lake.gold_dimensions
     DESCRIPTION 'WWI gold - star schema dimensions from silver views'
+    SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'gold', 'dimension'
     FAIL_FAST true
     STATUS DISABLED

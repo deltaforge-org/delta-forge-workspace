@@ -6,6 +6,7 @@
 
 PIPELINE wwi_lake.gold_fact_purchase
     DESCRIPTION 'WWI gold - fact_purchase from silver purchase view'
+    SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'gold', 'fact'
     FAIL_FAST true
     STATUS DISABLED

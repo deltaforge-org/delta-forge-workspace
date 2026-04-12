@@ -6,6 +6,7 @@
 
 PIPELINE wwi_lake.gold_fact_sale
     DESCRIPTION 'WWI gold - fact_sale from silver sale view'
+    SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'gold', 'fact'
     FAIL_FAST true
     STATUS DISABLED

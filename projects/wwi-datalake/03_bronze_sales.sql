@@ -9,6 +9,7 @@
 
 PIPELINE wwi_lake.bronze_sales
     DESCRIPTION 'WWI bronze - incremental sales ingestion from MSSQL'
+    SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'mssql', 'bronze', 'sales'
     FAIL_FAST true
     STATUS DISABLED

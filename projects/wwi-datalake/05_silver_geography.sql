@@ -9,6 +9,7 @@
 
 PIPELINE wwi_lake.silver_geography
     DESCRIPTION 'WWI silver - geography hierarchy and employee views'
+    SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'silver', 'geography'
     FAIL_FAST true
     STATUS DISABLED

@@ -7,6 +7,7 @@
 
 PIPELINE wwi_lake.bronze_reference
     DESCRIPTION 'WWI bronze - full-load reference tables from MSSQL'
+    SCHEDULE 'wwi_lake_daily'
     TAGS 'wwi', 'medallion', 'mssql', 'bronze', 'reference'
     FAIL_FAST true
     STATUS DISABLED
