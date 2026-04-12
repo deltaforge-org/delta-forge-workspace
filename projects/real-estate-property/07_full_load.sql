@@ -38,8 +38,38 @@ SELECT COUNT(*) AS row_count FROM realty.bronze.raw_agents;
 -- ===================== load_scd2_batch1 =====================
 -- Batch 1: 2022 assessments for all 18 properties.
 -- Initial load: all records start as is_current = true.
+-- Drop + recreate to reset version history so RESTORE demo uses predictable versions.
 
-DELETE FROM realty.silver.property_dim WHERE 1=1;
+DROP TABLE IF EXISTS realty.silver.property_dim;
+
+CREATE DELTA TABLE realty.silver.property_dim (
+  surrogate_key       INT         NOT NULL,
+  parcel_id           STRING      NOT NULL,
+  address             STRING,
+  city                STRING,
+  county              STRING,
+  state               STRING,
+  zip                 STRING,
+  neighborhood_id     STRING,
+  property_type       STRING,
+  bedrooms            INT,
+  bathrooms           DECIMAL(3,1),
+  sqft                INT,
+  lot_acres           DECIMAL(6,3),
+  year_built          INT,
+  assessed_value      DECIMAL(14,2),
+  land_value          DECIMAL(14,2),
+  improvement_value   DECIMAL(14,2),
+  assessment_year     INT,
+  valid_from          DATE        NOT NULL,
+  valid_to            DATE,
+  is_current          BOOLEAN     NOT NULL
+) LOCATION 'realty/silver/property/property_dim'
+PARTITIONED BY (county)
+TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
+
+GRANT ADMIN ON TABLE realty.silver.property_dim TO USER admin;
+CREATE BLOOMFILTER INDEX IF NOT EXISTS ON realty.silver.property_dim FOR COLUMNS (parcel_id);
 
 INSERT INTO realty.silver.property_dim
 SELECT
@@ -445,7 +475,8 @@ ASSERT ROW_COUNT > 40
 SELECT COUNT(*) AS row_count FROM realty.silver.property_dim;
 
 -- RESTORE to the version before the bad insert
-RESTORE realty.silver.property_dim TO VERSION 6;
+-- Version history: V0=CREATE, V1=batch1, V2=expire2, V3=batch2, V4=expire3, V5=batch3(40 rows), V6=bad
+RESTORE realty.silver.property_dim TO VERSION 5;
 
 -- Verify recovery: back to 40 rows
 ASSERT ROW_COUNT = 40
@@ -458,7 +489,7 @@ INSERT INTO realty.silver.correction_log VALUES (
     1,
     'silver.property_dim',
     'RESTORE',
-    6,
+    5,
     'Rolled back bad assessment batch (all properties assessed at $1)',
     58,
     40,

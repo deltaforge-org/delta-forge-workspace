@@ -19,7 +19,7 @@ categories = ["pipeline", "medallion", "real-estate", "property", "assessment"]
 tags = ["SCD2", "bloom-filter", "RESTORE", "pseudonymisation", "star-schema", "market-trends", "price-analysis", "assessment-accuracy", "partitioning", "time-travel"]
 difficulty = "advanced"
 estimated_time_minutes = 25
-load_type = "both"
+load_type = "full"
 
 [project.pipeline]
 name = "realty_property_pipeline"
