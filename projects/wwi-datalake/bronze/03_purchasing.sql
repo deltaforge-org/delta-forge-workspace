@@ -5,15 +5,6 @@
 -- 7-day overlap on the watermark column, MERGE upsert for deduplication.
 -- ============================================================================
 
-PIPELINE wwi_lake.bronze_purchasing
-    DESCRIPTION 'Incremental load of Purchasing tables and People from MSSQL'
-    SCHEDULE '0 3 * * *'
-    TIMEZONE 'UTC'
-    TAGS 'wwi', 'bronze', 'incremental', 'purchasing'
-    SLA 1.0
-    FAIL_FAST true
-    LIFECYCLE PRODUCTION;
-
 -- People (system-versioned, watermark on valid_from)
 
 MERGE INTO wwi_lake.bronze.people AS tgt

@@ -9,15 +9,6 @@
 -- handles both inserts and updates. No source-side deletes expected.
 -- ============================================================================
 
-PIPELINE wwi_lake.gold_fact_purchase
-    DESCRIPTION 'Materialize purchase fact from silver v_purchase view'
-    SCHEDULE '0 6 * * *'
-    TIMEZONE 'UTC'
-    TAGS 'wwi', 'gold', 'fact', 'purchasing'
-    SLA 1.0
-    FAIL_FAST true
-    LIFECYCLE PRODUCTION;
-
 MERGE INTO wwi_lake.gold.fact_purchase AS tgt
 USING (
     SELECT

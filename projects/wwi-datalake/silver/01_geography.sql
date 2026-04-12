@@ -7,14 +7,6 @@
 -- CREATE OR REPLACE VIEW is idempotent - safe to run on every schedule.
 -- ============================================================================
 
-PIPELINE wwi_lake.silver_geography
-    DESCRIPTION 'Create/refresh geography and employee silver views'
-    SCHEDULE '0 4 * * *'
-    TIMEZONE 'UTC'
-    TAGS 'wwi', 'silver', 'views', 'geography'
-    SLA 0.5
-    FAIL_FAST true
-    LIFECYCLE PRODUCTION;
 
 -- Full geographic hierarchy in one row
 

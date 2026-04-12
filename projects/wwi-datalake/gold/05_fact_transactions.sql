@@ -9,15 +9,6 @@
 -- gets set), so MERGE handles inserts + updates.
 -- ============================================================================
 
-PIPELINE wwi_lake.gold_fact_transactions
-    DESCRIPTION 'Materialize customer and supplier transaction facts'
-    SCHEDULE '0 6 * * *'
-    TIMEZONE 'UTC'
-    TAGS 'wwi', 'gold', 'fact', 'finance'
-    SLA 1.0
-    FAIL_FAST true
-    LIFECYCLE PRODUCTION;
-
 -- Customer Transactions
 
 MERGE INTO wwi_lake.gold.fact_customer_transaction AS tgt

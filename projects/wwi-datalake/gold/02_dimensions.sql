@@ -6,14 +6,6 @@
 -- MERGE with NOT MATCHED BY SOURCE catches dimension member deletions.
 -- ============================================================================
 
-PIPELINE wwi_lake.gold_dimensions
-    DESCRIPTION 'Materialize star schema dimensions from silver views'
-    SCHEDULE '0 5 * * *'
-    TIMEZONE 'UTC'
-    TAGS 'wwi', 'gold', 'dimension'
-    SLA 1.0
-    FAIL_FAST true
-    LIFECYCLE PRODUCTION;
 
 -- dim_customer
 

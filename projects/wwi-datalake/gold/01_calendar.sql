@@ -7,11 +7,6 @@
 -- Only needs to run once; re-running is safe (MERGE on date_key).
 -- ============================================================================
 
-PIPELINE wwi_lake.gold_calendar
-    DESCRIPTION 'Generate or refresh the calendar dimension'
-    TAGS 'wwi', 'gold', 'dimension', 'calendar'
-    LIFECYCLE PRODUCTION;
-
 MERGE INTO wwi_lake.gold.dim_date AS tgt
 USING (
     WITH date_spine AS (

@@ -10,14 +10,6 @@
 -- No NOT MATCHED BY SOURCE -- invoice lines are append-only, never deleted.
 -- ============================================================================
 
-PIPELINE wwi_lake.gold_fact_sale
-    DESCRIPTION 'Materialize sales fact from silver v_sale view'
-    SCHEDULE '0 6 * * *'
-    TIMEZONE 'UTC'
-    TAGS 'wwi', 'gold', 'fact', 'sales'
-    SLA 1.5
-    FAIL_FAST true
-    LIFECYCLE PRODUCTION;
 
 MERGE INTO wwi_lake.gold.fact_sale AS tgt
 USING (

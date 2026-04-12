@@ -7,15 +7,6 @@
 -- First run (empty target): loads everything via epoch fallback.
 -- ============================================================================
 
-PIPELINE wwi_lake.bronze_sales
-    DESCRIPTION 'Incremental load of Sales tables from MSSQL WideWorldImporters'
-    SCHEDULE '0 3 * * *'
-    TIMEZONE 'UTC'
-    TAGS 'wwi', 'bronze', 'incremental', 'sales'
-    SLA 1.5
-    FAIL_FAST true
-    LIFECYCLE PRODUCTION;
-
 -- Customers (system-versioned, watermark on valid_from)
 
 MERGE INTO wwi_lake.bronze.customers AS tgt

@@ -5,15 +5,6 @@
 -- MERGE with NOT MATCHED BY SOURCE detects source-side deletions.
 -- ============================================================================
 
-PIPELINE wwi_lake.bronze_reference
-    DESCRIPTION 'Full sync of reference tables from MSSQL WideWorldImporters'
-    SCHEDULE '0 2 * * *'
-    TIMEZONE 'UTC'
-    TAGS 'wwi', 'bronze', 'full-load', 'reference'
-    SLA 0.5
-    FAIL_FAST true
-    LIFECYCLE PRODUCTION;
-
 -- Countries
 
 MERGE INTO wwi_lake.bronze.countries AS tgt

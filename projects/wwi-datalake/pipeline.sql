@@ -1,5 +1,5 @@
 -- ============================================================================
--- WWI Data Lake - Setup Script (run once)
+-- WWI Data Lake - Master Pipeline
 -- ============================================================================
 --
 -- PREREQUISITE:
@@ -14,17 +14,19 @@
 --   database name. Create the connection via the GUI Connections page or
 --   the control plane API before running this setup.
 --
--- Source: mssql_WideWorldImporters catalog (MSSQL federated tables)
--- Architecture:
---   Bronze  -> Delta tables, raw 1:1 ingestion from MSSQL
---   Silver  -> Views over bronze, business transformations & enrichment
---   Gold    -> Delta tables, materialized star schema for end users
+-- Execution order (fully idempotent, safe to run repeatedly):
+--   1. Preflight  - verify MSSQL connection is reachable
+--   2. DDL        - create zone, schemas, tables (IF NOT EXISTS)
+--   3. Bronze     - ingest from MSSQL (full load + incremental with 7-day overlap)
+--   4. Silver     - create/refresh transformation views (CREATE OR REPLACE)
+--   5. Gold       - materialize star schema dimensions and facts (MERGE)
 -- ============================================================================
 
-PIPELINE wwi_lake.setup
-    DESCRIPTION 'One-time setup: validate MSSQL connection, create zone/schemas/tables'
-    TAGS 'wwi', 'setup'
+PIPELINE wwi_lake.pipeline
+    DESCRIPTION 'WWI datalake - bronze/silver/gold medallion from MSSQL source'
+    TAGS 'wwi', 'medallion', 'mssql'
     FAIL_FAST true
+    STATUS DISABLED
     LIFECYCLE PRODUCTION;
 
 -- ---------------------------------------------------------------------------
@@ -35,7 +37,7 @@ ASSERT ERROR ROW_COUNT > 0
 SELECT cityid FROM mssql_WideWorldImporters.Application.Cities LIMIT 1;
 -- If this fails the "mssql" connection to WideWorldImporters is missing.
 -- Create it in the Connections page (provider: SQL Server, name: mssql,
--- database: WideWorldImporters) then re-run this setup.
+-- database: WideWorldImporters) then re-run this pipeline.
 
 -- ---------------------------------------------------------------------------
 -- ZONE & SCHEMAS
@@ -685,3 +687,24 @@ CREATE DELTA TABLE IF NOT EXISTS wwi_lake.gold.fact_supplier_transaction (
 )
 LOCATION '$data_path/gold/fact_supplier_transaction'
 COMMENT 'Supplier financial transactions with settlement metrics';
+
+-- ===========================================================================
+-- DATA FLOW: source -> bronze -> silver -> gold
+-- ===========================================================================
+
+-- Bronze: ingest from MSSQL source
+INCLUDE SCRIPT 'bronze/01_reference.sql';
+INCLUDE SCRIPT 'bronze/02_sales.sql';
+INCLUDE SCRIPT 'bronze/03_purchasing.sql';
+
+-- Silver: create transformation views over bronze
+INCLUDE SCRIPT 'silver/01_geography.sql';
+INCLUDE SCRIPT 'silver/02_sales.sql';
+INCLUDE SCRIPT 'silver/03_purchasing.sql';
+
+-- Gold: materialize star schema from silver views
+INCLUDE SCRIPT 'gold/01_calendar.sql';
+INCLUDE SCRIPT 'gold/02_dimensions.sql';
+INCLUDE SCRIPT 'gold/03_fact_sale.sql';
+INCLUDE SCRIPT 'gold/04_fact_purchase.sql';
+INCLUDE SCRIPT 'gold/05_fact_transactions.sql';
