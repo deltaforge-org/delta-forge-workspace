@@ -35,3 +35,13 @@ DROP DELTA TABLE IF EXISTS telco.bronze.raw_cdr_v2 WITH FILES;
 DROP DELTA TABLE IF EXISTS telco.bronze.raw_cdr_v1 WITH FILES;
 DROP DELTA TABLE IF EXISTS telco.bronze.raw_cell_towers WITH FILES;
 DROP DELTA TABLE IF EXISTS telco.bronze.raw_subscribers WITH FILES;
+
+-- ===================== DROP SCHEMAS =====================
+
+DROP SCHEMA IF EXISTS telco.gold;
+DROP SCHEMA IF EXISTS telco.silver;
+DROP SCHEMA IF EXISTS telco.bronze;
+
+-- ===================== DROP ZONES =====================
+
+DROP ZONE IF EXISTS telco;

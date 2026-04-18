@@ -35,3 +35,13 @@ DROP DELTA TABLE IF EXISTS mfg.bronze.raw_production_targets WITH FILES;
 DROP DELTA TABLE IF EXISTS mfg.bronze.raw_shifts WITH FILES;
 DROP DELTA TABLE IF EXISTS mfg.bronze.raw_production_lines WITH FILES;
 DROP DELTA TABLE IF EXISTS mfg.bronze.raw_sensors WITH FILES;
+
+-- ===================== DROP SCHEMAS =====================
+
+DROP SCHEMA IF EXISTS mfg.gold;
+DROP SCHEMA IF EXISTS mfg.silver;
+DROP SCHEMA IF EXISTS mfg.bronze;
+
+-- ===================== DROP ZONES =====================
+
+DROP ZONE IF EXISTS mfg;
