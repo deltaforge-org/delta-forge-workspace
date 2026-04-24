@@ -50,7 +50,7 @@ FROM ecom.gold.dim_channel;
 SELECT 'All 3 channels present in dim_channel' AS status;
 
 -- -----------------------------------------------------------------------------
--- 5. Revenue by channel — verify all 3 channels have revenue
+-- 5. Revenue by channel: verify all 3 channels have revenue
 -- -----------------------------------------------------------------------------
 ASSERT ROW_COUNT = 3
 SELECT
@@ -88,7 +88,7 @@ LIMIT 5;
 SELECT 'Top 5 product profitability computed' AS status;
 
 -- -----------------------------------------------------------------------------
--- 7. RFM customer segmentation — verify distribution
+-- 7. RFM customer segmentation: verify distribution
 -- -----------------------------------------------------------------------------
 ASSERT VALUE customer_count > 0
 SELECT

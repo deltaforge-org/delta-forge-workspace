@@ -8,7 +8,7 @@
 -- To run: first SET STATUS on this pipeline to 'active', then trigger.
 
 PIPELINE logistics_shipments_cleanup
-  DESCRIPTION 'Cleanup pipeline for Logistics Shipments — drops all objects. DISABLED by default.'
+  DESCRIPTION 'Cleanup pipeline for Logistics Shipments: drops all objects. DISABLED by default.'
   SCHEDULE 'logistics_6hr_schedule'
   TAGS 'cleanup', 'maintenance', 'logistics-shipments'
   STATUS disabled

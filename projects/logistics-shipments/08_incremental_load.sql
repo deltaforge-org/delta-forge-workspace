@@ -56,11 +56,11 @@ ALTER TABLE logi.bronze.raw_tracking_events ADD COLUMN customs_cleared BOOLEAN;
 MERGE INTO logi.bronze.raw_tracking_events AS target
 USING (
   SELECT * FROM (VALUES
-  -- S019 finally found and delivered (was lost exception) — dispute resolution via time travel
+  -- S019 finally found and delivered (was lost exception): dispute resolution via time travel
   ('EVT-084', 'S019', 'CUST-007', 'CAR-006', 'LOC-ATL', 'LOC-MIA', 'standard', 'out_for_delivery', '2024-05-08T08:00:00', '2024-04-28', '2024-04-30', CAST(NULL AS VARCHAR),          290.00, 1.3500, 348.00, 480.00, '2024-07-01T00:00:00', CAST(NULL AS BOOLEAN)),
   ('EVT-085', 'S019', 'CUST-007', 'CAR-006', 'LOC-ATL', 'LOC-MIA', 'standard', 'delivered',        '2024-05-08T15:00:00', '2024-04-28', '2024-04-30', '2024-05-08', 290.00, 1.3500, 348.00, 480.00, '2024-07-01T00:00:00', CAST(NULL AS BOOLEAN)),
 
-  -- S024 damaged shipment resolved — replacement delivered
+  -- S024 damaged shipment resolved: replacement delivered
   ('EVT-086', 'S024', 'CUST-003', 'CAR-008', 'LOC-SLC', 'LOC-DET', 'economy',  'out_for_delivery', '2024-05-10T09:00:00', '2024-05-03', '2024-05-14', CAST(NULL AS VARCHAR),          510.00, 2.4000, 265.20, 440.00, '2024-07-01T00:00:00', CAST(NULL AS BOOLEAN)),
   ('EVT-087', 'S024', 'CUST-003', 'CAR-008', 'LOC-SLC', 'LOC-DET', 'economy',  'delivered',        '2024-05-10T16:00:00', '2024-05-03', '2024-05-14', '2024-05-10', 510.00, 2.4000, 265.20, 440.00, '2024-07-01T00:00:00', CAST(NULL AS BOOLEAN)),
 

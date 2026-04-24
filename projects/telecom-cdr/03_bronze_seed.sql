@@ -52,7 +52,7 @@ VALUES
   ('TWR-S-03',  '29.7604,-95.3698',  'Houston',       'South',     '5G',   90, '2024-06-01T00:00:00');
 
 
--- ===================== SEED DATA: CDR V1 — 2023 voice-only (25 rows) =====================
+-- ===================== SEED DATA: CDR V1: 2023 voice-only (25 rows) =====================
 -- Schema v1: call_id, caller, callee, start_time, end_time, tower_id, duration_sec
 -- No call_type, no data_usage, no roaming. Duration in INT (seconds).
 -- Includes 2 dropped calls (duration < 10s).
@@ -88,7 +88,7 @@ VALUES
   ('V1-025', '+1-404-555-1011', '+1-212-555-1001', '2023-12-31T20:00:00', '2023-12-31T20:14:25', 'TWR-S-02',  865,  '2023-12-31T22:00:00');
 
 
--- ===================== SEED DATA: CDR V2 — 2024 H1 multi-service (25 rows) =====================
+-- ===================== SEED DATA: CDR V2: 2024 H1 multi-service (25 rows) =====================
 -- Schema v2: adds call_type (voice/sms/data), data_usage_mb, sms_count
 -- Includes 2 dropped voice calls, data sessions, SMS events.
 
@@ -123,7 +123,7 @@ VALUES
   ('V2-025', '+1-305-555-9009', '+1-214-555-2012', '2024-06-15T10:00:00', '2024-06-15T10:25:40', 'TWR-S-01',  1540, 'voice',  0.00,  0, '2024-06-15T12:00:00');
 
 
--- ===================== SEED DATA: CDR V3 — 2024 H2 5G era (20 rows) =====================
+-- ===================== SEED DATA: CDR V3: 2024 H2 5G era (20 rows) =====================
 -- Schema v3: adds roaming_flag, network_type (4G/5G), handover_count
 -- Type widening: duration_sec as BIGINT (long data sessions can exceed INT range conceptually).
 -- Includes 3 roaming events, 2 5G handovers, 1 dropped call.

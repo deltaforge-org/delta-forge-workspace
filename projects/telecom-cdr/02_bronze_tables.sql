@@ -11,7 +11,7 @@ PIPELINE telecom_bronze_tables
 
 -- ===================== BRONZE TABLES =====================
 
--- CDR v1 (2023): Voice-only format — 6 core columns
+-- CDR v1 (2023): Voice-only format: 6 core columns
 CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cdr_v1 (
   call_id         STRING      NOT NULL,
   caller          STRING      NOT NULL,
@@ -23,7 +23,7 @@ CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cdr_v1 (
   ingested_at     TIMESTAMP
 ) LOCATION 'telco/telecom/bronze/raw_cdr_v1';
 
--- CDR v2 (2024 H1): Multi-service — adds call_type, data_usage_mb, sms_count
+-- CDR v2 (2024 H1): Multi-service: adds call_type, data_usage_mb, sms_count
 CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cdr_v2 (
   call_id         STRING      NOT NULL,
   caller          STRING      NOT NULL,
@@ -38,7 +38,7 @@ CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cdr_v2 (
   ingested_at     TIMESTAMP
 ) LOCATION 'telco/telecom/bronze/raw_cdr_v2';
 
--- CDR v3 (2024 H2): 5G era — adds roaming_flag, network_type, handover_count
+-- CDR v3 (2024 H2): 5G era: adds roaming_flag, network_type, handover_count
 -- Type widening: duration_sec from INT to BIGINT for long data sessions
 CREATE DELTA TABLE IF NOT EXISTS telco.bronze.raw_cdr_v3 (
   call_id         STRING      NOT NULL,

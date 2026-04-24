@@ -1,5 +1,5 @@
 -- =============================================================================
--- Gold: Dimension — Warehouse
+-- Gold: Dimension: Warehouse
 -- =============================================================================
 -- Warehouse dimension enriched with capacity utilization derived from current
 -- inventory positions. Shows total on-hand units, unique SKU count, and

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Gold: Dimension — Supplier
+-- Gold: Dimension: Supplier
 -- =============================================================================
 -- Enriches raw supplier reference data with performance metrics derived from
 -- the silver order_fulfillment table: on-time delivery rate, average fill rate,

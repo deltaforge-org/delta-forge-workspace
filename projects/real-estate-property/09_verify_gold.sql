@@ -58,7 +58,7 @@ SELECT COUNT(*) AS row_count FROM realty.silver.property_dim;
 ASSERT ROW_COUNT = 18
 SELECT COUNT(*) AS row_count FROM realty.silver.property_dim WHERE is_current = true;
 
--- ===================== QUERY 3: Star Schema Join — Full Transaction Detail =====================
+-- ===================== QUERY 3: Star Schema Join: Full Transaction Detail =====================
 
 ASSERT ROW_COUNT >= 25
 SELECT

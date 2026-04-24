@@ -1,11 +1,11 @@
 -- ============================================================================
--- WWI Data Lake — Pipeline Orchestrator
+-- WWI Data Lake: Pipeline Orchestrator
 -- ============================================================================
 -- Defines the shared schedule and master pipeline for the WWI datalake
 -- medallion architecture (bronze -> silver -> gold).
 --
 -- Each numbered SQL file declares its own PIPELINE step attached to this
--- schedule. Teardown (13_teardown.sql) is excluded — it must be activated
+-- schedule. Teardown (13_teardown.sql) is excluded: it must be activated
 -- and run manually.
 -- ============================================================================
 

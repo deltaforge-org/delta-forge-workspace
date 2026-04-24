@@ -36,7 +36,7 @@ FROM ecom.silver.inventory_adjustments;
 ALTER TABLE ecom.silver.orders_unified ADD COLUMN loyalty_points INT;
 
 -- =============================================================================
--- Insert 10 new web orders (July 2024 batch) — with loyalty_points populated
+-- Insert 10 new web orders (July 2024 batch): with loyalty_points populated
 -- =============================================================================
 
 MERGE INTO ecom.bronze.raw_web_orders AS target

@@ -6,7 +6,7 @@
 -- =============================================================================
 
 PIPELINE insurance_claims_cleanup
-  DESCRIPTION 'Cleanup pipeline for Insurance Claims — drops all objects. DISABLED by default.'
+  DESCRIPTION 'Cleanup pipeline for Insurance Claims: drops all objects. DISABLED by default.'
   SCHEDULE 'ins_weekly_schedule'
   TAGS 'cleanup', 'maintenance', 'insurance-claims'
   STATUS disabled

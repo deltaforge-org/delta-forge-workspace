@@ -18,7 +18,7 @@ PIPELINE telecom_setup
 ;
 
 CREATE ZONE IF NOT EXISTS telco TYPE TEMP
-  COMMENT 'Telecom CDR project zone — schema evolution, session reconstruction, churn scoring';
+  COMMENT 'Telecom CDR project zone: schema evolution, session reconstruction, churn scoring';
 
 -- ===================== SCHEMAS =====================
 CREATE SCHEMA IF NOT EXISTS telco.bronze COMMENT 'Raw CDR feeds across 3 schema versions and reference data';

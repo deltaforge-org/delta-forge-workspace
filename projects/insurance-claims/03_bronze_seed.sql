@@ -21,7 +21,7 @@ INSERT INTO ins.bronze.raw_adjusters (adjuster_id, name, specialization, years_e
   ('ADJ05', 'Priya Sharma',       'workers_comp', 10, 'South',     '2024-01-15T00:00:00'),
   ('ADJ06', 'James Whitfield',    'multi_peril',  20, 'Northeast', '2024-01-15T00:00:00');
 
--- SEED DATA: CLAIMANTS (12 rows) — with SSN for pseudonymisation demo
+-- SEED DATA: CLAIMANTS (12 rows): with SSN for pseudonymisation demo
 
 DELETE FROM ins.bronze.raw_claimants WHERE 1=1;
 
@@ -39,7 +39,7 @@ INSERT INTO ins.bronze.raw_claimants (claimant_id, name, ssn, date_of_birth, age
   ('CLM11', 'Kenneth Park',      '111-22-3333', '1970-02-08', '50-59', 'OR', 'preferred', '2024-01-15T00:00:00'),
   ('CLM12', 'Laura Esposito',    '222-33-4444', '1988-10-30', '30-39', 'GA', 'standard',  '2024-01-15T00:00:00');
 
--- SEED DATA: POLICIES — 3 batches totaling 23 rows
+-- SEED DATA: POLICIES: 3 batches totaling 23 rows
 -- Batch 1: 15 initial policies (change_type = 'new')
 -- Batch 2: 5 premium increases
 -- Batch 3: 3 coverage upgrades
@@ -77,7 +77,7 @@ INSERT INTO ins.bronze.raw_policies (policy_id, holder_name, ssn, coverage_type,
   ('POL004', 'Diana Petrov',     '456-78-9012', 'health_plus',  6200.00, 'Southeast', 'FL', 4.2, '2023-07-01', 'coverage_upgrade', '2024-01-15T00:00:00'),
   ('POL007', 'George Nakamura',  '789-01-2345', 'home_plus',    4800.00, 'West',      'CA', 4.3, '2024-01-01', 'coverage_upgrade', '2024-01-15T00:00:00');
 
--- SEED DATA: CLAIMS (45 rows) — multiple statuses, 3 outliers for fraud
+-- SEED DATA: CLAIMS (45 rows): multiple statuses, 3 outliers for fraud
 -- Statuses: filed, under_review, approved, denied, settled
 -- 30 settled (with settlement_date), 15 open/under_review/denied
 -- 3 deliberately high claims for fraud detection (C0009, C0010, C0037)

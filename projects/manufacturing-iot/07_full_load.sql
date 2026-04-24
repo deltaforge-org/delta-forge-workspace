@@ -39,7 +39,7 @@ ASSERT VALUE target_count = 12
 SELECT COUNT(*) AS target_count FROM mfg.bronze.raw_production_targets;
 
 -- =============================================================================
--- STEP 2a: Validate readings — CHECK constraints, out-of-range flagging
+-- STEP 2a: Validate readings: CHECK constraints, out-of-range flagging
 -- =============================================================================
 -- CHECK constraints: temperature_c BETWEEN -50 AND 500, pressure_bar BETWEEN 0 AND 200,
 -- vibration_hz BETWEEN 0 AND 50000, rpm BETWEEN 0 AND 20000.
@@ -152,7 +152,7 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- =============================================================================
--- Smooth and detect anomalies — 5-reading moving avg + 2-sigma
+-- Smooth and detect anomalies: 5-reading moving avg + 2-sigma
 -- =============================================================================
 -- Statistical anomaly detection:
 --   moving_avg = AVG(value) OVER (PARTITION BY sensor_id ORDER BY reading_time ROWS BETWEEN 4 PRECEDING AND CURRENT ROW)
@@ -458,7 +458,7 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- =============================================================================
--- VACUUM and OPTIMIZE — 90-day retention governance
+-- VACUUM and OPTIMIZE: 90-day retention governance
 -- =============================================================================
 
 OPTIMIZE mfg.silver.readings_validated;

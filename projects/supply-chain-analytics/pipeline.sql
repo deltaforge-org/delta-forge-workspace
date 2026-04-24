@@ -1,5 +1,5 @@
 -- =============================================================================
--- Supply Chain Analytics — Pipeline Orchestrator
+-- Supply Chain Analytics: Pipeline Orchestrator
 -- =============================================================================
 -- Split-file pattern: each STEP references an individual SQL file via
 -- INCLUDE SCRIPT so that transformations can be versioned, tested, and

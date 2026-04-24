@@ -90,7 +90,7 @@ VALUES
 
 -- ===================== SEED DATA: SENSOR READINGS (90 rows) =====================
 -- 4 plants x varying lines x ~8 sensors, readings every 15 min.
--- Each row has a single 'value' field — interpretation depends on sensor_type.
+-- Each row has a single 'value' field: interpretation depends on sensor_type.
 -- Includes 6 anomalous readings:
 --   2 temperature spikes (R-005, R-023)
 --   2 pressure drops (R-016 high pressure, R-080 high pressure)

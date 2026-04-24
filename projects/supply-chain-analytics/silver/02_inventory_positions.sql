@@ -3,7 +3,7 @@
 -- =============================================================================
 -- Computes current on-hand inventory per warehouse x SKU by aggregating all
 -- warehouse movements (receipts add, picks/ships subtract, adjustments apply).
--- Uses MERGE for idempotent updates — safe to re-run on each pipeline cycle.
+-- Uses MERGE for idempotent updates: safe to re-run on each pipeline cycle.
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS sc.silver.inventory_positions (

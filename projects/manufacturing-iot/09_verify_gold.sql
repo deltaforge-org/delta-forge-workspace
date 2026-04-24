@@ -39,7 +39,7 @@ SELECT COUNT(*) AS shift_count
 FROM mfg.gold.dim_shift;
 
 -- -----------------------------------------------------------------------------
--- 5. Anomaly detection verification — anomalies must exist
+-- 5. Anomaly detection verification: anomalies must exist
 -- -----------------------------------------------------------------------------
 ASSERT VALUE total_readings > 0
 SELECT
@@ -55,7 +55,7 @@ GROUP BY ds.sensor_type
 ORDER BY anomaly_pct DESC;
 
 -- -----------------------------------------------------------------------------
--- 6. OEE by plant/line/shift — all OEE components must be > 0
+-- 6. OEE by plant/line/shift: all OEE components must be > 0
 -- -----------------------------------------------------------------------------
 ASSERT VALUE oee_pct > 0
 SELECT
@@ -76,7 +76,7 @@ FROM mfg.gold.kpi_oee
 ORDER BY oee_pct DESC;
 
 -- -----------------------------------------------------------------------------
--- 7. Anomaly trend analysis — trends by sensor type and month
+-- 7. Anomaly trend analysis: trends by sensor type and month
 -- -----------------------------------------------------------------------------
 ASSERT VALUE anomaly_count > 0
 SELECT
@@ -93,7 +93,7 @@ WHERE anomaly_count > 0
 ORDER BY anomaly_rate_pct DESC;
 
 -- -----------------------------------------------------------------------------
--- 8. Equipment status verification — downtime events captured
+-- 8. Equipment status verification: downtime events captured
 -- -----------------------------------------------------------------------------
 ASSERT VALUE downtime_minutes > 0
 SELECT

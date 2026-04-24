@@ -18,7 +18,7 @@ PIPELINE manufacturing_setup
 ;
 
 CREATE ZONE IF NOT EXISTS mfg TYPE TEMP
-  COMMENT 'Manufacturing IoT project zone — anomaly detection, OEE, equipment status';
+  COMMENT 'Manufacturing IoT project zone: anomaly detection, OEE, equipment status';
 
 -- ===================== SCHEMAS =====================
 CREATE SCHEMA IF NOT EXISTS mfg.bronze COMMENT 'Raw IoT sensor readings, sensor metadata, production lines, shifts, and targets';

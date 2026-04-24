@@ -1,5 +1,5 @@
 -- =============================================================================
--- Gold: KPI — Demand Forecast
+-- Gold: KPI: Demand Forecast
 -- =============================================================================
 -- Demand trend analysis per store x SKU:
 --   - demand_trend: slope of the 7-day moving average (positive = growing)

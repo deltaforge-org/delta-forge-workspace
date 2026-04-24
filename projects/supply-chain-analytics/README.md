@@ -9,7 +9,7 @@ End-to-end supply chain visibility pipeline for a global FMCG company.
 - **POS**: Point-of-sale demand signals from 8 stores
 
 ## Architecture
-Split-file medallion pattern — each transformation is its own SQL file.
+Split-file medallion pattern: each transformation is its own SQL file.
 
 ### Bronze (Raw Ingestion)
 - Purchase orders, warehouse movements, transport events, POS demand, reference data

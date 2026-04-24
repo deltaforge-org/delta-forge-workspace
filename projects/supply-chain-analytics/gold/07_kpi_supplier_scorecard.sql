@@ -1,5 +1,5 @@
 -- =============================================================================
--- Gold: KPI — Supplier Scorecard
+-- Gold: KPI: Supplier Scorecard
 -- =============================================================================
 -- Aggregated supplier performance metrics:
 --   - on_time_delivery_pct: orders received by expected date / total orders

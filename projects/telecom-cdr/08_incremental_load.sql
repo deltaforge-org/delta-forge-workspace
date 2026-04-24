@@ -36,7 +36,7 @@ SELECT 'gold.kpi_churn_risk', COUNT(*)
 FROM telco.gold.kpi_churn_risk;
 
 -- =============================================================================
--- Insert 8 new v3 CDR records (October 2024 — latest 5G batch)
+-- Insert 8 new v3 CDR records (October 2024: latest 5G batch)
 -- =============================================================================
 -- Includes 1 roaming event, 1 dropped call, 1 5G handover, long data session.
 

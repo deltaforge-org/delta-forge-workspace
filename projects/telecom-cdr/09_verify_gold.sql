@@ -53,7 +53,7 @@ FROM telco.gold.dim_plan;
 ASSERT VALUE plan_count >= 4
 
 -- -----------------------------------------------------------------------------
--- 6. Dropped call analysis by region — must have drops in data
+-- 6. Dropped call analysis by region: must have drops in data
 -- -----------------------------------------------------------------------------
 SELECT
   region,
@@ -107,7 +107,7 @@ ORDER BY utilization_rank;
 ASSERT VALUE total_calls > 0
 
 -- -----------------------------------------------------------------------------
--- 9. Session reconstruction verification — sessions exist in silver
+-- 9. Session reconstruction verification: sessions exist in silver
 -- -----------------------------------------------------------------------------
 SELECT
   subscriber_id,
@@ -123,7 +123,7 @@ ORDER BY session_count DESC;
 ASSERT VALUE session_count > 0
 
 -- -----------------------------------------------------------------------------
--- 10. Churn risk scoring verification — all 15 subscribers scored
+-- 10. Churn risk scoring verification: all 15 subscribers scored
 -- -----------------------------------------------------------------------------
 SELECT
   churn_risk_level,

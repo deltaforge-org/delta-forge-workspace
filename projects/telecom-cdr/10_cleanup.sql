@@ -8,7 +8,7 @@
 -- To run: first SET STATUS on this pipeline to 'active', then trigger.
 
 PIPELINE telecom_cdr_cleanup
-  DESCRIPTION 'Cleanup pipeline for Telecom CDR — drops all objects across 3 schema versions. DISABLED by default.'
+  DESCRIPTION 'Cleanup pipeline for Telecom CDR: drops all objects across 3 schema versions. DISABLED by default.'
   SCHEDULE 'telecom_daily_schedule'
   TAGS 'cleanup', 'maintenance', 'telecom-cdr'
   STATUS disabled

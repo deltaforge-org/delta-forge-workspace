@@ -31,7 +31,7 @@ SELECT
 FROM tax.gold.kpi_revenue_analysis k
 ORDER BY k.fiscal_year, k.jurisdiction_name;
 
--- ===================== QUERY 2: Star Schema Join — Full Filing Detail with Amendments =====================
+-- ===================== QUERY 2: Star Schema Join: Full Filing Detail with Amendments =====================
 
 ASSERT ROW_COUNT >= 50
 SELECT

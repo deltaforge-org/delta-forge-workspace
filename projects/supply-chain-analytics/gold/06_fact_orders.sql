@@ -1,5 +1,5 @@
 -- =============================================================================
--- Gold: Fact — Order Lifecycle
+-- Gold: Fact: Order Lifecycle
 -- =============================================================================
 -- Full PO lifecycle fact table joining silver order_fulfillment with shipment
 -- tracking. Captures: ordered qty, received qty, fill rate, lead time,

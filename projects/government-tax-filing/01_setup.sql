@@ -24,6 +24,6 @@ CREATE ZONE IF NOT EXISTS tax TYPE TEMP
 
 -- ===================== SCHEMAS =====================
 
-CREATE SCHEMA IF NOT EXISTS tax.bronze COMMENT 'Raw tax filing source data — filings, amendments, taxpayers, jurisdictions, preparers';
+CREATE SCHEMA IF NOT EXISTS tax.bronze COMMENT 'Raw tax filing source data: filings, amendments, taxpayers, jurisdictions, preparers';
 CREATE SCHEMA IF NOT EXISTS tax.silver COMMENT 'Immutable filings, applied amendments, taxpayer profiles, CDF audit trail';
 CREATE SCHEMA IF NOT EXISTS tax.gold   COMMENT 'Filing star schema with amendment-aware facts, revenue and preparer KPIs';

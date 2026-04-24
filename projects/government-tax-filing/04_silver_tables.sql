@@ -80,7 +80,7 @@ CREATE DELTA TABLE IF NOT EXISTS tax.silver.taxpayer_profiles (
 
 GRANT ADMIN ON TABLE tax.silver.taxpayer_profiles TO USER admin;
 
--- CDF-driven audit trail — captures every change to filings_immutable and amendments
+-- CDF-driven audit trail: captures every change to filings_immutable and amendments
 CREATE DELTA TABLE IF NOT EXISTS tax.silver.audit_trail (
   audit_id            INT         NOT NULL,
   table_name          STRING      NOT NULL,

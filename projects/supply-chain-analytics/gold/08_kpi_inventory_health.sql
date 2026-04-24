@@ -1,5 +1,5 @@
 -- =============================================================================
--- Gold: KPI — Inventory Health
+-- Gold: KPI: Inventory Health
 -- =============================================================================
 -- Per product x warehouse inventory health metrics:
 --   - stockout_rate: % of days with zero on-hand (estimated)

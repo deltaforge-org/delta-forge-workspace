@@ -8,7 +8,7 @@
 -- To run: first SET STATUS on this pipeline to 'active', then trigger.
 
 PIPELINE cybersecurity_incidents_cleanup
-  DESCRIPTION 'Cleanup pipeline for Cybersecurity Incidents — drops all objects. DISABLED by default.'
+  DESCRIPTION 'Cleanup pipeline for Cybersecurity Incidents: drops all objects. DISABLED by default.'
   SCHEDULE 'cyber_15min_schedule'
   TAGS 'cleanup', 'maintenance', 'cybersecurity-incidents'
   STATUS disabled

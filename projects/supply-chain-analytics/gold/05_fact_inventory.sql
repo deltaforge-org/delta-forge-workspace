@@ -1,5 +1,5 @@
 -- =============================================================================
--- Gold: Fact — Inventory Snapshot
+-- Gold: Fact: Inventory Snapshot
 -- =============================================================================
 -- Daily inventory snapshot per warehouse x product. Combines on-hand from
 -- silver inventory_positions, in-transit from shipment_tracking, and on-order

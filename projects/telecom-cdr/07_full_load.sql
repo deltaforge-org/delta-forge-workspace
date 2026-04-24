@@ -230,7 +230,7 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- =============================================================================
--- Apply type widening — duration INT -> BIGINT on unified table
+-- Apply type widening: duration INT -> BIGINT on unified table
 -- =============================================================================
 -- This step runs after all 3 schema merges to confirm the type widening is in
 -- effect. The unified table was created with BIGINT from the start; this step
@@ -530,7 +530,7 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- =============================================================================
--- STEP 12a: KPI — network quality by region and hour
+-- STEP 12a: KPI: network quality by region and hour
 -- =============================================================================
 
 MERGE INTO telco.gold.kpi_network_quality AS tgt
@@ -579,7 +579,7 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- =============================================================================
--- STEP 12b: KPI — churn risk scoring (behavioral composite 0-100)
+-- STEP 12b: KPI: churn risk scoring (behavioral composite 0-100)
 -- =============================================================================
 -- Score components:
 --   +40 if days_since_last_call > 30
@@ -642,7 +642,7 @@ WHEN NOT MATCHED THEN INSERT (
 );
 
 -- =============================================================================
--- VACUUM and OPTIMIZE (maintenance — safe to fail)
+-- VACUUM and OPTIMIZE (maintenance: safe to fail)
 -- =============================================================================
 
 OPTIMIZE telco.silver.cdr_unified;

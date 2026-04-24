@@ -53,7 +53,7 @@ INSERT INTO sc.bronze.transport_shipments VALUES
   ('TE-015', 'SH-012', 'CAR-A', 'W001', 'ST01', 'dispatched',  '2026-03-09 09:00:00', 40.7128, -74.0060, 'Loaded 50 units SKU-007',    '2026-03-09 09:30:00'),
   ('TE-016', 'SH-012', 'CAR-A', 'W001', 'ST01', 'delivered',   '2026-03-09 18:00:00', 38.9072, -77.0369, 'Delivered DC store',           '2026-03-09 18:30:00'),
 
-  -- SH-013: W002 -> Store ST03 (in transit — customs hold)
+  -- SH-013: W002 -> Store ST03 (in transit: customs hold)
   ('TE-017', 'SH-013', 'CAR-B', 'W002', 'ST03', 'dispatched',  '2026-03-17 13:30:00', 34.0522, -118.2437, 'Loaded 180 units SKU-008',  '2026-03-17 14:00:00'),
   ('TE-018', 'SH-013', 'CAR-B', 'W002', 'ST03', 'customs_hold','2026-03-18 10:00:00', 32.7157, -117.1611, 'Held at San Diego customs',  '2026-03-18 10:30:00'),
 
@@ -86,6 +86,6 @@ INSERT INTO sc.bronze.transport_shipments VALUES
   ('TE-032', 'SH-022', 'CAR-E', 'W004', 'ST08', 'dispatched',  '2026-03-23 15:30:00', 29.7604, -95.3698, 'Loaded 110 units SKU-011',   '2026-03-23 16:00:00'),
   ('TE-033', 'SH-022', 'CAR-E', 'W004', 'ST08', 'delivered',   '2026-03-24 12:00:00', 32.7767, -96.7970, 'Delivered Dallas store',       '2026-03-24 12:30:00'),
 
-  -- SH-024: W004 -> Store ST08 (exception — damaged)
+  -- SH-024: W004 -> Store ST08 (exception: damaged)
   ('TE-034', 'SH-024', 'CAR-E', 'W004', 'ST08', 'dispatched',  '2026-03-25 08:30:00', 29.7604, -95.3698, 'Loaded 80 units SKU-015',    '2026-03-25 09:00:00'),
   ('TE-035', 'SH-024', 'CAR-E', 'W004', 'ST08', 'exception',   '2026-03-25 16:00:00', 31.5493, -97.1467, 'Partial damage in transit',    '2026-03-25 16:30:00');

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Gold: Dimension — Product
+-- Gold: Dimension: Product
 -- =============================================================================
 -- Product dimension with category hierarchy, total inventory across all
 -- warehouses, and total POS revenue to date.

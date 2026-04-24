@@ -1,5 +1,5 @@
 -- =============================================================================
--- Gold: Dimension — Store
+-- Gold: Dimension: Store
 -- =============================================================================
 -- Store dimension with regional assignment, format type, and aggregated
 -- demand metrics from the silver demand_signals table.

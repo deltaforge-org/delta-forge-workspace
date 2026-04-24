@@ -36,7 +36,7 @@ SELECT COUNT(*) AS event_count FROM logi.bronze.raw_tracking_events;
 -- ===================== dedup_events =====================
 -- Idempotent composite-key MERGE: same (shipment_id + event_type +
 -- event_timestamp) arriving multiple times produces exactly one row.
--- WHEN MATCHED: do nothing (idempotent — no UPDATE needed).
+-- WHEN MATCHED: do nothing (idempotent: no UPDATE needed).
 -- This is the core event sourcing dedup pattern.
 
 MERGE INTO logi.silver.events_deduped AS target

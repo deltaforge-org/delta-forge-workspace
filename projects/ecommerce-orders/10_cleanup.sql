@@ -6,7 +6,7 @@
 -- =============================================================================
 
 PIPELINE ecommerce_orders_cleanup
-  DESCRIPTION 'Cleanup pipeline for E-Commerce Orders — drops all objects. DISABLED by default.'
+  DESCRIPTION 'Cleanup pipeline for E-Commerce Orders: drops all objects. DISABLED by default.'
   SCHEDULE 'ecommerce_30min_schedule'
   TAGS 'cleanup', 'maintenance', 'ecommerce-orders'
   STATUS disabled
