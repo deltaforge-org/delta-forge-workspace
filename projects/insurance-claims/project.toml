@@ -2,7 +2,7 @@
 id = "insurance-claims"
 name = "Property & Casualty Insurance Claims Pipeline"
 version = "2.0.0"
-author = "Delta Forge Team"
+author = "DeltaForge Team"
 description = """
 Property & casualty insurance pipeline with SCD Type 2 policy tracking across three change batches
 (initial load, premium increases, coverage upgrades), point-in-time policy joins for incident-date-

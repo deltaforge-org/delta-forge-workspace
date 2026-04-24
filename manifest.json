@@ -33,7 +33,7 @@
       "estimatedTimeMinutes": 25,
       "loadType": "incremental",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {
@@ -119,7 +119,7 @@
       "estimatedTimeMinutes": 20,
       "loadType": "incremental",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {
@@ -219,7 +219,7 @@
       "estimatedTimeMinutes": 20,
       "loadType": "incremental",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {
@@ -326,7 +326,7 @@
       "estimatedTimeMinutes": 25,
       "loadType": "both",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {
@@ -432,7 +432,7 @@
       "estimatedTimeMinutes": 25,
       "loadType": "both",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {
@@ -514,7 +514,7 @@
       "estimatedTimeMinutes": 25,
       "loadType": "both",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {
@@ -599,7 +599,7 @@
       "estimatedTimeMinutes": 20,
       "loadType": "full",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {
@@ -688,7 +688,7 @@
       "estimatedTimeMinutes": 20,
       "loadType": "both",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {
@@ -780,7 +780,7 @@
       "estimatedTimeMinutes": 20,
       "loadType": "incremental",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {
@@ -880,7 +880,7 @@
       "estimatedTimeMinutes": 20,
       "loadType": "incremental",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {
@@ -975,7 +975,7 @@
       "estimatedTimeMinutes": 25,
       "loadType": "both",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {
@@ -1053,7 +1053,7 @@
       "estimatedTimeMinutes": 15,
       "loadType": "both",
       "fileCount": 26,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "1.0.0",
       "targetObjects": [],
       "pipeline": {}
@@ -1087,7 +1087,7 @@
       "estimatedTimeMinutes": 20,
       "loadType": "incremental",
       "fileCount": 5,
-      "author": "Delta Forge Team",
+      "author": "DeltaForge Team",
       "version": "2.0.0",
       "targetObjects": [
         {

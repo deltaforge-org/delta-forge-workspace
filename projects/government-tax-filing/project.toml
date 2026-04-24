@@ -2,7 +2,7 @@
 id = "government-tax-filing"
 name = "Government Tax Filing Pipeline"
 version = "2.0.0"
-author = "Delta Forge Team"
+author = "DeltaForge Team"
 description = """
 Enterprise government tax filing pipeline implementing append-only immutable filings with separate amendment
 tracking, CDF-driven audit trail capturing every change, partitioning by fiscal_year, pseudonymisation

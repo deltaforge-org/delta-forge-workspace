@@ -6,7 +6,7 @@
 -- =============================================================================
 
 -- ============================================================================
--- DYNAMIC INCREMENTAL FILTER (Delta Forge Macro)
+-- DYNAMIC INCREMENTAL FILTER (DeltaForge Macro)
 -- ============================================================================
 -- Usage: {{INCREMENTAL_FILTER(target_table, key_col, date_col, overlap_days)}}
 -- Output: expands to e.g. "order_id > 'WEB-030' AND order_date > '2024-06-25'"
@@ -182,7 +182,7 @@ WHERE loyalty_points IS NOT NULL AND loyalty_points > 0;
 
 SELECT 'Schema evolution verified: loyalty_points populated' AS status;
 
--- NOTE: table_changes() is Spark/Databricks syntax, not supported in Delta Forge.
+-- NOTE: table_changes() is Spark/Databricks syntax, not supported in DeltaForge.
 -- Verify incremental changes were captured by checking row count instead.
 SELECT COUNT(*) AS cdf_changes FROM ecom.silver.orders_unified;
 

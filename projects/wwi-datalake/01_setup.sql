@@ -3,7 +3,7 @@
 -- ============================================================================
 --
 -- PREREQUISITE:
---   A SQL Server connection named "mssql" must exist in the Delta Forge
+--   A SQL Server connection named "mssql" must exist in the DeltaForge
 --   connection manager pointing to a WideWorldImporters database instance.
 --   All source tables are accessed as: mssql_WideWorldImporters.<schema>.<table>
 --

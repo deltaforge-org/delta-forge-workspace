@@ -12,7 +12,7 @@
 -- =============================================================================
 
 -- ============================================================================
--- DYNAMIC INCREMENTAL FILTER (Delta Forge Macro)
+-- DYNAMIC INCREMENTAL FILTER (DeltaForge Macro)
 -- ============================================================================
 -- Usage: {{INCREMENTAL_FILTER(target_table, key_col, date_col, overlap_days)}}
 -- Output: expands to e.g. "filing_id > 'FIL-2024-012' AND filing_date > '2025-03-25'"

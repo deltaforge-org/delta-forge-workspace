@@ -2,7 +2,7 @@
 id = "ecommerce-orders"
 name = "Omnichannel E-Commerce Orders Pipeline"
 version = "2.0.0"
-author = "Delta Forge Team"
+author = "DeltaForge Team"
 description = """
 Omnichannel retail pipeline ingesting orders from three distinct systems (web, mobile app, POS
 terminals) into a unified order stream via a 3-way UNION ALL MERGE. Handles cancellations as

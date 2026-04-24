@@ -2,7 +2,7 @@
 id = "logistics-shipments"
 name = "Logistics Shipments Pipeline"
 version = "2.0.0"
-author = "Delta Forge Team"
+author = "DeltaForge Team"
 description = """
 Global logistics pipeline implementing event sourcing with idempotent composite-key deduplication
 (shipment_id + event_type + event_timestamp), shipment timeline reconstruction via window functions,

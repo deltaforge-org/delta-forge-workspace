@@ -299,7 +299,7 @@ SELECT COUNT(*) AS expired_count FROM ehr.silver.patient_dim WHERE is_current = 
 -- Read CDF changes from patient_dim and materialize into audit_log
 
 -- Derive audit log from SCD2 patient_dim rows.
--- NOTE: table_changes() is Spark/Databricks syntax, not supported in Delta Forge.
+-- NOTE: table_changes() is Spark/Databricks syntax, not supported in DeltaForge.
 -- Instead we reconstruct audit entries from the SCD2 expired/current row pairs.
 DELETE FROM ehr.silver.audit_log WHERE 1=1;
 

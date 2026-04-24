@@ -2,7 +2,7 @@
 id = "legal-case-management"
 name = "Legal Case Management Pipeline"
 version = "2.0.0"
-author = "Delta Forge Team"
+author = "DeltaForge Team"
 description = """
 Litigation analytics pipeline combining Delta tables with a property graph for relationship
 analysis. Cypher queries reveal hidden connections between parties, conflict-of-interest chains,

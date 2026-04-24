@@ -2,7 +2,7 @@
 id = "telecom-cdr"
 name = "Telecom CDR Pipeline"
 version = "2.0.0"
-author = "Delta Forge Team"
+author = "DeltaForge Team"
 description = """
 Advanced telecommunications CDR pipeline implementing medallion architecture with full schema
 evolution lifecycle (v1 voice-only -> v2 multi-service -> v3 5G/roaming), type widening

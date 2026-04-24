@@ -2,7 +2,7 @@
 id = "real-estate-property"
 name = "Real Estate Property Pipeline"
 version = "2.0.0"
-author = "Delta Forge Team"
+author = "DeltaForge Team"
 description = """
 Enterprise county assessor property pipeline implementing SCD Type 2 with 3 annual assessment batches
 (2022/2023/2024) tracking property value history, RESTORE correction workflow for bad assessment batches,

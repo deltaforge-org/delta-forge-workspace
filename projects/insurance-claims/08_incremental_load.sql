@@ -6,7 +6,7 @@
 -- =============================================================================
 
 -- ============================================================================
--- DYNAMIC INCREMENTAL FILTER (Delta Forge Macro)
+-- DYNAMIC INCREMENTAL FILTER (DeltaForge Macro)
 -- ============================================================================
 -- Usage: {{INCREMENTAL_FILTER(target_table, key_col, date_col, overlap_days)}}
 -- Output: expands to e.g. "claim_id > 'C0045' AND incident_date > '2024-01-05'"

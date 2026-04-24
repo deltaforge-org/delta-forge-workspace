@@ -2,7 +2,7 @@
 id = "banking-transactions"
 name = "Banking Transactions Pipeline"
 version = "2.0.0"
-author = "Delta Forge Team"
+author = "DeltaForge Team"
 description = """
 Enterprise banking transaction pipeline processing feeds every 4 hours through medallion architecture.
 Features multi-rule fraud scoring engine (high-value, crypto-merchant, velocity clustering, unusual-hours,

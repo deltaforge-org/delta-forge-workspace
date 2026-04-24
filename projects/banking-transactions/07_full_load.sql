@@ -282,7 +282,7 @@ WHEN NOT MATCHED THEN INSERT (
 
 -- ===================== materialize_cdf_snapshots =====================
 -- Derive tier-change snapshots from the SCD2 customer_dim table.
--- NOTE: table_changes() is Spark/Databricks syntax, not supported in Delta Forge.
+-- NOTE: table_changes() is Spark/Databricks syntax, not supported in DeltaForge.
 -- Instead we reconstruct snapshots from the SCD2 expired/current row pairs.
 
 DELETE FROM bank.silver.balance_snapshots WHERE 1=1;

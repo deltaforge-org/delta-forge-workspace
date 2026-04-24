@@ -2,7 +2,7 @@
 id = "healthcare-patient-ehr"
 name = "Healthcare Patient EHR Pipeline"
 version = "2.0.0"
-author = "Delta Forge Team"
+author = "DeltaForge Team"
 description = """
 Enterprise healthcare EHR pipeline implementing full medallion architecture with SCD Type 2 patient
 dimension tracking (address/insurance changes via valid_from/valid_to/is_current), MERGE-based

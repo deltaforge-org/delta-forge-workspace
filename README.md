@@ -1,12 +1,12 @@
-# Delta Forge Workspace
+# DeltaForge Workspace
 
-Enterprise pipeline cookbook with **13 advanced projects** demonstrating medallion architecture, scheduled multi-step pipelines, incremental/full loads, PII protection, and Delta Forge features in combination.
+Enterprise pipeline cookbook with **13 advanced projects** demonstrating medallion architecture, scheduled multi-step pipelines, incremental/full loads, PII protection, and DeltaForge features in combination.
 
 Each project has a unique feature combination — no two projects demonstrate the same patterns.
 
 ## Quick Start
 
-1. Open Delta Forge GUI
+1. Open DeltaForge GUI
 2. Navigate to any project under `projects/`
 3. **Standard projects** (12 of 13) — run files in numbered order:
    - `01_create_objects.sql` — Creates zone, schemas, tables, seeds bronze data

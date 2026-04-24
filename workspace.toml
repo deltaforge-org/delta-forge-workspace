@@ -1,11 +1,11 @@
 [workspace]
 name = "delta-forge-workspace"
 version = "1.0.0"
-author = "Delta Forge Team"
+author = "DeltaForge Team"
 description = """
 Enterprise pipeline cookbook: 25 self-contained projects demonstrating \
 medallion architecture (bronze/silver/gold), scheduled pipelines, incremental \
-and full loads, PII protection, and advanced Delta Forge features. Each project \
+and full loads, PII protection, and advanced DeltaForge features. Each project \
 targets a unique industry with production-grade complexity.
 """
 

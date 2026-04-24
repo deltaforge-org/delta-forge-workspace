@@ -10,7 +10,7 @@
 -- =============================================================================
 
 -- ============================================================================
--- DYNAMIC INCREMENTAL FILTER (Delta Forge Macro)
+-- DYNAMIC INCREMENTAL FILTER (DeltaForge Macro)
 -- ============================================================================
 -- Usage: {{INCREMENTAL_FILTER(target_table, key_col, date_col, overlap_days)}}
 -- Output: "alert_id > 'FW-030' AND deduped_at > '2024-01-16'"

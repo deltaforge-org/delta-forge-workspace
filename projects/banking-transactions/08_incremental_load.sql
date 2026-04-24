@@ -6,7 +6,7 @@
 -- =============================================================================
 
 -- ============================================================================
--- DYNAMIC INCREMENTAL FILTER (Delta Forge Macro)
+-- DYNAMIC INCREMENTAL FILTER (DeltaForge Macro)
 -- ============================================================================
 -- The INCREMENTAL_FILTER macro reads MAX values from the target silver table
 -- and generates a WHERE clause dynamically with overlap_days for late-arriving

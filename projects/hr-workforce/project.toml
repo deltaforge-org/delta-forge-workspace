@@ -2,7 +2,7 @@
 id = "hr-workforce"
 name = "HR Workforce Analytics Pipeline"
 version = "2.0.0"
-author = "Delta Forge Team"
+author = "DeltaForge Team"
 description = """
 Full employee lifecycle pipeline: hire -> promotions -> transfers -> compensation changes ->
 termination. SCD2 captures every change (32 dimension rows from 20 employees). All five

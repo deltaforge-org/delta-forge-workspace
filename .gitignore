@@ -1,4 +1,4 @@
-# Delta Forge data files
+# DeltaForge data files
 *.parquet
 *.delta/
 _delta_log/
