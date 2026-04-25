@@ -30,12 +30,12 @@ GROUP BY dip.ip_address, dip.geo_country, dip.geo_city, dip.threat_score,
 ORDER BY incident_count DESC;
 
 -- Known bad IPs should dominate top attackers
+ASSERT VALUE known_bad_sources >= 5
 SELECT COUNT(DISTINCT fi.source_ip_key) AS known_bad_sources
 FROM cyber.gold.fact_incidents fi
 JOIN cyber.gold.dim_source_ip dip ON fi.source_ip_key = dip.source_ip_key
 WHERE dip.is_known_bad = true;
 
-ASSERT VALUE known_bad_sources >= 5
 SELECT 'Known bad source check passed' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -54,6 +54,7 @@ GROUP BY dm.tactic, dm.technique_name, dm.severity_weight
 ORDER BY incident_count DESC;
 
 -- initial-access should be most common tactic (SQL injection + brute force)
+ASSERT VALUE top_tactic = 'initial-access'
 SELECT dm.tactic AS top_tactic
 FROM cyber.gold.fact_incidents fi
 JOIN cyber.gold.dim_mitre dm ON fi.mitre_key = dm.mitre_key
@@ -62,7 +63,6 @@ GROUP BY dm.tactic
 ORDER BY COUNT(*) DESC
 LIMIT 1;
 
-ASSERT VALUE top_tactic = 'initial-access'
 SELECT 'MITRE tactic check passed' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -82,6 +82,7 @@ GROUP BY dt.hostname, dt.environment, dt.criticality
 ORDER BY incidents_targeting DESC;
 
 -- Production environment should be most targeted
+ASSERT VALUE most_targeted_env = 'production'
 SELECT dt.environment AS most_targeted_env
 FROM cyber.gold.fact_incidents fi
 JOIN cyber.gold.dim_target dt ON fi.target_key = dt.target_key
@@ -89,7 +90,6 @@ GROUP BY dt.environment
 ORDER BY COUNT(*) DESC
 LIMIT 1;
 
-ASSERT VALUE most_targeted_env = 'production'
 SELECT 'Target environment check passed' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -110,9 +110,9 @@ ORDER BY CASE fi.severity
   WHEN 'low' THEN 4
 END;
 
+ASSERT VALUE severity_levels = 4
 SELECT COUNT(DISTINCT severity) AS severity_levels FROM cyber.gold.fact_incidents;
 
-ASSERT VALUE severity_levels = 4
 SELECT 'All 4 severity levels present' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -133,9 +133,9 @@ SELECT
 FROM cyber.gold.kpi_threat_dashboard
 ORDER BY hour_bucket;
 
+ASSERT VALUE hour_buckets >= 10
 SELECT COUNT(*) AS hour_buckets FROM cyber.gold.kpi_threat_dashboard;
 
-ASSERT VALUE hour_buckets >= 10
 SELECT 'Dashboard spans sufficient hours' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -182,53 +182,51 @@ GROUP BY fi.status
 ORDER BY count DESC;
 
 -- Escalated incidents should exist (critical + known_bad)
+ASSERT VALUE escalated_count >= 5
 SELECT COUNT(*) AS escalated_count
 FROM cyber.gold.fact_incidents
 WHERE status = 'escalated';
 
-ASSERT VALUE escalated_count >= 5
 SELECT 'Escalation threshold met' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 9. Dimension Completeness
 -- -----------------------------------------------------------------------------
-SELECT COUNT(*) AS ip_dim_count FROM cyber.gold.dim_source_ip;
 ASSERT VALUE ip_dim_count = 20
+SELECT COUNT(*) AS ip_dim_count FROM cyber.gold.dim_source_ip;
 
-SELECT COUNT(*) AS target_dim_count FROM cyber.gold.dim_target;
 ASSERT VALUE target_dim_count >= 7
+SELECT COUNT(*) AS target_dim_count FROM cyber.gold.dim_target;
 
-SELECT COUNT(*) AS rule_dim_count FROM cyber.gold.dim_rule;
 ASSERT VALUE rule_dim_count >= 10
+SELECT COUNT(*) AS rule_dim_count FROM cyber.gold.dim_rule;
 
-SELECT COUNT(*) AS mitre_dim_count FROM cyber.gold.dim_mitre;
 ASSERT VALUE mitre_dim_count = 15
+SELECT COUNT(*) AS mitre_dim_count FROM cyber.gold.dim_mitre;
 
 SELECT 'Dimension counts verified' AS status;
 
 -- -----------------------------------------------------------------------------
 -- 10. Referential Integrity
 -- -----------------------------------------------------------------------------
+ASSERT VALUE orphan_ips = 0
 SELECT COUNT(*) AS orphan_ips
 FROM cyber.gold.fact_incidents fi
 LEFT JOIN cyber.gold.dim_source_ip dip ON fi.source_ip_key = dip.source_ip_key
 WHERE dip.source_ip_key IS NULL;
 
-ASSERT VALUE orphan_ips = 0
-
+ASSERT VALUE orphan_targets = 0
 SELECT COUNT(*) AS orphan_targets
 FROM cyber.gold.fact_incidents fi
 LEFT JOIN cyber.gold.dim_target dt ON fi.target_key = dt.target_key
 WHERE dt.target_key IS NULL;
 
-ASSERT VALUE orphan_targets = 0
-
+ASSERT VALUE orphan_rules = 0
 SELECT COUNT(*) AS orphan_rules
 FROM cyber.gold.fact_incidents fi
 LEFT JOIN cyber.gold.dim_rule dr ON fi.rule_key = dr.rule_key
 WHERE dr.rule_key IS NULL;
 
-ASSERT VALUE orphan_rules = 0
 SELECT 'Referential integrity verified' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -246,12 +244,12 @@ GROUP BY dip.geo_country
 ORDER BY incidents DESC;
 
 -- External countries should have higher threat scores than internal
+ASSERT VALUE external_avg_score >= 50
 SELECT ROUND(AVG(dip.threat_score), 1) AS external_avg_score
 FROM cyber.gold.fact_incidents fi
 JOIN cyber.gold.dim_source_ip dip ON fi.source_ip_key = dip.source_ip_key
 WHERE dip.geo_country != 'INTERNAL';
 
-ASSERT VALUE external_avg_score >= 50
 SELECT 'External threat score threshold met' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -273,11 +271,11 @@ WHERE ic.alert_count >= 5
 ORDER BY ic.alert_count DESC;
 
 -- Should have at least 3 multi-alert incidents
+ASSERT VALUE multi_alert_count >= 3
 SELECT COUNT(*) AS multi_alert_count
 FROM cyber.silver.incidents_correlated
 WHERE alert_count >= 5;
 
-ASSERT VALUE multi_alert_count >= 3
 SELECT 'Multi-alert incident check passed' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -295,11 +293,11 @@ WHERE fi.mitre_tactic = 'exfiltration'
 GROUP BY fi.mitre_tactic, dm.technique_name;
 
 -- Should have at least 2 exfiltration incidents
+ASSERT VALUE exfil_count >= 2
 SELECT COUNT(*) AS exfil_count
 FROM cyber.gold.fact_incidents fi
 WHERE fi.mitre_tactic = 'exfiltration';
 
-ASSERT VALUE exfil_count >= 2
 SELECT 'Exfiltration detection check passed' AS status;
 
 -- -----------------------------------------------------------------------------
@@ -322,5 +320,4 @@ ORDER BY fi.detected_at;
 -- -----------------------------------------------------------------------------
 -- 15. Verification Summary
 -- -----------------------------------------------------------------------------
-ASSERT VALUE source IS NOT NULL
 SELECT 'Cybersecurity Incidents Gold Layer Verification PASSED' AS status;
