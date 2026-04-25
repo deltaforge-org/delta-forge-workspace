@@ -568,7 +568,6 @@ USING (
             ON pre.account_id = post.account_id
             AND pre.change_type = 'update_preimage'
             AND post.change_type = 'update_postimage'
-            AND pre.snapshot_timestamp = post.snapshot_timestamp
         WHERE pre.old_tier IS NOT NULL AND post.new_tier IS NOT NULL
               AND pre.old_tier <> post.new_tier
     ),
