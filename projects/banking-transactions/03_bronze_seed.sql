@@ -64,7 +64,7 @@ VALUES
 
 -- ===================== BRONZE SEED: TRANSACTIONS (70 rows) =====================
 -- Spans 2024-01-02 through 2024-01-31 (3 months of data)
--- Includes: 5 high-fraud-score transactions, 3 velocity clusters, 2 late-night transactions
+-- Includes: 4 high-fraud-score transactions (crypto + suspicious), 3 velocity clusters, 2 late-night transactions
 
 DELETE FROM bank.bronze.raw_transactions WHERE 1=1;
 

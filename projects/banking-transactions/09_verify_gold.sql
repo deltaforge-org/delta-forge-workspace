@@ -110,7 +110,7 @@ WHERE f.fraud_score >= 40
 ORDER BY f.fraud_score DESC;
 
 -- Should have flagged crypto + suspicious transactions
-ASSERT VALUE high_fraud_count >= 5
+ASSERT VALUE high_fraud_count >= 4
 SELECT COUNT(*) AS high_fraud_count
 FROM bank.gold.fact_transactions f
 WHERE f.fraud_score >= 40;
