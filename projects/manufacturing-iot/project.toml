@@ -1,0 +1,82 @@
+[project]
+id = "manufacturing-iot"
+name = "Manufacturing IoT Pipeline"
+version = "2.0.0"
+author = "DeltaForge Team"
+description = """
+Advanced multi-plant manufacturing IoT pipeline implementing medallion architecture with sensor
+data validation (CHECK constraints for temperature, pressure, vibration, and RPM ranges),
+5-reading moving average smoothing, statistical anomaly detection (2-sigma deviation from moving
+average), OEE (Overall Equipment Effectiveness) calculation (Availability x Performance x Quality),
+equipment uptime/downtime status derivation from gap analysis, multi-level partitioning
+(plant/line/month), bloom filter on sensor_id, VACUUM with 90-day retention governance (2160 hours),
+and OPTIMIZE on cold partitions. Features a gold-layer star schema with fact_readings, sensor/line/shift
+dimensions, OEE KPI dashboard, and anomaly trend analytics.
+"""
+industry = "manufacturing"
+categories = ["pipeline", "medallion", "manufacturing"]
+tags = ["IoT", "sensors", "anomaly-detection", "moving-average", "stddev", "OEE", "CHECK-constraints", "VACUUM", "OPTIMIZE", "bloom-filter", "multi-partition", "star-schema", "equipment-status"]
+difficulty = "advanced"
+estimated_time_minutes = 20
+load_type = "full"
+
+[project.pipeline]
+name = "manufacturing_iot_pipeline"
+schedule = "0 */2 * * *"
+timezone = "UTC"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_readings"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_sensors"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_production_lines"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_shifts"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_production_targets"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.readings_validated"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.readings_smoothed"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.equipment_status"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_sensor"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_line"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_shift"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_readings"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_oee"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_anomaly_trends"

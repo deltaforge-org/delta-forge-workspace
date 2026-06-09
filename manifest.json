@@ -1,0 +1,1157 @@
+{
+  "version": 2,
+  "generatedAt": "2026-04-03T18:00:00Z",
+  "projectCount": 13,
+  "projects": [
+    {
+      "id": "banking-transactions",
+      "path": "projects/banking-transactions",
+      "name": "Banking Transactions Pipeline",
+      "summary": "Enterprise banking transaction pipeline processing feeds every 4 hours through medallion architecture. Features multi-rule fraud scoring engine (high-value, crypto-merchant, velocity clustering, unusual-hours, suspicious-flag), SCD Type 2 customer dimension with tier upgrades (bronze/silver/gold), C",
+      "industry": "banking",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "banking",
+        "compliance"
+      ],
+      "tags": [
+        "PII",
+        "data-protection",
+        "transformation",
+        "incremental-load",
+        "CDF",
+        "time-travel",
+        "fraud-detection",
+        "partitioning",
+        "star-schema",
+        "SCD2",
+        "Z-order",
+        "bloom-filter"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 25,
+      "loadType": "incremental",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_transactions"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_accounts"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_merchants"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.customer_dim"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.transactions_enriched"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.balance_snapshots"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_account"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_merchant"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_date"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_transactions"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_daily_volumes"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_customer_health"
+        }
+      ],
+      "pipeline": {
+        "name": "bank_transaction_pipeline",
+        "schedule": "0 */4 * * *",
+        "timezone": "UTC"
+      }
+    },
+    {
+      "id": "cybersecurity-incidents",
+      "path": "projects/cybersecurity-incidents",
+      "name": "Cybersecurity Incidents Pipeline",
+      "summary": "SOC (Security Operations Center) SIEM pipeline ingesting alerts from 3 sources (firewall, IDS, endpoint) every 15 minutes. Deduplicates within 5-minute windows via ROW_NUMBER, correlates multi-alert incidents using window-based gap detection, enriches with threat intelligence scores, classifies by M",
+      "industry": "cybersecurity",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "cybersecurity"
+      ],
+      "tags": [
+        "PII",
+        "data-protection",
+        "MITRE",
+        "threat-intel",
+        "bloom-filter",
+        "OPTIMIZE",
+        "star-schema",
+        "multi-source",
+        "incident-correlation",
+        "pseudonymisation",
+        "window-dedup"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 20,
+      "loadType": "incremental",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_firewall_alerts"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_ids_alerts"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_endpoint_alerts"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_threat_intel"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_mitre_techniques"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.alerts_deduped"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.incidents_correlated"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.threat_enriched"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_source_ip"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_target"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_rule"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_mitre"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_incidents"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_threat_dashboard"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_response_metrics"
+        }
+      ],
+      "pipeline": {
+        "name": "cyber_incident_pipeline",
+        "schedule": "*/15 * * * *",
+        "timezone": "UTC"
+      }
+    },
+    {
+      "id": "ecommerce-orders",
+      "path": "projects/ecommerce-orders",
+      "name": "Omnichannel E-Commerce Orders Pipeline",
+      "summary": "Omnichannel retail pipeline ingesting orders from three distinct systems (web, mobile app, POS terminals) into a unified order stream via a 3-way UNION ALL MERGE. Handles cancellations as soft deletes with CDF-enabled downstream inventory adjustments, builds RFM customer segmentation using NTILE qua",
+      "industry": "ecommerce",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "ecommerce"
+      ],
+      "tags": [
+        "multi-source-merge",
+        "soft-delete",
+        "CDF",
+        "MERGE",
+        "RFM-segmentation",
+        "star-schema",
+        "incremental",
+        "pseudonymisation",
+        "sessionization",
+        "funnel-analysis",
+        "schema-evolution",
+        "Z-order",
+        "bloom-filter"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 20,
+      "loadType": "incremental",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_web_orders"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_mobile_orders"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_pos_orders"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_products"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_customers"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_browsing_events"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.orders_unified"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.customer_rfm"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.inventory_adjustments"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.sessions"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_product"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_customer"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_channel"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_date"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_order_lines"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_sales_dashboard"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_funnel_analysis"
+        }
+      ],
+      "pipeline": {
+        "name": "ecommerce_orders_pipeline",
+        "schedule": "*/30 * * * *",
+        "timezone": "UTC"
+      }
+    },
+    {
+      "id": "government-tax-filing",
+      "path": "projects/government-tax-filing",
+      "name": "Government Tax Filing Pipeline",
+      "summary": "Enterprise government tax filing pipeline implementing append-only immutable filings with separate amendment tracking, CDF-driven audit trail capturing every change, partitioning by fiscal_year, pseudonymisation (REDACT SSN, MASK taxpayer_name), bloom filter on taxpayer_id for fast lookup, point-in-",
+      "industry": "government",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "government",
+        "tax"
+      ],
+      "tags": [
+        "pseudonymisation",
+        "partitioning",
+        "CDF",
+        "MERGE",
+        "star-schema",
+        "incremental",
+        "audit-detection",
+        "append-only",
+        "amendments",
+        "bloom-filter",
+        "RESTORE"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 25,
+      "loadType": "both",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_filings"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_amendments"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_taxpayers"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_jurisdictions"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_preparers"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.filings_immutable"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.amendments_applied"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.taxpayer_profiles"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.audit_trail"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_taxpayer"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_jurisdiction"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_preparer"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_fiscal_year"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_filings"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_revenue_analysis"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_preparer_quality"
+        }
+      ],
+      "pipeline": {
+        "name": "tax_filing_pipeline",
+        "schedule": "0 1 * * *",
+        "timezone": "America/New_York"
+      }
+    },
+    {
+      "id": "healthcare-patient-ehr",
+      "path": "projects/healthcare-patient-ehr",
+      "name": "Healthcare Patient EHR Pipeline",
+      "summary": "Enterprise healthcare EHR pipeline implementing full medallion architecture with SCD Type 2 patient dimension tracking (address/insurance changes via valid_from/valid_to/is_current), MERGE-based deduplication, 30-day readmission detection via LAG window functions, LOS percentile analysis (NTILE), al",
+      "industry": "healthcare",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "healthcare",
+        "compliance"
+      ],
+      "tags": [
+        "PII",
+        "data-protection",
+        "transformation",
+        "both",
+        "pseudonymisation",
+        "HIPAA",
+        "GDPR",
+        "readmission-detection",
+        "window-functions",
+        "star-schema",
+        "SCD2",
+        "CDF",
+        "time-travel",
+        "erasure"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 25,
+      "loadType": "both",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_admissions"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_patients"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_departments"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_diagnoses"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.patient_dim"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.admissions_cleaned"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.audit_log"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_department"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_diagnosis"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_admissions"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_readmission_rates"
+        }
+      ],
+      "pipeline": {
+        "name": "ehr_patient_pipeline",
+        "schedule": "0 5 * * *",
+        "timezone": "America/New_York"
+      }
+    },
+    {
+      "id": "hr-workforce",
+      "path": "projects/hr-workforce",
+      "name": "HR Workforce Analytics Pipeline",
+      "summary": "Full employee lifecycle pipeline: hire -> promotions -> transfers -> compensation changes -> termination. SCD2 captures every change (32 dimension rows from 20 employees). All five pseudonymisation transforms (REDACT, MASK, keyed_hash, generalize) protect sensitive fields. CDF feeds an org change lo",
+      "industry": "human_resources",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "hr",
+        "workforce"
+      ],
+      "tags": [
+        "SCD2",
+        "MERGE",
+        "pseudonymisation",
+        "CDF",
+        "deletion-vectors",
+        "GDPR",
+        "star-schema",
+        "compa-ratio",
+        "gender-pay-gap",
+        "retention-risk"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 25,
+      "loadType": "both",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_employees"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_comp_events"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_departments"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_positions"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.employee_dim"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.comp_events_enriched"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.org_change_log"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_department"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_position"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_compensation"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_workforce_analytics"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_retention_risk"
+        }
+      ],
+      "pipeline": {
+        "name": "hr_workforce_pipeline",
+        "schedule": "0 6 * * *",
+        "timezone": "America/New_York"
+      }
+    },
+    {
+      "id": "insurance-claims",
+      "path": "projects/insurance-claims",
+      "name": "Property & Casualty Insurance Claims Pipeline",
+      "summary": "Property & casualty insurance pipeline with SCD Type 2 policy tracking across three change batches (initial load, premium increases, coverage upgrades), point-in-time policy joins for incident-date- accurate enrichment, fraud outlier detection using statistical scoring (claim_amount vs coverage-type",
+      "industry": "insurance",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "insurance"
+      ],
+      "tags": [
+        "SCD2",
+        "point-in-time-join",
+        "RESTORE",
+        "CDF",
+        "fraud-detection",
+        "CHECK-constraints",
+        "loss-ratio",
+        "star-schema",
+        "pseudonymisation",
+        "actuarial"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 20,
+      "loadType": "full",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_policies"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_claims"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_claimants"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_adjusters"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.policy_dim"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.claims_enriched"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.actuarial_snapshots"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_claimant"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_adjuster"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_coverage_type"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_claims"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_loss_ratios"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_adjuster_performance"
+        }
+      ],
+      "pipeline": {
+        "name": "ins_claims_pipeline",
+        "schedule": "0 7 * * 1",
+        "timezone": "America/Chicago"
+      }
+    },
+    {
+      "id": "legal-case-management",
+      "path": "projects/legal-case-management",
+      "name": "Legal Case Management Pipeline",
+      "summary": "Litigation analytics pipeline combining Delta tables with a property graph for relationship analysis. Cypher queries reveal hidden connections between parties, conflict-of-interest chains, and attorney influence networks. PageRank identifies most-influential attorneys, community detection (Louvain)",
+      "industry": "legal",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "legal",
+        "graph"
+      ],
+      "tags": [
+        "PII",
+        "data-protection",
+        "graph",
+        "cypher",
+        "pagerank",
+        "community-detection",
+        "star-schema",
+        "billing",
+        "pseudonymisation"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 20,
+      "loadType": "both",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_cases"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_parties"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_attorneys"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_billings"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_relationships"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.cases_enriched"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.billings_validated"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.party_profiles"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_case"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_attorney"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_party"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_billings"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_firm_performance"
+        },
+        {
+          "objectType": "graph",
+          "name": "{{zone_prefix}}.gold.legal_network"
+        }
+      ],
+      "pipeline": {
+        "name": "legal_billing_pipeline",
+        "schedule": "0 7 * * *",
+        "timezone": "America/New_York"
+      }
+    },
+    {
+      "id": "logistics-shipments",
+      "path": "projects/logistics-shipments",
+      "name": "Logistics Shipments Pipeline",
+      "summary": "Global logistics pipeline implementing event sourcing with idempotent composite-key deduplication (shipment_id + event_type + event_timestamp), shipment timeline reconstruction via window functions, SLA violation detection against carrier contracts, schema evolution (customs clearance fields), Z-ord",
+      "industry": "logistics",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "logistics"
+      ],
+      "tags": [
+        "event-sourcing",
+        "idempotent-dedup",
+        "composite-key",
+        "schema-evolution",
+        "Z-order",
+        "SLA-compliance",
+        "star-schema",
+        "window-functions",
+        "timeline-reconstruction"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 20,
+      "loadType": "incremental",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_tracking_events"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_carriers"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_locations"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_customers"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_sla_contracts"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.events_deduped"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.shipment_status"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.sla_violations"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_carrier"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_location"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_route"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_customer"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_shipments"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_delivery_performance"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_sla_compliance"
+        }
+      ],
+      "pipeline": {
+        "name": "logistics_shipments_pipeline",
+        "schedule": "0 */6 * * *",
+        "timezone": "UTC"
+      }
+    },
+    {
+      "id": "manufacturing-iot",
+      "path": "projects/manufacturing-iot",
+      "name": "Manufacturing IoT Pipeline",
+      "summary": "Advanced multi-plant manufacturing IoT pipeline implementing medallion architecture with sensor data validation (CHECK constraints for temperature, pressure, vibration, and RPM ranges), 5-reading moving average smoothing, statistical anomaly detection (2-sigma deviation from moving average), OEE (Ov",
+      "industry": "manufacturing",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "manufacturing"
+      ],
+      "tags": [
+        "IoT",
+        "sensors",
+        "anomaly-detection",
+        "moving-average",
+        "stddev",
+        "OEE",
+        "CHECK-constraints",
+        "VACUUM",
+        "OPTIMIZE",
+        "bloom-filter",
+        "multi-partition",
+        "star-schema",
+        "equipment-status"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 20,
+      "loadType": "incremental",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_readings"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_sensors"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_production_lines"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_shifts"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_production_targets"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.readings_validated"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.readings_smoothed"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.equipment_status"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_sensor"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_line"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_shift"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_readings"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_oee"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_anomaly_trends"
+        }
+      ],
+      "pipeline": {
+        "name": "manufacturing_iot_pipeline",
+        "schedule": "0 */2 * * *",
+        "timezone": "UTC"
+      }
+    },
+    {
+      "id": "real-estate-property",
+      "path": "projects/real-estate-property",
+      "name": "Real Estate Property Pipeline",
+      "summary": "Enterprise county assessor property pipeline implementing SCD Type 2 with 3 annual assessment batches (2022/2023/2024) tracking property value history, RESTORE correction workflow for bad assessment batches, bloom filters on parcel_id for fast lookup, time travel for \"value as of assessment date\", p",
+      "industry": "real_estate",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "real-estate",
+        "property",
+        "assessment"
+      ],
+      "tags": [
+        "SCD2",
+        "bloom-filter",
+        "RESTORE",
+        "pseudonymisation",
+        "star-schema",
+        "market-trends",
+        "price-analysis",
+        "assessment-accuracy",
+        "partitioning",
+        "time-travel"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 25,
+      "loadType": "both",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_properties"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_assessments"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_transactions"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_neighborhoods"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_agents"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.property_dim"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.transactions_enriched"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.correction_log"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_neighborhood"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_agent"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_property_type"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_transactions"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_market_trends"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_assessment_accuracy"
+        }
+      ],
+      "pipeline": {
+        "name": "realty_property_pipeline",
+        "schedule": "0 9 * * *",
+        "timezone": "America/New_York"
+      }
+    },
+    {
+      "id": "supply-chain-analytics",
+      "path": "projects/supply-chain-analytics",
+      "name": "supply-chain-analytics",
+      "summary": "End-to-end supply chain visibility: procurement, warehousing, transport, and demand analytics",
+      "industry": "",
+      "categories": [],
+      "tags": [],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 15,
+      "loadType": "both",
+      "fileCount": 26,
+      "author": "DeltaForge Team",
+      "version": "1.0.0",
+      "targetObjects": [],
+      "pipeline": {}
+    },
+    {
+      "id": "telecom-cdr",
+      "path": "projects/telecom-cdr",
+      "name": "Telecom CDR Pipeline",
+      "summary": "Advanced telecommunications CDR pipeline implementing medallion architecture with full schema evolution lifecycle (v1 voice-only -> v2 multi-service -> v3 5G/roaming), type widening (duration INT -> BIGINT), session window reconstruction via LAG/LEAD gap detection, MERGE upsert for subscriber profil",
+      "industry": "telecommunications",
+      "categories": [
+        "pipeline",
+        "medallion",
+        "telecommunications"
+      ],
+      "tags": [
+        "CDR",
+        "schema-evolution",
+        "type-widening",
+        "session-reconstruction",
+        "MERGE",
+        "VACUUM",
+        "OPTIMIZE",
+        "network-quality",
+        "churn-scoring",
+        "star-schema",
+        "LAG-LEAD",
+        "pseudonymisation"
+      ],
+      "difficulty": "advanced",
+      "estimatedTimeMinutes": 20,
+      "loadType": "incremental",
+      "fileCount": 5,
+      "author": "DeltaForge Team",
+      "version": "2.0.0",
+      "targetObjects": [
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_cdr_v1"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_cdr_v2"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_cdr_v3"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_subscribers"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.bronze.raw_cell_towers"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.cdr_unified"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.subscriber_profiles"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.silver.sessions"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_subscriber"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_tower"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.dim_plan"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.fact_calls"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_network_quality"
+        },
+        {
+          "objectType": "delta_table",
+          "name": "{{zone_prefix}}.gold.kpi_churn_risk"
+        }
+      ],
+      "pipeline": {
+        "name": "telecom_cdr_pipeline",
+        "schedule": "0 2 * * *",
+        "timezone": "UTC"
+      }
+    }
+  ]
+}
