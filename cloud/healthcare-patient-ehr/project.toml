@@ -1,0 +1,70 @@
+[project]
+id = "healthcare-patient-ehr"
+name = "Healthcare Patient EHR Pipeline"
+version = "2.0.0"
+author = "DeltaForge Team"
+description = """
+Enterprise healthcare EHR pipeline implementing full medallion architecture with SCD Type 2 patient
+dimension tracking (address/insurance changes via valid_from/valid_to/is_current), MERGE-based
+deduplication, 30-day readmission detection via LAG window functions, LOS percentile analysis
+(NTILE), all four pseudonymisation transforms (redact, mask, keyed_hash, generalize) for HIPAA/GDPR
+compliance, Change Data Feed audit trail on patient_dim, GDPR erasure with DELETE + VACUUM + RESTORE
+demonstration, and a gold-layer star schema with point-in-time fact joins and department x quarter
+KPI aggregation. Features an 11-step DAG with parallel branches, CONTINUE ON FAILURE maintenance,
+and incremental processing via INCREMENTAL_FILTER macro.
+"""
+industry = "healthcare"
+categories = ["pipeline", "medallion", "healthcare", "compliance"]
+tags = ["PII", "data-protection", "transformation", "both", "pseudonymisation", "HIPAA", "GDPR", "readmission-detection", "window-functions", "star-schema", "SCD2", "CDF", "time-travel", "erasure"]
+difficulty = "advanced"
+estimated_time_minutes = 25
+load_type = "full"
+
+[project.pipeline]
+name = "ehr_patient_pipeline"
+schedule = "0 5 * * *"
+timezone = "America/New_York"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_admissions"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_patients"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_departments"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_diagnoses"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.patient_dim"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.admissions_cleaned"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.audit_log"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_department"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_diagnosis"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_admissions"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_readmission_rates"

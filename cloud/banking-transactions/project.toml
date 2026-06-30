@@ -1,0 +1,73 @@
+[project]
+id = "banking-transactions"
+name = "Banking Transactions Pipeline"
+version = "2.0.0"
+author = "DeltaForge Team"
+description = """
+Enterprise banking transaction pipeline processing feeds every 4 hours through medallion architecture.
+Features multi-rule fraud scoring engine (high-value, crypto-merchant, velocity clustering, unusual-hours,
+suspicious-flag), SCD Type 2 customer dimension with tier upgrades (bronze/silver/gold), Change Data Feed
+on customer_dim materialized into balance_snapshots for regulatory audit, running balance via window SUM,
+7-day moving average on daily volumes, tier migration matrix in gold, time travel for regulatory snapshots,
+partitioning by transaction_date, Z-ordering on fraud_score, bloom filters on account_id, and
+pseudonymisation via keyed_hash on account_number and customer_name.
+"""
+industry = "banking"
+categories = ["pipeline", "medallion", "banking", "compliance"]
+tags = ["PII", "data-protection", "transformation", "incremental-load", "CDF", "time-travel", "fraud-detection", "partitioning", "star-schema", "SCD2", "Z-order", "bloom-filter"]
+difficulty = "advanced"
+estimated_time_minutes = 25
+load_type = "full"
+
+[project.pipeline]
+name = "bank_transaction_pipeline"
+schedule = "0 */4 * * *"
+timezone = "UTC"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_transactions"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_accounts"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.bronze.raw_merchants"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.customer_dim"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.transactions_enriched"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.silver.balance_snapshots"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_account"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_merchant"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.dim_date"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.fact_transactions"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_daily_volumes"
+
+[[project.target_objects]]
+type = "delta_table"
+name = "{{zone_prefix}}.gold.kpi_customer_health"

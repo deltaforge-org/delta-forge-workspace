@@ -1,0 +1,226 @@
+-- ============================================================================
+-- Bronze Reference Tables (Full Load)
+-- ============================================================================
+-- Small, slowly-changing reference/dimension tables fully synced each run.
+-- Each table: CREATE IF NOT EXISTS + MERGE with NOT MATCHED BY SOURCE.
+-- ============================================================================
+
+PIPELINE wwi_lake.bronze_reference
+    DESCRIPTION 'WWI bronze - full-load reference tables from MSSQL'
+    SCHEDULE 'wwi_lake_daily'
+    TAGS 'wwi', 'medallion', 'mssql', 'bronze', 'reference'
+    FAIL_FAST true
+    LIFECYCLE PRODUCTION;
+
+-- Countries
+
+CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.countries (
+    country_id INT NOT NULL, country_name VARCHAR NOT NULL, formal_name VARCHAR,
+    iso_alpha3_code VARCHAR, iso_numeric_code INT, country_type VARCHAR,
+    latest_recorded_population BIGINT, continent VARCHAR, region VARCHAR,
+    subregion VARCHAR, last_edited_by INT, valid_from TIMESTAMP, valid_to TIMESTAMP
+) LOCATION 'wwi/bronze/countries';
+
+MERGE INTO wwi_lake.bronze.countries AS tgt
+USING (
+    SELECT country_id, country_name, formal_name,
+        iso_alpha3_code, iso_numeric_code,
+        country_type, latest_recorded_population,
+        continent, region, subregion, last_edited_by,
+        valid_from, valid_to
+    FROM mssql_WideWorldImporters.application.countries
+) AS src ON tgt.country_id = src.country_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+WHEN NOT MATCHED BY SOURCE THEN DELETE;
+
+-- State Provinces
+
+CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.state_provinces (
+    state_province_id INT NOT NULL, state_province_code VARCHAR,
+    state_province_name VARCHAR NOT NULL, country_id INT NOT NULL,
+    sales_territory VARCHAR, latest_recorded_population BIGINT,
+    last_edited_by INT, valid_from TIMESTAMP, valid_to TIMESTAMP
+) LOCATION 'wwi/bronze/state_provinces';
+
+MERGE INTO wwi_lake.bronze.state_provinces AS tgt
+USING (
+    SELECT state_province_id, state_province_code,
+        state_province_name, country_id,
+        sales_territory, latest_recorded_population,
+        last_edited_by, valid_from, valid_to
+    FROM mssql_WideWorldImporters.application.state_provinces
+) AS src ON tgt.state_province_id = src.state_province_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+WHEN NOT MATCHED BY SOURCE THEN DELETE;
+
+-- Cities
+
+CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.cities (
+    city_id INT NOT NULL, city_name VARCHAR NOT NULL, state_province_id INT NOT NULL,
+    latest_recorded_population BIGINT, last_edited_by INT,
+    valid_from TIMESTAMP, valid_to TIMESTAMP
+) LOCATION 'wwi/bronze/cities';
+
+MERGE INTO wwi_lake.bronze.cities AS tgt
+USING (
+    SELECT city_id, city_name, state_province_id,
+        latest_recorded_population,
+        last_edited_by, valid_from, valid_to
+    FROM mssql_WideWorldImporters.application.cities
+) AS src ON tgt.city_id = src.city_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+WHEN NOT MATCHED BY SOURCE THEN DELETE;
+
+-- Delivery Methods
+
+CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.delivery_methods (
+    delivery_method_id INT NOT NULL, delivery_method_name VARCHAR NOT NULL,
+    last_edited_by INT, valid_from TIMESTAMP, valid_to TIMESTAMP
+) LOCATION 'wwi/bronze/delivery_methods';
+
+MERGE INTO wwi_lake.bronze.delivery_methods AS tgt
+USING (
+    SELECT delivery_method_id, delivery_method_name,
+        last_edited_by, valid_from, valid_to
+    FROM mssql_WideWorldImporters.application.delivery_methods
+) AS src ON tgt.delivery_method_id = src.delivery_method_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+WHEN NOT MATCHED BY SOURCE THEN DELETE;
+
+-- Payment Methods
+
+CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.payment_methods (
+    payment_method_id INT NOT NULL, payment_method_name VARCHAR NOT NULL,
+    last_edited_by INT, valid_from TIMESTAMP, valid_to TIMESTAMP
+) LOCATION 'wwi/bronze/payment_methods';
+
+MERGE INTO wwi_lake.bronze.payment_methods AS tgt
+USING (
+    SELECT payment_method_id, payment_method_name,
+        last_edited_by, valid_from, valid_to
+    FROM mssql_WideWorldImporters.application.payment_methods
+) AS src ON tgt.payment_method_id = src.payment_method_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+WHEN NOT MATCHED BY SOURCE THEN DELETE;
+
+-- Transaction Types
+
+CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.transaction_types (
+    transaction_type_id INT NOT NULL, transaction_type_name VARCHAR NOT NULL,
+    last_edited_by INT, valid_from TIMESTAMP, valid_to TIMESTAMP
+) LOCATION 'wwi/bronze/transaction_types';
+
+MERGE INTO wwi_lake.bronze.transaction_types AS tgt
+USING (
+    SELECT transaction_type_id, transaction_type_name,
+        last_edited_by, valid_from, valid_to
+    FROM mssql_WideWorldImporters.application.transaction_types
+) AS src ON tgt.transaction_type_id = src.transaction_type_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+WHEN NOT MATCHED BY SOURCE THEN DELETE;
+
+-- Supplier Categories
+
+CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.supplier_categories (
+    supplier_category_id INT NOT NULL, supplier_category_name VARCHAR NOT NULL,
+    last_edited_by INT, valid_from TIMESTAMP, valid_to TIMESTAMP
+) LOCATION 'wwi/bronze/supplier_categories';
+
+MERGE INTO wwi_lake.bronze.supplier_categories AS tgt
+USING (
+    SELECT supplier_category_id, supplier_category_name,
+        last_edited_by, valid_from, valid_to
+    FROM mssql_WideWorldImporters.purchasing.supplier_categories
+) AS src ON tgt.supplier_category_id = src.supplier_category_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+WHEN NOT MATCHED BY SOURCE THEN DELETE;
+
+-- Buying Groups
+
+CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.buying_groups (
+    buying_group_id INT NOT NULL, buying_group_name VARCHAR NOT NULL,
+    last_edited_by INT, valid_from TIMESTAMP, valid_to TIMESTAMP
+) LOCATION 'wwi/bronze/buying_groups';
+
+MERGE INTO wwi_lake.bronze.buying_groups AS tgt
+USING (
+    SELECT buying_group_id, buying_group_name,
+        last_edited_by, valid_from, valid_to
+    FROM mssql_WideWorldImporters.sales.buying_groups
+) AS src ON tgt.buying_group_id = src.buying_group_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+WHEN NOT MATCHED BY SOURCE THEN DELETE;
+
+-- Customer Categories
+
+CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.customer_categories (
+    customer_category_id INT NOT NULL, customer_category_name VARCHAR NOT NULL,
+    last_edited_by INT, valid_from TIMESTAMP, valid_to TIMESTAMP
+) LOCATION 'wwi/bronze/customer_categories';
+
+MERGE INTO wwi_lake.bronze.customer_categories AS tgt
+USING (
+    SELECT customer_category_id, customer_category_name,
+        last_edited_by, valid_from, valid_to
+    FROM mssql_WideWorldImporters.sales.customer_categories
+) AS src ON tgt.customer_category_id = src.customer_category_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+WHEN NOT MATCHED BY SOURCE THEN DELETE;
+
+-- System Parameters
+
+CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.system_parameters (
+    system_parameter_id INT NOT NULL, delivery_address_line1 VARCHAR,
+    delivery_address_line2 VARCHAR, delivery_city_id INT, delivery_postal_code VARCHAR,
+    postal_address_line1 VARCHAR, postal_address_line2 VARCHAR, postal_city_id INT,
+    postal_postal_code VARCHAR, application_settings VARCHAR,
+    last_edited_by INT, last_edited_when TIMESTAMP
+) LOCATION 'wwi/bronze/system_parameters';
+
+MERGE INTO wwi_lake.bronze.system_parameters AS tgt
+USING (
+    SELECT system_parameter_id, delivery_address_line1,
+        delivery_address_line2, delivery_city_id,
+        delivery_postal_code, postal_address_line1,
+        postal_address_line2, postal_city_id,
+        postal_postal_code, application_settings,
+        last_edited_by, last_edited_when
+    FROM mssql_WideWorldImporters.application.system_parameters
+) AS src ON tgt.system_parameter_id = src.system_parameter_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+WHEN NOT MATCHED BY SOURCE THEN DELETE;
+
+-- Special Deals
+
+CREATE DELTA TABLE IF NOT EXISTS wwi_lake.bronze.special_deals (
+    special_deal_id INT NOT NULL, stock_item_id INT, customer_id INT,
+    buying_group_id INT, customer_category_id INT, stock_group_id INT,
+    deal_description VARCHAR, start_date DATE, end_date DATE,
+    discount_amount DECIMAL(18,2), discount_percentage DECIMAL(18,3),
+    unit_price DECIMAL(18,2), last_edited_by INT, last_edited_when TIMESTAMP
+) LOCATION 'wwi/bronze/special_deals';
+
+MERGE INTO wwi_lake.bronze.special_deals AS tgt
+USING (
+    SELECT special_deal_id, stock_item_id,
+        customer_id, buying_group_id,
+        customer_category_id, stock_group_id,
+        deal_description, start_date, end_date,
+        discount_amount, discount_percentage,
+        unit_price, last_edited_by,
+        last_edited_when
+    FROM mssql_WideWorldImporters.sales.special_deals
+) AS src ON tgt.special_deal_id = src.special_deal_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+WHEN NOT MATCHED BY SOURCE THEN DELETE;

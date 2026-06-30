@@ -5,7 +5,7 @@
   "projects": [
     {
       "id": "banking-transactions",
-      "path": "projects/banking-transactions",
+      "path": "local/banking-transactions",
       "name": "Banking Transactions Pipeline",
       "summary": "Enterprise banking transaction pipeline processing feeds every 4 hours through medallion architecture. Features multi-rule fraud scoring engine (high-value, crypto-merchant, velocity clustering, unusual-hours, suspicious-flag), SCD Type 2 customer dimension with tier upgrades (bronze/silver/gold), C",
       "industry": "banking",
@@ -93,7 +93,7 @@
     },
     {
       "id": "cybersecurity-incidents",
-      "path": "projects/cybersecurity-incidents",
+      "path": "local/cybersecurity-incidents",
       "name": "Cybersecurity Incidents Pipeline",
       "summary": "SOC (Security Operations Center) SIEM pipeline ingesting alerts from 3 sources (firewall, IDS, endpoint) every 15 minutes. Deduplicates within 5-minute windows via ROW_NUMBER, correlates multi-alert incidents using window-based gap detection, enriches with threat intelligence scores, classifies by M",
       "industry": "cybersecurity",
@@ -191,7 +191,7 @@
     },
     {
       "id": "ecommerce-orders",
-      "path": "projects/ecommerce-orders",
+      "path": "local/ecommerce-orders",
       "name": "Omnichannel E-Commerce Orders Pipeline",
       "summary": "Omnichannel retail pipeline ingesting orders from three distinct systems (web, mobile app, POS terminals) into a unified order stream via a 3-way UNION ALL MERGE. Handles cancellations as soft deletes with CDF-enabled downstream inventory adjustments, builds RFM customer segmentation using NTILE qua",
       "industry": "ecommerce",
@@ -299,7 +299,7 @@
     },
     {
       "id": "government-tax-filing",
-      "path": "projects/government-tax-filing",
+      "path": "local/government-tax-filing",
       "name": "Government Tax Filing Pipeline",
       "summary": "Enterprise government tax filing pipeline implementing append-only immutable filings with separate amendment tracking, CDF-driven audit trail capturing every change, partitioning by fiscal_year, pseudonymisation (REDACT SSN, MASK taxpayer_name), bloom filter on taxpayer_id for fast lookup, point-in-",
       "industry": "government",
@@ -402,7 +402,7 @@
     },
     {
       "id": "healthcare-patient-ehr",
-      "path": "projects/healthcare-patient-ehr",
+      "path": "local/healthcare-patient-ehr",
       "name": "Healthcare Patient EHR Pipeline",
       "summary": "Enterprise healthcare EHR pipeline implementing full medallion architecture with SCD Type 2 patient dimension tracking (address/insurance changes via valid_from/valid_to/is_current), MERGE-based deduplication, 30-day readmission detection via LAG window functions, LOS percentile analysis (NTILE), al",
       "industry": "healthcare",
@@ -488,7 +488,7 @@
     },
     {
       "id": "hr-workforce",
-      "path": "projects/hr-workforce",
+      "path": "local/hr-workforce",
       "name": "HR Workforce Analytics Pipeline",
       "summary": "Full employee lifecycle pipeline: hire -> promotions -> transfers -> compensation changes -> termination. SCD2 captures every change (32 dimension rows from 20 employees). All five pseudonymisation transforms (REDACT, MASK, keyed_hash, generalize) protect sensitive fields. CDF feeds an org change lo",
       "industry": "human_resources",
@@ -574,7 +574,7 @@
     },
     {
       "id": "insurance-claims",
-      "path": "projects/insurance-claims",
+      "path": "local/insurance-claims",
       "name": "Property & Casualty Insurance Claims Pipeline",
       "summary": "Property & casualty insurance pipeline with SCD Type 2 policy tracking across three change batches (initial load, premium increases, coverage upgrades), point-in-time policy joins for incident-date- accurate enrichment, fraud outlier detection using statistical scoring (claim_amount vs coverage-type",
       "industry": "insurance",
@@ -663,7 +663,7 @@
     },
     {
       "id": "legal-case-management",
-      "path": "projects/legal-case-management",
+      "path": "local/legal-case-management",
       "name": "Legal Case Management Pipeline",
       "summary": "Litigation analytics pipeline combining Delta tables with a property graph for relationship analysis. Cypher queries reveal hidden connections between parties, conflict-of-interest chains, and attorney influence networks. PageRank identifies most-influential attorneys, community detection (Louvain)",
       "industry": "legal",
@@ -756,7 +756,7 @@
     },
     {
       "id": "logistics-shipments",
-      "path": "projects/logistics-shipments",
+      "path": "local/logistics-shipments",
       "name": "Logistics Shipments Pipeline",
       "summary": "Global logistics pipeline implementing event sourcing with idempotent composite-key deduplication (shipment_id + event_type + event_timestamp), shipment timeline reconstruction via window functions, SLA violation detection against carrier contracts, schema evolution (customs clearance fields), Z-ord",
       "industry": "logistics",
@@ -852,7 +852,7 @@
     },
     {
       "id": "manufacturing-iot",
-      "path": "projects/manufacturing-iot",
+      "path": "local/manufacturing-iot",
       "name": "Manufacturing IoT Pipeline",
       "summary": "Advanced multi-plant manufacturing IoT pipeline implementing medallion architecture with sensor data validation (CHECK constraints for temperature, pressure, vibration, and RPM ranges), 5-reading moving average smoothing, statistical anomaly detection (2-sigma deviation from moving average), OEE (Ov",
       "industry": "manufacturing",
@@ -948,7 +948,7 @@
     },
     {
       "id": "real-estate-property",
-      "path": "projects/real-estate-property",
+      "path": "local/real-estate-property",
       "name": "Real Estate Property Pipeline",
       "summary": "Enterprise county assessor property pipeline implementing SCD Type 2 with 3 annual assessment batches (2022/2023/2024) tracking property value history, RESTORE correction workflow for bad assessment batches, bloom filters on parcel_id for fast lookup, time travel for \"value as of assessment date\", p",
       "industry": "real_estate",
@@ -1043,7 +1043,7 @@
     },
     {
       "id": "supply-chain-analytics",
-      "path": "projects/supply-chain-analytics",
+      "path": "local/supply-chain-analytics",
       "name": "supply-chain-analytics",
       "summary": "End-to-end supply chain visibility: procurement, warehousing, transport, and demand analytics",
       "industry": "",
@@ -1060,7 +1060,7 @@
     },
     {
       "id": "telecom-cdr",
-      "path": "projects/telecom-cdr",
+      "path": "local/telecom-cdr",
       "name": "Telecom CDR Pipeline",
       "summary": "Advanced telecommunications CDR pipeline implementing medallion architecture with full schema evolution lifecycle (v1 voice-only -> v2 multi-service -> v3 5G/roaming), type widening (duration INT -> BIGINT), session window reconstruction via LAG/LEAD gap detection, MERGE upsert for subscriber profil",
       "industry": "telecommunications",

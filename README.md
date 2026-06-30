@@ -1,13 +1,32 @@
 # DeltaForge Workspace
 
-Enterprise pipeline cookbook with **13 advanced projects** demonstrating medallion architecture, scheduled multi-step pipelines, incremental/full loads, PII protection, and DeltaForge features in combination.
+Enterprise pipeline cookbook with **14 advanced projects** demonstrating medallion architecture, scheduled multi-step pipelines, incremental/full loads, PII protection, and DeltaForge features in combination.
 
 Each project has a unique feature combination; no two projects demonstrate the same patterns.
+
+## Deployment targets: `local/` vs `cloud/`
+
+The projects ship in two sibling folders, one per deployment target. The folder name
+is the environment, so a workspace scan (which reports every SQL file by its path)
+makes it obvious which set to import:
+
+- **`local/`** the on-prem / desktop set. Zones are `TYPE TEMP` with relative table
+  locations that resolve under the node's local app-data storage. This is the
+  verified, runs-as-is set for a local DeltaForge instance.
+- **`cloud/`** the SaaS / object-store set. Same projects, but each zone is bound to
+  a storage `CONNECTION` so table data lands on the lake (ADLS / S3 / GCS) instead of
+  the container's ephemeral local disk. One placeholder connection name per project
+  must point at a storage connection in your install. See
+  [cloud/README.md](cloud/README.md).
+
+**Scan the folder for your environment, never the workspace root:** both sets define
+the same pipeline and zone names, so scanning the root would discover both and they
+would collide.
 
 ## Quick Start
 
 1. Open DeltaForge GUI
-2. Navigate to any project under `projects/`
+2. Navigate to any project under `local/` (on-prem) or `cloud/` (object-store backed)
 3. **Standard projects** (12 of 13), run files in numbered order:
    - `01_create_objects.sql`: Creates zone, schemas, tables, seeds bronze data
    - `02_full_load.sql`: Multi-step PIPELINE with STEP DAG (bronze, silver, gold)
