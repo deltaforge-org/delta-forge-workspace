@@ -21,7 +21,7 @@ PIPELINE cyber_setup
 
 CREATE ZONE IF NOT EXISTS cyber
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'cyber'
   COMMENT 'Security Operations Center SIEM analytics zone';
 

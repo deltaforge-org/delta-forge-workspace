@@ -21,7 +21,7 @@ PIPELINE hr_setup
 
 CREATE ZONE IF NOT EXISTS hr
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'hr'
   COMMENT 'HR workforce analytics pipeline zone';
 

@@ -21,7 +21,7 @@ PIPELINE ins_setup
 
 CREATE ZONE IF NOT EXISTS ins
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'ins'
   COMMENT 'Property and casualty insurance project zone';
 

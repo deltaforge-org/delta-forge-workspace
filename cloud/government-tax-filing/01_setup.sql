@@ -21,7 +21,7 @@ PIPELINE tax_setup
 
 CREATE ZONE IF NOT EXISTS tax
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'tax'
   COMMENT 'Government tax filing project zone';
 

@@ -21,7 +21,7 @@ PIPELINE ehr_setup
 
 CREATE ZONE IF NOT EXISTS ehr
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'ehr'
   COMMENT 'Healthcare EHR pipeline zone';
 

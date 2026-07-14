@@ -19,7 +19,7 @@ PIPELINE realty_setup
 
 CREATE ZONE IF NOT EXISTS realty
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'realty'
   COMMENT 'County assessor real estate project zone';
 

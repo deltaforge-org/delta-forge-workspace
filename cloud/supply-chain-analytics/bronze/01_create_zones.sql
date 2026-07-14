@@ -7,7 +7,7 @@
 
 CREATE ZONE IF NOT EXISTS sc
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'sc'
     COMMENT 'Supply chain analytics workspace project';
 

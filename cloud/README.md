@@ -3,7 +3,8 @@
 These are the **cloud / SaaS** copies of the workspace projects. They are identical
 to the on-prem copies under `../local/` **except for one thing**: each project's zone
 is bound to a storage **connection** so every table the project creates lands on the
-lake (Azure ADLS / S3 / GCS) instead of the container's ephemeral local disk.
+lake (any object store: Azure ADLS, AWS S3, or GCS) instead of the container's
+ephemeral local disk.
 
 ## Why a separate set exists
 
@@ -23,20 +24,22 @@ so the rest of each project is unchanged.
 ## The one edit you must make
 
 Every `01_setup.sql` (and `supply-chain-analytics/bronze/01_create_zones.sql`)
-contains a placeholder connection name:
+references a cloud-neutral connection name:
 
 ```sql
 CREATE ZONE IF NOT EXISTS ehr
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'ehr'
   COMMENT 'Healthcare EHR pipeline zone';
 ```
 
-Replace `azure_backend` with the name of a storage connection that
-exists in your install. `STORAGE_ROOT` here is a **subpath under the connection's
-root** (it defaults to the zone name), not a full URL, so it does not change per
-deployment.
+`objectstore` is the name the platform auto-seeds at boot for the deployment's
+object store, whichever cloud it runs on (Azure ADLS, AWS S3, or GCS), so the same
+SQL works unchanged on every cloud. If your install uses a different connection name,
+replace `objectstore` with it. `STORAGE_ROOT` here is a **subpath under the
+connection's root** (it defaults to the zone name), not a full URL, so it does not
+change per deployment.
 
 ### Creating the connection
 
@@ -46,10 +49,10 @@ The connection is created once, per install, not per project. Two ways:
   (this is the "Connection" shown in the Create Zone dialog).
 - **SQL:** `CREATE CONNECTION <name> TYPE azure_adls OPTIONS (...)` (or `s3` / `gcs`).
 
-On a cloud deployment the platform also **auto-seeds** a storage connection and a
-cloud zone at boot, so a connection may already exist; use its name here. Credentials
-are ambient (managed identity / task role / service account), so no keys go in the
-SQL.
+On a cloud deployment the platform **auto-seeds** a storage connection named
+`objectstore` and a cloud zone at boot, on whichever cloud it runs, so the connection
+these projects reference already exists. Credentials are ambient (managed identity /
+task role / service account), so no keys go in the SQL.
 
 `CONNECTION` requires an object-store connection (Azure ADLS, S3, or GCS). Binding a
 zone to a database connection is rejected.

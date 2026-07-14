@@ -19,7 +19,7 @@ PIPELINE manufacturing_setup
 
 CREATE ZONE IF NOT EXISTS mfg
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'mfg'
   COMMENT 'Manufacturing IoT project zone: anomaly detection, OEE, equipment status';
 

@@ -28,7 +28,7 @@ SELECT city_id FROM mssql_WideWorldImporters.application.cities LIMIT 1;
 
 CREATE ZONE IF NOT EXISTS wwi_lake
     TYPE EXTERNAL
-    CONNECTION azure_backend
+    CONNECTION objectstore
     STORAGE_ROOT = 'wwi_lake'
     COMMENT 'WideWorldImporters Delta Lake - medallion architecture';
 

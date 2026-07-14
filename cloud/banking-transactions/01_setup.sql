@@ -21,7 +21,7 @@ PIPELINE bank_setup
 
 CREATE ZONE IF NOT EXISTS bank
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'bank'
   COMMENT 'Banking transactions pipeline zone';
 

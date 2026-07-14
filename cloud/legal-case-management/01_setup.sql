@@ -19,7 +19,7 @@ PIPELINE legal_setup
 
 CREATE ZONE IF NOT EXISTS legal
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'legal'
   COMMENT 'Litigation analytics pipeline zone';
 

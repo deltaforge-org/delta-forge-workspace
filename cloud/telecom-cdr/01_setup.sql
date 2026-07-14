@@ -19,7 +19,7 @@ PIPELINE telecom_setup
 
 CREATE ZONE IF NOT EXISTS telco
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'telco'
   COMMENT 'Telecom CDR project zone: schema evolution, session reconstruction, churn scoring';
 

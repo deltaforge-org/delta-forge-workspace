@@ -21,7 +21,7 @@ PIPELINE ecommerce_setup
 
 CREATE ZONE IF NOT EXISTS ecom
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'ecom'
   COMMENT 'Omnichannel e-commerce project zone';
 

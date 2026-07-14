@@ -19,7 +19,7 @@ PIPELINE logistics_setup
 
 CREATE ZONE IF NOT EXISTS logi
   TYPE EXTERNAL
-  CONNECTION azure_backend
+  CONNECTION objectstore
   STORAGE_ROOT = 'logi'
   COMMENT 'Global logistics shipment tracking zone';
 
